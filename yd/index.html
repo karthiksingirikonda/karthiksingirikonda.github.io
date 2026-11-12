@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v39 · Thu 12/11 20:10';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v40 · Thu 12/11 20:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -109,7 +109,7 @@ async function start(){const jm=(location.hash||'').match(/join=([a-f0-9]{20})/)
  restoreNav()}
 function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children.find(c=>c.id===n.id);
  if(kid&&kid.introDone===false&&n.v==='talk')n.v='child';
- if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='games')return openGames();if(n.v==='learn')return openLearn();if(n.v==='learnSec')return openLearnSec(n.sec);if(n.v==='learnItem')return openLearnItem(n.sec,n.i);if(n.v==='quiz')return openQuiz(n.kind==='actionsKid'?'actions':n.kind||'groups');if(n.v==='colour')return openColour(n.i||0)}
+ if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='games')return openGames();if(['lvl','lvedit','lvplay'].indexOf(n.v)>=0)return kid.id==='ditya'?lvShared('ditya'):openLevels();if(n.v==='learn')return openLearn();if(n.v==='learnSec')return openLearnSec(n.sec);if(n.v==='learnItem')return openLearnItem(n.sec,n.i);if(n.v==='quiz')return openQuiz(n.kind==='actionsKid'?'actions':n.kind||'groups');if(n.v==='colour')return openColour(n.i||0)}
  if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
  goHome()}
 function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN);if(ADMIN)updateDot()}
@@ -121,7 +121,7 @@ let MICOBS=null;function micStateOf(t){t=String(t||'');if(/Speaking/.test(t))ret
 function paintMic(){const h=$('#micHint');if(!h)return;const st=micStateOf(h.textContent);h.className='st-'+st;const m=$('#micBtn');if(m){m.classList.toggle('speak',st==='speak');m.classList.toggle('think',st==='think');if(st==='listen'){m.classList.add('listen');m.classList.remove('sleep')}else if(st==='off'){m.classList.remove('listen');m.classList.add('sleep')}else{m.classList.remove('listen','sleep')}}}
 function watchMic(){try{MICOBS&&MICOBS.disconnect()}catch(e){}const h=$('#micHint');if(!h)return;MICOBS=new MutationObserver(paintMic);MICOBS.observe(h,{childList:true,characterData:true,subtree:true});paintMic()}
 // Back: from any of a child's screens → that child's page; from the child's page (or Admin) → main screen.
-function goBack(){const n=getNav()||{};if(CHILD&&!ADMIN_VIEW()&&n.v==='learnItem'){++NAVSEQ;Voice.stop();return openLearnSec(n.sec)}if(CHILD&&!ADMIN_VIEW()&&n.v==='learnSec'){++NAVSEQ;Voice.stop();return openLearn()}if(CHILD&&['chess','word','typing','quiz','colour','ckid','sudoku','quest'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
+function goBack(){const n=getNav()||{};if(CHILD&&!ADMIN_VIEW()&&n.v==='learnItem'){++NAVSEQ;Voice.stop();return openLearnSec(n.sec)}if(CHILD&&!ADMIN_VIEW()&&n.v==='learnSec'){++NAVSEQ;Voice.stop();return openLearn()}if(CHILD&&['chess','word','typing','quiz','colour','ckid','sudoku','quest','lvl','lvedit','lvplay'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
 // phone/browser back button follows the same rule
 try{history.pushState({yd:1},'')}catch(e){}
 window.addEventListener('popstate',()=>{const n=getNav()||{};if(n.v&&n.v!=='home'){goBack();try{history.pushState({yd:1},'')}catch(e){}}});
@@ -558,8 +558,8 @@ async function openLearnItem(sec,i){++NAVSEQ;const SEQ=NAVSEQ;Voice.stop();LPLAY
 function openGames(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'games',id:CHILD.id});const y=CHILD.id!=='ditya';gmSync();if(QG)qStop();
  const T=(bg,ic,label,fn)=>`<button class="kt" style="background:${bg}" onclick="${fn}"><span>${ic}</span>${label}</button>`;
  render(`<b style="font-size:22px">🎮 Games</b><div class="kgrid">`+(y?
-  T('#FFE4E6','🗺️','Quest','openQuest()')+T('#F1EDE6','♟️','Chess','openChess()')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#E6F4FF','🦉','Animal groups','openQuiz(\'groups\')')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#FDEBF3','🧩','Name the part','openQuiz(\'parts\')')+T('#E8F4FF','🔍','Look-alikes','openQuiz(\'alike\')')+T('#FFF3E0','🔎',"What's it called?",'openQuiz(\'names\')')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#EEF3FF','⌨️','Typing','openTyping()')
-  :T('#FFE4E6','🍓','Fruit Garden','openQuest()')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#E6F4FF','🐣','Animal babies','openQuiz(\'babies\')')+T('#FDEBF3','👃','My body','openQuiz(\'partsKid\')')+T('#FFF3E0','🔎','What is it?','openQuiz(\'namesKid\')')+T('#F1EDE6','♟️','Chess school','openChessKid()')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#FFF6D6','🎨','Colouring','openColour(0)'))+`</div>`,true)}
+  T('#FFE4E6','🗺️','Quest','openQuest()')+T('#E0F2FE','🛠️','Build a level','openLevels()')+T('#F1EDE6','♟️','Chess','openChess()')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#E6F4FF','🦉','Animal groups','openQuiz(\'groups\')')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#FDEBF3','🧩','Name the part','openQuiz(\'parts\')')+T('#E8F4FF','🔍','Look-alikes','openQuiz(\'alike\')')+T('#FFF3E0','🔎',"What's it called?",'openQuiz(\'names\')')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#EEF3FF','⌨️','Typing','openTyping()')
+  :T('#FFE4E6','🍓','Fruit Garden','openQuest()')+T('#FFF6D6','🎁',"Yuvaan's levels",'lvShared(\'ditya\')')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#E6F4FF','🐣','Animal babies','openQuiz(\'babies\')')+T('#FDEBF3','👃','My body','openQuiz(\'partsKid\')')+T('#FFF3E0','🔎','What is it?','openQuiz(\'namesKid\')')+T('#F1EDE6','♟️','Chess school','openChessKid()')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#FFF6D6','🎨','Colouring','openColour(0)'))+`</div>`,true)}
 const QZ_SETS={
  groups:{title:'Animal groups',ask:'What do we call a group of these?',n:4,day:15,segs:true,items:[
   ['a pride of lions','🦁','A pride of lions rested under the tree.'],['a herd of elephants','🐘','A herd of elephants walked to the river.'],['a school of fish','🐟','A school of fish swam past the boat.'],['a flock of sheep','🐑','The shepherd looked after a flock of sheep.'],
@@ -766,7 +766,7 @@ function gmMore(kind,keys){if(!CHILD||GMMORE[kind])return;GMMORE[kind]=1;Promise
 async function gmSync(){if(!CHILD||GMSYNC[CHILD.id])return;const kid=CHILD.id;try{const d=await Promise.race([api('gameLoad',kid),new Promise((_,j)=>setTimeout(()=>j('slow'),5000))]);
  const pre='ydSR_'+kid+'_',local=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf(pre)===0)local.push(k.slice(pre.length))}
  try{const ex=JSON.parse((d||{})._items||'{}');Object.keys(ex).forEach(k=>gmAddItems(k,ex[k]))}catch(e){}
- const games=[...new Set(local.concat(Object.keys(d||{}).filter(k=>k[0]!=='_')))];games.forEach(g=>{let sv={};try{sv=JSON.parse((d||{})[g]||'{}')}catch(e){}const m=srMerge(sv,srGet(g));try{localStorage.setItem(srKey(g),JSON.stringify(m))}catch(e){}if(JSON.stringify(m)!==String((d||{})[g]||''))GMQ[g]=1});
+ const games=[...new Set(local.concat(Object.keys(d||{}).filter(k=>k[0]!=='_'&&!/^lv/.test(k))))];games.forEach(g=>{let sv={};try{sv=JSON.parse((d||{})[g]||'{}')}catch(e){}const m=srMerge(sv,srGet(g));try{localStorage.setItem(srKey(g),JSON.stringify(m))}catch(e){}if(JSON.stringify(m)!==String((d||{})[g]||''))GMQ[g]=1});
  GMSYNC[kid]=1;if(Object.keys(GMQ).length)gmFlush()}catch(e){}}
 /* 80% new, 20% revision: every 5th question is a revision one. Revision goes round ALL old questions in turn
    (oldest first, ones he got wrong first) so the same old question never comes back before the others.
@@ -998,11 +998,11 @@ function qRun(lv){const d=qDiff(),p=QV.prog||{},tough=d>(2+(p.level||0)*0.8+((p.
  QG={lv,d,over:false,paused:false,keys:{},touch:{}};qTimerStart();({shooter:gShooter,jet:gJet,jumper:gJumper,maze:gMaze,bubble:gBubble,match:gMatch,brick:gBrick,race:gRace})[lv.game](QG);
  sayFree(tough?'This round is tough! Do your best.':'Round '+((p.round||0)+1)+'. Go!','en')}
 function qPadBtns(list){$('#qPad').innerHTML=list.map(([k,l])=>`<button style="flex:1;min-height:64px;font-size:26px" onpointerdown="QG.touch['${k}']=1" onpointerup="QG.touch['${k}']=0" onpointerleave="QG.touch['${k}']=0">${l}</button>`).join('')}
-document.addEventListener('keydown',e=>{if(!QG||QG.over)return;const n=getNav()||{};if(n.v!=='quest')return;QG.keys[e.key]=1;if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault()});
+document.addEventListener('keydown',e=>{if(!QG||QG.over)return;const n=getNav()||{};if(n.v!=='quest'&&n.v!=='lvplay')return;QG.keys[e.key]=1;if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault()});
 document.addEventListener('keyup',e=>{if(QG)QG.keys[e.key]=0});
 function qKey(g,...ks){return ks.some(k=>g.keys[k]||g.touch[k])}
 function qBg(x,g,t){const[c,deco]=QW[g.lv.world]||QW.forest;x.fillStyle=c;x.fillRect(0,0,900,480);x.globalAlpha=0.5;x.font='30px serif';for(let i=0;i<10;i++)x.fillText(deco,(i*97+t*0.3)%940-40,40+(i*53)%420);x.globalAlpha=1}
-async function qEnd(win){if(!QG||QG.over&&QG.ended)return;QG.over=true;QG.ended=true;cancelAnimationFrame(QG.raf);clearInterval(QTICK);
+async function qEnd(win){if(QG&&QG.custom)return lvEnd(win);if(!QG||QG.over&&QG.ended)return;QG.over=true;QG.ended=true;cancelAnimationFrame(QG.raf);clearInterval(QTICK);
  const kid=CHILD.id==='ditya',p=QV.prog||{},w=(QV.wins||[]).concat([win?1:0]).slice(-20);let msg,next=kid?'fcStart()':'qPlay()',nextLabel='▶ Next round',puzzle=false;
  if(win){p.round=(p.round||0)+1;if(p.round>=5){p.round=0;p.seen=0;p.level=(p.level||0)+1;puzzle=true;if(p.level>=6){p.level=0;p.story=(p.story||0)+1;if(p.story%QSTORIES.length===0)p.season=(p.season||1)+1}}msg='🏆 Round won!'}
  else{msg='💥 You lost this round.';if(!QV.unlim){try{await qLoad('lose')}catch(e){}}}
@@ -1023,6 +1023,128 @@ function qChest(){const P=qPuzzleItem();QG={chest:P};const p=QV.prog||{},st=QSTO
 function qChestPick(i){const P=QG.chest,o=P.opts[i];if(o!==P.ans){$('#qc'+i).style.background='#FFD9D9';$('#qcMsg').textContent='Not this one – think again!';sayFree('Not this one. Think again!','en');return}
  $('#qc'+i).style.background='#DDF5E3';const p=QV.prog||{},st=QSTORIES[(p.story||0)%QSTORIES.length],lv=st.levels[(p.level||0)%6];
  $('#qcMsg').innerHTML=`💎 Chest opened! ${esc(P.why)}<br><br><b>Next: ${esc(lv.name)} ${lv.foe}</b><div class="muted">${esc(lv.text)}</div><button class="primary" style="width:100%;margin-top:10px" onclick="qPlay()">▶ Go</button>`;sayFree('Correct! The chest is open. '+lv.text,'en')}
+/* ---------- 🛠️ W12 Build your own level (Yuvaan makes, tests once, shares; Ditya / Amma / Nanna play, scores come back) ---------- */
+const LV_TYPES=[['grid','🧱 My maze (draw it)'],['shooter','🔫 Shooter'],['jet','✈️ Jet'],['jumper','🦘 Jumper'],['maze','🌀 Dot maze'],['bubble','🫧 Bubbles'],['match','🍬 Match-3'],['brick','🧱 Bricks'],['race','🏎️ Race']];
+const LV_WORLDS=[['forest','Forest'],['sky','Sky'],['jungle','Jungle'],['space','Space'],['castle','Castle'],['volcano','Volcano'],['ocean','Ocean'],['desert','Desert'],['city','City']];
+const LV_FOES=['🧟','🦅','🦖','👽','👻','🐉','🤖','☄️','🦂','🐙','🛸','🦈','🕷️','🐍','🦇','🔥'];
+const LV_DIFF=[[3,'😀 Easy'],[6,'😐 Medium'],[9,'😈 Hard']];
+const LV_WHO={ditya:'Ditya',amma:'Amma',nanna:'Nanna'};
+const LV_W=15,LV_H=8;
+let LVD=null,LVE=null,LVTOOL='#',LVPLAY=null;
+function lvDay(){const d=new Date();return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+d.getDate()+'/'+(d.getMonth()+1)}
+function lvJ(s,f){try{return JSON.parse(s||'')||f}catch(e){return f}}
+/* data: all rows live under Yuvaan – lvmine (his levels) and lvp_<who> (each player's scores) */
+async function lvLoad(){let d={};try{d=await Promise.race([api('gameLoad','yuvaan'),new Promise((_,j)=>setTimeout(()=>j('slow'),6000))])||{}}catch(e){}
+ const loc=lvJ(localStorage.getItem('ydLV'),{levels:[],at:0}),srv=lvJ(d.lvmine,{levels:[],at:0});const mine=(srv.at||0)>(loc.at||0)?srv:loc;
+ const plays={};Object.keys(LV_WHO).forEach(w=>{const a=lvJ(d['lvp_'+w],{}),b=lvJ(localStorage.getItem('ydLVP_'+w),{});const o={};new Set(Object.keys(a).concat(Object.keys(b))).forEach(k=>{const m={};(a[k]||[]).concat(b[k]||[]).forEach(p=>m[p.at]=p);o[k]=Object.values(m).sort((x,y)=>x.at-y.at).slice(-20)});plays[w]=o});
+ LVD={mine,plays};return LVD}
+function lvSaveMine(){LVD.mine.at=Date.now();const s=JSON.stringify(LVD.mine);try{localStorage.setItem('ydLV',s)}catch(e){}api('gameSave','yuvaan','lvmine',s).catch(()=>toast('Not saved – please check internet'))}
+function lvSavePlay(who,id,win,sec){const o=LVD.plays[who]||(LVD.plays[who]={});(o[id]=o[id]||[]).push({at:Date.now(),w:win?1:0,t:sec,d:lvDay()});o[id]=o[id].slice(-20);const s=JSON.stringify(o);try{localStorage.setItem('ydLVP_'+who,s)}catch(e){}api('gameSave','yuvaan','lvp_'+who,s).catch(()=>{})}
+function lvMm(s){return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+function lvScore(id){return Object.keys(LV_WHO).map(w=>{const p=(LVD.plays[w]||{})[id]||[];if(!p.length)return '';const won=p.filter(x=>x.w),best=won.length?Math.min(...won.map(x=>x.t)):0;
+ return `<div>🎮 <b>${LV_WHO[w]}</b>: won ${won.length} of ${p.length}${best?' · best '+lvMm(best):''} <span class="muted">(last ${esc(p[p.length-1].d)})</span></div>`}).join('')}
+/* ----- Yuvaan: my levels ----- */
+async function openLevels(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'lvl',id:CHILD.id});render('<div class="card">Loading…</div>',true);await lvLoad();
+ const L=LVD.mine.levels;
+ render(`<b style="font-size:22px">🛠️ Build a level</b><div class="muted">Make your own level, play it once to test it, then share it with Ditya, Amma and Nanna.</div>
+ <button class="primary" style="width:100%;min-height:64px;font-size:20px;margin-top:8px" onclick="lvNew()" ${L.length>=20?'disabled':''}>➕ Make a new level</button>
+ ${L.length?L.slice().reverse().map(l=>{const t=LV_TYPES.find(x=>x[0]===l.game)||['',''];const sh=Object.keys(LV_WHO).filter(w=>l.share&&l.share[w]).map(w=>LV_WHO[w]);
+ return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:18px">${l.foe} ${esc(l.name)}</b><span class="tag">${(LV_DIFF.find(x=>x[0]===l.diff)||LV_DIFF[0])[1]}</span></div>
+ <div class="muted">${t[1]} · ${esc((LV_WORLDS.find(x=>x[0]===l.world)||['',''])[1])} · made ${esc(l.made)}</div>
+ <div style="margin-top:4px">${l.tested?'✅ Tested':'⚠️ Not tested yet – play it once to share it'}${sh.length?' · 📤 Shared with '+sh.join(', '):''}</div>
+ <div style="margin-top:6px;line-height:1.7">${lvScore(l.id)||'<span class="muted">No one has played it yet.</span>'}</div>
+ <div class="grid2" style="margin-top:8px"><button class="primary" onclick="lvPlay('${l.id}','yuvaan')">▶ ${l.tested?'Play':'Test play'}</button><button onclick="lvEdit('${l.id}')">✏️ Change</button></div>
+ <div class="row" style="gap:6px;margin-top:8px">${Object.keys(LV_WHO).map(w=>`<button style="flex:1;${l.share&&l.share[w]?'background:#DDF5E3;font-weight:800':''}" ${l.tested?'':'disabled'} onclick="lvShare('${l.id}','${w}')">${l.share&&l.share[w]?'✓ ':'📤 '}${LV_WHO[w]}</button>`).join('')}</div>
+ <button class="ghost" style="width:100%;margin-top:6px" onclick="lvDel('${l.id}')">🗑️ Delete</button></div>`}).join(''):'<div class="card muted">No levels yet. Tap ➕ to make your first one!</div>'}`,true);
+ sayFree('Build your own level!','en')}
+function lvShare(id,w){const l=LVD.mine.levels.find(x=>x.id===id);if(!l||!l.tested)return;l.share=l.share||{};l.share[w]=!l.share[w];lvSaveMine();toast(l.share[w]?'Shared with '+LV_WHO[w]:'Not shared with '+LV_WHO[w]+' any more');openLevels()}
+function lvDel(id){if(!confirmTwice('lvdel'+id,'Tap delete again to remove this level'))return;LVD.mine.levels=LVD.mine.levels.filter(x=>x.id!==id);lvSaveMine();openLevels()}
+const LVCONF={};function confirmTwice(k,msg){if(LVCONF[k]&&Date.now()-LVCONF[k]<4000){delete LVCONF[k];return true}LVCONF[k]=Date.now();toast(msg);return false}
+/* ----- the builder ----- */
+function lvBlankGrid(){const g=[...Array(LV_H)].map(()=>Array(LV_W).fill('.'));for(let c=0;c<LV_W;c++){g[0][c]='#';g[LV_H-1][c]='#'}for(let r=0;r<LV_H;r++){g[r][0]='#';g[r][LV_W-1]='#'}g[1][1]='S';g[LV_H-2][LV_W-2]='C';return g.map(r=>r.join(''))}
+function lvNew(){LVE={id:'L'+Date.now().toString(36),name:'',game:'grid',world:'castle',foe:'👻',diff:3,grid:lvBlankGrid(),riddle:{q:'',a:'',w1:'',w2:''},isNew:1};lvEditor()}
+function lvEdit(id){const l=LVD.mine.levels.find(x=>x.id===id);if(!l)return;LVE=JSON.parse(JSON.stringify(l));if(!LVE.grid)LVE.grid=lvBlankGrid();lvEditor()}
+function lvChips(list,cur,fn){return `<div class="row" style="gap:6px;flex-wrap:wrap">${list.map(([k,l])=>`<button style="${String(k)===String(cur)?'background:#2A5FD6;color:#fff;font-weight:800':''}" onclick="${fn}('${k}')">${l}</button>`).join('')}</div>`}
+function lvSet(f,v){lvKeep();LVE[f]=f==='diff'?+v:v;lvEditor(true)}
+function lvKeep(){const g=id=>{const e=$('#'+id);return e?e.value.trim():null};const n=g('lvName');if(n!==null)LVE.name=n;['q','a','w1','w2'].forEach(k=>{const v=g('lvR'+k);if(v!==null)LVE.riddle[k]=v})}
+function lvGridHtml(){const cell={'#':'🧱','E':LVE.foe,'C':'🧰','S':'😋','.':''};let h='';for(let r=0;r<LV_H;r++)for(let c=0;c<LV_W;c++){const v=LVE.grid[r][c];
+ h+=`<button onclick="lvTap(${r},${c})" style="padding:0;min-height:0;aspect-ratio:1;border-radius:4px;font-size:clamp(12px,3.6vw,22px);line-height:1;background:${v==='#'?'#93A3B8':'#fff'};border:1px solid #D6DCE6">${cell[v]}</button>`}
+ return `<div style="display:grid;grid-template-columns:repeat(${LV_W},1fr);gap:2px">${h}</div>`}
+function lvTap(r,c){const row=LVE.grid.map(x=>x.split(''));if(LVTOOL==='S'||LVTOOL==='C')row.forEach(x=>x.forEach((v,i)=>{if(v===LVTOOL)x[i]='.'}));if(row[r][c]==='S'&&LVTOOL!=='S')return toast('Move the start 😋 instead – you need one');if(row[r][c]==='C'&&LVTOOL!=='C')return toast('Move the chest 🧰 instead – you need one');
+ row[r][c]=LVTOOL;LVE.grid=row.map(x=>x.join(''));$('#lvGrid').innerHTML=lvGridHtml();$('#lvGridMsg').textContent=lvPathMsg()}
+function lvTool(t){LVTOOL=t;document.querySelectorAll('[data-lvt]').forEach(b=>b.style.background=b.dataset.lvt===t?'#FFE08A':'')}
+function lvFind(ch){for(let r=0;r<LV_H;r++){const c=LVE.grid[r].indexOf(ch);if(c>=0)return[r,c]}return null}
+function lvPathOk(){const s=lvFind('S'),e=lvFind('C');if(!s||!e)return false;const seen=new Set([s.join()]),q=[s];while(q.length){const[r,c]=q.shift();if(r===e[0]&&c===e[1])return true;
+ [[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>{const nr=r+a,nc=c+b,k=nr+','+nc;if(nr>=0&&nr<LV_H&&nc>=0&&nc<LV_W&&LVE.grid[nr][nc]!=='#'&&!seen.has(k)){seen.add(k);q.push([nr,nc])}})}return false}
+function lvPathMsg(){const n=LVE.grid.join('').split('E').length-1;return (lvPathOk()?'✅ There is a way from 😋 to 🧰.':'⚠️ The walls block the way from 😋 to 🧰 – open a path.')+' Enemies: '+n+(n?'':' (add at least one)')}
+function lvEditor(keep){if(!keep){LVTOOL='#'}++NAVSEQ;setNav({v:'lvedit',id:CHILD.id});const L=LVE;
+ render(`<b style="font-size:22px">${L.isNew?'➕ New level':'✏️ Change level'}</b>
+ <div class="card"><label><b>1. Level name</b><input id="lvName" maxlength="30" value="${esc(L.name)}" placeholder="e.g. Ghost Castle Escape"></label></div>
+ <div class="card"><b>2. Game type</b>${lvChips(LV_TYPES,L.game,"lvSet.bind(null,'game')")}</div>
+ <div class="card"><b>3. World</b>${lvChips(LV_WORLDS,L.world,"lvSet.bind(null,'world')")}</div>
+ <div class="card"><b>4. Enemy</b>${lvChips(LV_FOES.map(f=>[f,`<span style="font-size:24px">${f}</span>`]),L.foe,"lvSet.bind(null,'foe')")}</div>
+ <div class="card"><b>5. How hard?</b>${lvChips(LV_DIFF,L.diff,"lvSet.bind(null,'diff')")}</div>
+ ${L.game==='grid'?`<div class="card"><b>6. Draw your maze</b><div class="muted">Pick a tool, then tap the squares.</div>
+ <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0">${[['#','🧱 Wall'],['E',L.foe+' Enemy'],['C','🧰 Chest'],['S','😋 Start'],['.','⬜ Erase']].map(([k,l])=>`<button data-lvt="${k}" style="${LVTOOL===k?'background:#FFE08A':''}" onclick="lvTool('${k}')">${l}</button>`).join('')}</div>
+ <div id="lvGrid">${lvGridHtml()}</div><div id="lvGridMsg" style="font-weight:800;margin-top:6px">${lvPathMsg()}</div></div>`:''}
+ <div class="card"><b>${L.game==='grid'?'7':'6'}. Chest riddle</b><div class="muted">Players must answer this to open the chest at the end.</div>
+ <label>Question<input id="lvRq" maxlength="120" value="${esc(L.riddle.q)}" placeholder="e.g. Which planet is called the Red Planet?"></label>
+ <label>Right answer<input id="lvRa" maxlength="40" value="${esc(L.riddle.a)}"></label>
+ <label>Wrong answer 1<input id="lvRw1" maxlength="40" value="${esc(L.riddle.w1)}"></label>
+ <label>Wrong answer 2<input id="lvRw2" maxlength="40" value="${esc(L.riddle.w2)}"></label></div>
+ <div id="lvMsg" style="color:#A12828;font-weight:800;min-height:20px"></div>
+ <button class="primary" style="width:100%;min-height:62px;font-size:20px" onclick="lvSave()">💾 Save level</button>`,true)}
+function lvSave(){lvKeep();const L=LVE,m=t=>{$('#lvMsg').textContent=t;sayFree(t,'en')},r=L.riddle;
+ if(!L.name)return m('Give your level a name.');if(!r.q||!r.a||!r.w1||!r.w2)return m('Fill in the riddle: question, right answer and two wrong answers.');
+ if(new Set([r.a,r.w1,r.w2].map(x=>x.toLowerCase())).size<3)return m('The three answers must all be different.');
+ if(L.game==='grid'){if(!lvPathOk())return m('Open a path from the start to the chest.');if(L.grid.join('').indexOf('E')<0)return m('Put at least one enemy in your maze.')}
+ const old=LVD.mine.levels.find(x=>x.id===L.id),same=old&&JSON.stringify([old.game,old.world,old.foe,old.diff,old.grid,old.riddle])===JSON.stringify([L.game,L.world,L.foe,L.diff,L.grid,L.riddle]);
+ const lv={id:L.id,name:L.name,game:L.game,world:L.world,foe:L.foe,diff:L.diff,grid:L.game==='grid'?L.grid:null,riddle:L.riddle,made:old?old.made:lvDay(),tested:same?!!old.tested:false,share:same?(old.share||{}):{}};
+ LVD.mine.levels=LVD.mine.levels.filter(x=>x.id!==L.id).concat([lv]);lvSaveMine();toast(same?'Saved':'Saved – now play it once to test it');sayFree('Saved! Now play it once to test it.','en');openLevels()}
+/* ----- shared levels for Ditya (and Amma / Nanna in Parents) ----- */
+async function lvShared(who){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();if(CHILD)setNav({v:'lvl',id:CHILD.id});render('<div class="card">Loading…</div>',true);await lvLoad();
+ const L=LVD.mine.levels.filter(l=>l.tested&&l.share&&l.share[who]);
+ render(`<b style="font-size:22px">🎁 Levels made by Yuvaan</b>${L.length?L.slice().reverse().map(l=>{const p=(LVD.plays[who]||{})[l.id]||[],won=p.filter(x=>x.w).length;
+ return `<button class="kt" style="width:100%;margin-top:8px;background:#FFF6D6;display:flex;align-items:center;gap:12px;padding:12px" onclick="lvPlay('${l.id}','${who}')"><span style="font-size:44px">${l.foe}</span><span style="text-align:left"><b style="font-size:19px">${esc(l.name)}</b><br><span class="muted">${(LV_DIFF.find(x=>x[0]===l.diff)||LV_DIFF[0])[1]}${p.length?' · won '+won+' of '+p.length:' · new!'}</span></span></button>`}).join(''):'<div class="card muted">Yuvaan has not shared a level yet.</div>'}`,true);
+ sayFree(who==='ditya'?(L.length?'Levels made by Yuvaan! Tap one to play.':'Yuvaan has not shared a level yet.'):'Levels made by Yuvaan.','en')}
+async function lvAdminBody(){await lvLoad();const L=LVD.mine.levels.filter(l=>l.tested&&l.share&&(l.share.amma||l.share.nanna));
+ return `<div class="card"><b>🛠️ Levels made by Yuvaan</b><div class="muted">Play the ones he shared with you – your score goes back to him.</div></div>`+(L.length?L.map(l=>`<div class="card"><b>${l.foe} ${esc(l.name)}</b><div class="muted">${(LV_TYPES.find(x=>x[0]===l.game)||['',''])[1]} · ${(LV_DIFF.find(x=>x[0]===l.diff)||LV_DIFF[0])[1]}</div><div style="margin-top:4px;line-height:1.7">${lvScore(l.id)}</div>
+ <div class="grid2" style="margin-top:8px">${['amma','nanna'].map(w=>l.share[w]?`<button class="primary" onclick="lvPlay('${l.id}','${w}')">▶ ${LV_WHO[w]} plays</button>`:`<button disabled>Not shared with ${LV_WHO[w]}</button>`).join('')}</div></div>`).join(''):'<div class="card muted">Nothing shared yet.</div>')}
+/* ----- play: kids use their game time on game days (no lives lost); parents play any time ----- */
+async function lvPlay(id,who){const l=LVD&&LVD.mine.levels.find(x=>x.id===id);if(!l)return;const kid=who==='yuvaan'||who==='ditya';
+ if(kid){try{await qLoad('get')}catch(e){return toast('Could not open right now. Try again.')}QUSED=0;
+  if(!QV.open)return render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:56px">🔒</div><b style="font-size:20px">Playing opens on ${esc(QV.days.join(' and '))}</b><div class="muted">${who==='yuvaan'?'You can build and change levels any day.':''}</div></div>`,true),sayFree('Playing opens on '+QV.days.join(' and '),'en');
+  if(qLeft()<=0)return render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:56px">⏰</div><b style="font-size:20px">No game time left today</b></div>`,true),sayFree('No game time left today.','en')}
+ else if(!QV)QV={prog:{},wins:[]};
+ LVPLAY={l,who,start:Date.now()};++NAVSEQ;setNav(CHILD?{v:'lvplay',id:CHILD.id}:{v:'lvplay'});const lv={name:l.name,world:l.world,game:l.game,foe:l.foe,grid:l.grid};
+ render(`<div class="row" style="justify-content:space-between;align-items:center;gap:6px"><b>${l.foe} ${esc(l.name)}</b>${kid?`<span class="tag" style="background:#E8F1FF;color:#1C4AAE">⏱ <span id="qTime"></span></span>`:''}</div>
+ <div id="qHud" style="font-weight:800;margin:4px 0"></div><canvas id="qCv" width="900" height="480" style="width:100%;max-width:900px;border-radius:14px;touch-action:none;display:block;margin:0 auto"></canvas><div class="row" style="gap:8px;margin-top:8px" id="qPad"></div>`,true);
+ QG={lv,d:l.diff,over:false,paused:false,keys:{},touch:{},custom:1};if(kid)qTimerStart();({grid:gGrid,shooter:gShooter,jet:gJet,jumper:gJumper,maze:gMaze,bubble:gBubble,match:gMatch,brick:gBrick,race:gRace})[l.game](QG);
+ sayFree(l.name+'. Go!','en')}
+function lvEnd(win){if(!QG||QG.ended)return;QG.over=true;QG.ended=true;cancelAnimationFrame(QG.raf);clearInterval(QTICK);const left=QUSED%30;if(left&&CHILD&&LVPLAY&&(LVPLAY.who==='yuvaan'||LVPLAY.who==='ditya'))api('questKid',CHILD.id,'use',{sec:left}).catch(()=>{});QUSED-=left;
+ const P=LVPLAY,sec=Math.round((Date.now()-P.start)/1000);if(!win)return lvAfter(false,sec);
+ const r=P.l.riddle,opts=sdShuffle([r.a,r.w1,r.w2]);P.sec=sec;P.opts=opts;
+ render(`<div class="card" style="text-align:center"><div style="font-size:76px">🧰</div><b style="font-size:20px">You reached the chest! Answer the riddle to open it.</b></div><div class="card"><div style="font-size:20px;font-weight:800">${esc(r.q)}</div>${opts.map((o,i)=>`<button style="display:block;width:100%;margin-top:8px;min-height:54px;font-size:18px;font-weight:800" id="lvo${i}" onclick="lvPick(${i})">${esc(o)}</button>`).join('')}<div id="lvoMsg" style="font-weight:800;margin-top:8px"></div></div>`,true);
+ sayFree('You reached the chest! '+r.q+' '+opts.join(', or, '),'en')}
+function lvPick(i){const P=LVPLAY,o=P.opts[i];if(o!==P.l.riddle.a){$('#lvo'+i).style.background='#FFD9D9';$('#lvoMsg').textContent='Not this one – think again!';sayFree('Not this one. Think again!','en');return}lvAfter(true,P.sec)}
+function lvAfter(win,sec){const P=LVPLAY,l=P.l;lvSavePlay(P.who,l.id,win,sec);let extra='';
+ if(win&&P.who==='yuvaan'&&!l.tested){l.tested=true;lvSaveMine();extra='<div style="margin-top:8px;font-weight:800;color:#16A34A">✅ Tested! Now you can share it.</div>'}
+ const back=P.who==='yuvaan'?'openLevels()':CHILD?`lvShared('${P.who}')`:"adminHome('lvl')";
+ render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:60px">${win?'🏆':'💥'}</div><div style="font-size:24px;font-weight:800">${win?'Level cleared!':'You lost this one.'}</div><div class="muted">Time ${lvMm(sec)}</div>${extra}
+ <button class="primary" style="width:100%;margin-top:12px" onclick="lvPlay('${l.id}','${P.who}')">🔁 Play again</button><button style="width:100%;margin-top:8px" onclick="${back}">Back to levels</button></div>`,true);
+ sayFree(win?(extra?'Level cleared! Your level is tested. Now you can share it.':'Level cleared!'):'You lost this one. Try again!','en')}
+/* ----- game: my maze (Yuvaan's own drawing) – reach the chest, don't get caught ----- */
+function gGrid(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft','◀'],['ArrowUp','▲'],['ArrowDown','▼'],['ArrowRight','▶']]);const G=g.lv.grid,S=60;
+ const wall=G.map(r=>r.split('').map(v=>v==='#'));const P={c:0,r:0},E=[];let C=null;G.forEach((row,r)=>row.split('').forEach((v,c)=>{if(v==='S'){P.c=c;P.r=r}if(v==='C')C={c,r};if(v==='E')E.push({c,r,d:[1,0]})}));
+ const ok=(c,r)=>c>=0&&c<LV_W&&r>=0&&r<LV_H&&!wall[r][c];let hits=0,inv=0,t=0;
+ function f(){if(g.over)return;t++;x.fillStyle='#0F172A';x.fillRect(0,0,900,480);
+  if(t%7===0){let d=null;if(qKey(g,'ArrowLeft','a'))d=[-1,0];else if(qKey(g,'ArrowRight','d'))d=[1,0];else if(qKey(g,'ArrowUp','w'))d=[0,-1];else if(qKey(g,'ArrowDown','s'))d=[0,1];if(d&&ok(P.c+d[0],P.r+d[1])){P.c+=d[0];P.r+=d[1]}}
+  if(t%Math.max(9,Math.round(30-g.d*2))===0)E.forEach(e=>{const opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(d=>ok(e.c+d[0],e.r+d[1]));if(!opts.length)return;let d=opts.find(o=>o[0]===e.d[0]&&o[1]===e.d[1]);
+   if(!d||Math.random()<0.3){const toward=opts.slice().sort((a,b)=>(Math.abs(e.c+a[0]-P.c)+Math.abs(e.r+a[1]-P.r))-(Math.abs(e.c+b[0]-P.c)+Math.abs(e.r+b[1]-P.r)));d=Math.random()<0.25+g.d*0.06?toward[0]:opts[Math.floor(Math.random()*opts.length)]}e.c+=d[0];e.r+=d[1];e.d=d});
+  if(inv>0)inv--;E.forEach(e=>{if(e.c===P.c&&e.r===P.r&&!inv){hits++;inv=60}});
+  const[bg]=QW[g.lv.world]||QW.castle;for(let r=0;r<LV_H;r++)for(let c=0;c<LV_W;c++){x.fillStyle=wall[r][c]?'#B45309':bg;x.fillRect(c*S+1,r*S+1,S-2,S-2);if(wall[r][c]){x.strokeStyle='#FDE68A';x.lineWidth=2;x.beginPath();x.moveTo(c*S+1,r*S+30);x.lineTo(c*S+S-1,r*S+30);x.moveTo(c*S+30,r*S+1);x.lineTo(c*S+30,r*S+30);x.moveTo(c*S+15,r*S+30);x.lineTo(c*S+15,r*S+S-1);x.moveTo(c*S+45,r*S+30);x.lineTo(c*S+45,r*S+S-1);x.stroke()}}
+  x.font='44px serif';if(C)x.fillText('🧰',C.c*S+8,C.r*S+46);E.forEach(e=>x.fillText(g.lv.foe,e.c*S+8,e.r*S+46));x.globalAlpha=inv%10<5?1:0.4;x.fillText('😋',P.c*S+8,P.r*S+46);x.globalAlpha=1;
+  if(!qHud('Reach the chest 🧰 · Caught '+hits+' / 3'))return;if(hits>=3)return qEnd(false);if(C&&P.c===C.c&&P.r===C.r)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
 /* ----- game 1: shooter (enemies come from the right) ----- */
 function gShooter(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowUp','▲'],['ArrowDown','▼']]);let py=240,t=0,es=[],bs=[],fx=[],kills=0,hits=0;const need=Math.round(6+g.d*1.2),sp=1.4+g.d*0.35,boss=(QV.prog||{}).round===4;let bossHp=boss?Math.round(6+g.d):0,bossY=240;
  function f(){if(g.over)return;t++;qBg(x,g,t);if(qKey(g,'ArrowUp','w'))py-=6;if(qKey(g,'ArrowDown','s'))py+=6;py=Math.max(30,Math.min(450,py));
@@ -1460,7 +1582,7 @@ function adminLoginScreen(){render(`<div style="font-size:22px;font-weight:800">
  <button class="green" onclick="doLogin()">Open</button>`,true)}
 async function adminFood(k,meal){try{await api('adminQuest',ADMIN.token,k,'food',{meal});toast(meal+' on time ✓ +5 min')}catch(e){toast('Could not save')}adminHome('quest')}
 async function doLogin(){const r=await api('adminLogin',$('#aRole').value,$('#aPin').value);if(!r.ok)return toast('Wrong PIN');ADMIN=r;try{localStorage.setItem('ydAdmin',JSON.stringify(r))}catch(e){}showFab();pollThread();adminHome('today')}
-const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','&#10022; Ask'],['use','📊 Usage'],['quest','🎮 Game time']];
+const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','&#10022; Ask'],['use','📊 Usage'],['quest','🎮 Game time'],['lvl','🛠️ Levels']];
 async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
  const d=await api('adminToday',ADMIN.token);let body='';
  const kidOpts=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
@@ -1477,6 +1599,7 @@ async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PEN
  if(tab==='music'){body=`<div class="card"><b>Add music for a routine</b><label>Routine<select id="mRt"><option value="brushing">Brushing</option><option value="washroom">Washroom</option><option value="ready">Get ready</option><option value="exercise">Exercise / yoga</option><option value="bath">After bath (devotional)</option><option value="breakfast">Breakfast (devotional)</option></select></label><label>Title<input id="mTitle" placeholder="e.g. Flute – morning raga"></label><label>YouTube link or Google Drive link<input id="mLink"></label><button class="green" style="margin-top:8px" onclick="addMusic()">Add (approved)</button><div class="muted" style="margin-top:8px">Brushing and washroom work best with Drive files of the right length. Devotional plays from official YouTube channels.</div></div>`}
  if(tab==='ask'){body=`<div class="card"><b>&#10022; Chat</b><div class="muted" style="margin-top:4px">Ask anything about the app or say what you want changed – in Telugu or English. Answers come here; a change is made only after you tap <b>Yes, make it</b>, and you see Saved → Being built → Done &#10003; in the same chat. The &#10022; button at the top opens the same chat on every screen.</div><button class="green" style="margin-top:10px;width:100%" onclick="askOpen()">Open &#10022; chat</button></div>`}
  if(tab==='use'){const U=await api('adminUsage',ADMIN.token);body=usageDash(U)}
+ if(tab==='lvl'){body=await lvAdminBody()}
  if(tab==='quest'){const Q=await api('adminQuest',ADMIN.token,'','get',{});body=['yuvaan','ditya'].map(k=>{const v=Q[k],n=k==='ditya'?'Ditya':'Yuvaan';return `<div class="card"><b>${n}</b> – game time this week: <b>${v.minutes} of ${v.cap} min</b> · today used ${Math.round(v.usedSec/60)} min · lives ${v.unlim?'♾️ until '+esc(v.unlim):v.lives}<div class="muted">Opens on ${esc(v.days.join(', '))}</div><div style="margin-top:6px;line-height:1.7">${v.earned.map(e=>'✅ '+esc(e.label)+' +'+e.min).join('<br>')||'<span class="muted">Nothing earned yet</span>'}</div>
   <div class="grid2" style="margin-top:8px"><button onclick="adminFood('${k}','Lunch')">🍽️ Lunch on time</button><button onclick="adminFood('${k}','Dinner')">🍽️ Dinner on time</button></div></div>`}).join('')+'<div class="card muted">Lives and game rules are run by the game itself (quests and projects). Here you only tick food on time.</div>'}
  if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">Admin · ${esc(ADMIN.role)}</div>`+tabs+body,true)}
