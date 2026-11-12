@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v40 · Thu 12/11 20:30';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v41 · Thu 12/11 20:50';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -109,7 +109,7 @@ async function start(){const jm=(location.hash||'').match(/join=([a-f0-9]{20})/)
  restoreNav()}
 function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children.find(c=>c.id===n.id);
  if(kid&&kid.introDone===false&&n.v==='talk')n.v='child';
- if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='games')return openGames();if(['lvl','lvedit','lvplay'].indexOf(n.v)>=0)return kid.id==='ditya'?lvShared('ditya'):openLevels();if(n.v==='learn')return openLearn();if(n.v==='learnSec')return openLearnSec(n.sec);if(n.v==='learnItem')return openLearnItem(n.sec,n.i);if(n.v==='quiz')return openQuiz(n.kind==='actionsKid'?'actions':n.kind||'groups');if(n.v==='colour')return openColour(n.i||0)}
+ if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='games')return openGames();if(n.v==='base')return openBase(n.tab);if(['lvl','lvedit','lvplay'].indexOf(n.v)>=0)return kid.id==='ditya'?lvShared('ditya'):openLevels();if(n.v==='learn')return openLearn();if(n.v==='learnSec')return openLearnSec(n.sec);if(n.v==='learnItem')return openLearnItem(n.sec,n.i);if(n.v==='quiz')return openQuiz(n.kind==='actionsKid'?'actions':n.kind||'groups');if(n.v==='colour')return openColour(n.i||0)}
  if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
  goHome()}
 function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN);if(ADMIN)updateDot()}
@@ -121,7 +121,7 @@ let MICOBS=null;function micStateOf(t){t=String(t||'');if(/Speaking/.test(t))ret
 function paintMic(){const h=$('#micHint');if(!h)return;const st=micStateOf(h.textContent);h.className='st-'+st;const m=$('#micBtn');if(m){m.classList.toggle('speak',st==='speak');m.classList.toggle('think',st==='think');if(st==='listen'){m.classList.add('listen');m.classList.remove('sleep')}else if(st==='off'){m.classList.remove('listen');m.classList.add('sleep')}else{m.classList.remove('listen','sleep')}}}
 function watchMic(){try{MICOBS&&MICOBS.disconnect()}catch(e){}const h=$('#micHint');if(!h)return;MICOBS=new MutationObserver(paintMic);MICOBS.observe(h,{childList:true,characterData:true,subtree:true});paintMic()}
 // Back: from any of a child's screens → that child's page; from the child's page (or Admin) → main screen.
-function goBack(){const n=getNav()||{};if(CHILD&&!ADMIN_VIEW()&&n.v==='learnItem'){++NAVSEQ;Voice.stop();return openLearnSec(n.sec)}if(CHILD&&!ADMIN_VIEW()&&n.v==='learnSec'){++NAVSEQ;Voice.stop();return openLearn()}if(CHILD&&['chess','word','typing','quiz','colour','ckid','sudoku','quest','lvl','lvedit','lvplay'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
+function goBack(){const n=getNav()||{};if(CHILD&&!ADMIN_VIEW()&&n.v==='learnItem'){++NAVSEQ;Voice.stop();return openLearnSec(n.sec)}if(CHILD&&!ADMIN_VIEW()&&n.v==='learnSec'){++NAVSEQ;Voice.stop();return openLearn()}if(CHILD&&['chess','word','typing','quiz','colour','ckid','sudoku','quest','lvl','lvedit','lvplay','base'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
 // phone/browser back button follows the same rule
 try{history.pushState({yd:1},'')}catch(e){}
 window.addEventListener('popstate',()=>{const n=getNav()||{};if(n.v&&n.v!=='home'){goBack();try{history.pushState({yd:1},'')}catch(e){}}});
@@ -558,7 +558,7 @@ async function openLearnItem(sec,i){++NAVSEQ;const SEQ=NAVSEQ;Voice.stop();LPLAY
 function openGames(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'games',id:CHILD.id});const y=CHILD.id!=='ditya';gmSync();if(QG)qStop();
  const T=(bg,ic,label,fn)=>`<button class="kt" style="background:${bg}" onclick="${fn}"><span>${ic}</span>${label}</button>`;
  render(`<b style="font-size:22px">🎮 Games</b><div class="kgrid">`+(y?
-  T('#FFE4E6','🗺️','Quest','openQuest()')+T('#E0F2FE','🛠️','Build a level','openLevels()')+T('#F1EDE6','♟️','Chess','openChess()')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#E6F4FF','🦉','Animal groups','openQuiz(\'groups\')')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#FDEBF3','🧩','Name the part','openQuiz(\'parts\')')+T('#E8F4FF','🔍','Look-alikes','openQuiz(\'alike\')')+T('#FFF3E0','🔎',"What's it called?",'openQuiz(\'names\')')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#EEF3FF','⌨️','Typing','openTyping()')
+  T('#FFE4E6','🗺️','Quest','openQuest()')+T('#E0F2FE','🛠️','Build a level','openLevels()')+T('#FEF3C7','🏰','My base','openBase()')+T('#F1EDE6','♟️','Chess','openChess()')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#E6F4FF','🦉','Animal groups','openQuiz(\'groups\')')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#FDEBF3','🧩','Name the part','openQuiz(\'parts\')')+T('#E8F4FF','🔍','Look-alikes','openQuiz(\'alike\')')+T('#FFF3E0','🔎',"What's it called?",'openQuiz(\'names\')')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#EEF3FF','⌨️','Typing','openTyping()')
   :T('#FFE4E6','🍓','Fruit Garden','openQuest()')+T('#FFF6D6','🎁',"Yuvaan's levels",'lvShared(\'ditya\')')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#E6F4FF','🐣','Animal babies','openQuiz(\'babies\')')+T('#FDEBF3','👃','My body','openQuiz(\'partsKid\')')+T('#FFF3E0','🔎','What is it?','openQuiz(\'namesKid\')')+T('#F1EDE6','♟️','Chess school','openChessKid()')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#FFF6D6','🎨','Colouring','openColour(0)'))+`</div>`,true)}
 const QZ_SETS={
  groups:{title:'Animal groups',ask:'What do we call a group of these?',n:4,day:15,segs:true,items:[
@@ -766,7 +766,7 @@ function gmMore(kind,keys){if(!CHILD||GMMORE[kind])return;GMMORE[kind]=1;Promise
 async function gmSync(){if(!CHILD||GMSYNC[CHILD.id])return;const kid=CHILD.id;try{const d=await Promise.race([api('gameLoad',kid),new Promise((_,j)=>setTimeout(()=>j('slow'),5000))]);
  const pre='ydSR_'+kid+'_',local=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf(pre)===0)local.push(k.slice(pre.length))}
  try{const ex=JSON.parse((d||{})._items||'{}');Object.keys(ex).forEach(k=>gmAddItems(k,ex[k]))}catch(e){}
- const games=[...new Set(local.concat(Object.keys(d||{}).filter(k=>k[0]!=='_'&&!/^lv/.test(k))))];games.forEach(g=>{let sv={};try{sv=JSON.parse((d||{})[g]||'{}')}catch(e){}const m=srMerge(sv,srGet(g));try{localStorage.setItem(srKey(g),JSON.stringify(m))}catch(e){}if(JSON.stringify(m)!==String((d||{})[g]||''))GMQ[g]=1});
+ const games=[...new Set(local.concat(Object.keys(d||{}).filter(k=>k[0]!=='_'&&!/^(lv|gear)/.test(k))))];games.forEach(g=>{let sv={};try{sv=JSON.parse((d||{})[g]||'{}')}catch(e){}const m=srMerge(sv,srGet(g));try{localStorage.setItem(srKey(g),JSON.stringify(m))}catch(e){}if(JSON.stringify(m)!==String((d||{})[g]||''))GMQ[g]=1});
  GMSYNC[kid]=1;if(Object.keys(GMQ).length)gmFlush()}catch(e){}}
 /* 80% new, 20% revision: every 5th question is a revision one. Revision goes round ALL old questions in turn
    (oldest first, ones he got wrong first) so the same old question never comes back before the others.
@@ -1004,7 +1004,7 @@ function qKey(g,...ks){return ks.some(k=>g.keys[k]||g.touch[k])}
 function qBg(x,g,t){const[c,deco]=QW[g.lv.world]||QW.forest;x.fillStyle=c;x.fillRect(0,0,900,480);x.globalAlpha=0.5;x.font='30px serif';for(let i=0;i<10;i++)x.fillText(deco,(i*97+t*0.3)%940-40,40+(i*53)%420);x.globalAlpha=1}
 async function qEnd(win){if(QG&&QG.custom)return lvEnd(win);if(!QG||QG.over&&QG.ended)return;QG.over=true;QG.ended=true;cancelAnimationFrame(QG.raf);clearInterval(QTICK);
  const kid=CHILD.id==='ditya',p=QV.prog||{},w=(QV.wins||[]).concat([win?1:0]).slice(-20);let msg,next=kid?'fcStart()':'qPlay()',nextLabel='▶ Next round',puzzle=false;
- if(win){p.round=(p.round||0)+1;if(p.round>=5){p.round=0;p.seen=0;p.level=(p.level||0)+1;puzzle=true;if(p.level>=6){p.level=0;p.story=(p.story||0)+1;if(p.story%QSTORIES.length===0)p.season=(p.season||1)+1}}msg='🏆 Round won!'}
+ if(win){p.round=(p.round||0)+1;if(p.round>=5){p.round=0;p.seen=0;p.level=(p.level||0)+1;puzzle=true;if(p.level>=6){p.level=0;p.story=(p.story||0)+1;if(p.story%QSTORIES.length===0)p.season=(p.season||1)+1}}msg='🏆 Round won!';if(!kid)grAdd(puzzle?25:5,puzzle?'level done':'round won')}
  else{msg='💥 You lost this round.';if(!QV.unlim){try{await qLoad('lose')}catch(e){}}}
  try{QV=await api('questKid',CHILD.id,'prog',{prog:p,wins:w})}catch(e){QV.prog=p;QV.wins=w}
  if(puzzle&&!kid)return qChest();if(puzzle&&kid){nextLabel='▶ Next level: '+FC_RULES[(p.level||0)%FC_RULES.length][1];msg='🌟 Level done! Bunny\'s garden grows 🌷'}
@@ -1021,7 +1021,7 @@ function qPuzzleItem(){const kinds=['groups','parts','names','alike'].filter(k=>
 function qChest(){const P=qPuzzleItem();QG={chest:P};const p=QV.prog||{},st=QSTORIES[(p.story||0)%QSTORIES.length];
  render(`<div class="card" style="text-align:center"><div style="font-size:80px">🧰</div><b>Level complete! Solve the chest puzzle to open the way.</b></div><div class="card"><div style="font-size:20px;font-weight:800">${esc(P.q)}</div>${P.opts.map((o,i)=>`<button style="display:block;width:100%;margin-top:8px;min-height:54px;font-size:18px;font-weight:800" id="qc${i}" onclick="qChestPick(${i})">${esc(o)}</button>`).join('')}<div id="qcMsg" style="font-weight:800;margin-top:8px"></div></div>`,true);sayFree('Level complete! Solve the chest puzzle. '+P.q,'en')}
 function qChestPick(i){const P=QG.chest,o=P.opts[i];if(o!==P.ans){$('#qc'+i).style.background='#FFD9D9';$('#qcMsg').textContent='Not this one – think again!';sayFree('Not this one. Think again!','en');return}
- $('#qc'+i).style.background='#DDF5E3';const p=QV.prog||{},st=QSTORIES[(p.story||0)%QSTORIES.length],lv=st.levels[(p.level||0)%6];
+ $('#qc'+i).style.background='#DDF5E3';grAdd(10,'chest opened');const p=QV.prog||{},st=QSTORIES[(p.story||0)%QSTORIES.length],lv=st.levels[(p.level||0)%6];
  $('#qcMsg').innerHTML=`💎 Chest opened! ${esc(P.why)}<br><br><b>Next: ${esc(lv.name)} ${lv.foe}</b><div class="muted">${esc(lv.text)}</div><button class="primary" style="width:100%;margin-top:10px" onclick="qPlay()">▶ Go</button>`;sayFree('Correct! The chest is open. '+lv.text,'en')}
 /* ---------- 🛠️ W12 Build your own level (Yuvaan makes, tests once, shares; Ditya / Amma / Nanna play, scores come back) ---------- */
 const LV_TYPES=[['grid','🧱 My maze (draw it)'],['shooter','🔫 Shooter'],['jet','✈️ Jet'],['jumper','🦘 Jumper'],['maze','🌀 Dot maze'],['bubble','🫧 Bubbles'],['match','🍬 Match-3'],['brick','🧱 Bricks'],['race','🏎️ Race']];
@@ -1128,7 +1128,7 @@ function lvEnd(win){if(!QG||QG.ended)return;QG.over=true;QG.ended=true;cancelAni
  sayFree('You reached the chest! '+r.q+' '+opts.join(', or, '),'en')}
 function lvPick(i){const P=LVPLAY,o=P.opts[i];if(o!==P.l.riddle.a){$('#lvo'+i).style.background='#FFD9D9';$('#lvoMsg').textContent='Not this one – think again!';sayFree('Not this one. Think again!','en');return}lvAfter(true,P.sec)}
 function lvAfter(win,sec){const P=LVPLAY,l=P.l;lvSavePlay(P.who,l.id,win,sec);let extra='';
- if(win&&P.who==='yuvaan'&&!l.tested){l.tested=true;lvSaveMine();extra='<div style="margin-top:8px;font-weight:800;color:#16A34A">✅ Tested! Now you can share it.</div>'}
+ if(win&&P.who==='yuvaan')grAdd(5,'level cleared');if(win&&P.who==='yuvaan'&&!l.tested){l.tested=true;lvSaveMine();extra='<div style="margin-top:8px;font-weight:800;color:#16A34A">✅ Tested! Now you can share it.</div>'}
  const back=P.who==='yuvaan'?'openLevels()':CHILD?`lvShared('${P.who}')`:"adminHome('lvl')";
  render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:60px">${win?'🏆':'💥'}</div><div style="font-size:24px;font-weight:800">${win?'Level cleared!':'You lost this one.'}</div><div class="muted">Time ${lvMm(sec)}</div>${extra}
  <button class="primary" style="width:100%;margin-top:12px" onclick="lvPlay('${l.id}','${P.who}')">🔁 Play again</button><button style="width:100%;margin-top:8px" onclick="${back}">Back to levels</button></div>`,true);
@@ -1143,8 +1143,50 @@ function gGrid(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft
    if(!d||Math.random()<0.3){const toward=opts.slice().sort((a,b)=>(Math.abs(e.c+a[0]-P.c)+Math.abs(e.r+a[1]-P.r))-(Math.abs(e.c+b[0]-P.c)+Math.abs(e.r+b[1]-P.r)));d=Math.random()<0.25+g.d*0.06?toward[0]:opts[Math.floor(Math.random()*opts.length)]}e.c+=d[0];e.r+=d[1];e.d=d});
   if(inv>0)inv--;E.forEach(e=>{if(e.c===P.c&&e.r===P.r&&!inv){hits++;inv=60}});
   const[bg]=QW[g.lv.world]||QW.castle;for(let r=0;r<LV_H;r++)for(let c=0;c<LV_W;c++){x.fillStyle=wall[r][c]?'#B45309':bg;x.fillRect(c*S+1,r*S+1,S-2,S-2);if(wall[r][c]){x.strokeStyle='#FDE68A';x.lineWidth=2;x.beginPath();x.moveTo(c*S+1,r*S+30);x.lineTo(c*S+S-1,r*S+30);x.moveTo(c*S+30,r*S+1);x.lineTo(c*S+30,r*S+30);x.moveTo(c*S+15,r*S+30);x.lineTo(c*S+15,r*S+S-1);x.moveTo(c*S+45,r*S+30);x.lineTo(c*S+45,r*S+S-1);x.stroke()}}
-  x.font='44px serif';if(C)x.fillText('🧰',C.c*S+8,C.r*S+46);E.forEach(e=>x.fillText(g.lv.foe,e.c*S+8,e.r*S+46));x.globalAlpha=inv%10<5?1:0.4;x.fillText('😋',P.c*S+8,P.r*S+46);x.globalAlpha=1;
+  x.font='44px serif';if(C)x.fillText('🧰',C.c*S+8,C.r*S+46);E.forEach(e=>x.fillText(g.lv.foe,e.c*S+8,e.r*S+46));x.globalAlpha=inv%10<5?1:0.4;gearAura(x,P.c*S+30,P.r*S+30);x.fillText('😋',P.c*S+8,P.r*S+46);x.globalAlpha=1;
   if(!qHud('Reach the chest 🧰 · Caught '+hits+' / 3'))return;if(hits>=3)return qEnd(false);if(C&&P.c===C.c&&P.r===C.r)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
+/* ---------- 🏰 W13 Base building + gear (Yuvaan): treasure coins from Quest buy base pieces and gear used in the games ---------- */
+const GR_BASE={castle:[['wall','🧱','Wall',10],['flag','🚩','Flag',10],['tree','🌳','Tree',15],['shield','🛡️','Shield wall',30],['fount','⛲','Fountain',35],['tower','🗼','Tower',40],['castle','🏰','Castle',60],['dragon','🐉','Dragon statue',80]],
+ space:[['rock','🌕','Moon rock',15],['power','⚡','Power cell',20],['ant','📡','Antenna',30],['scope','🔭','Telescope',35],['sat','🛰️','Satellite',40],['robot','🤖','Robot guard',45],['ufo','🛸','Saucer',50],['rocket','🚀','Rocket',60]]};
+const GR_GEAR={blast:{t:'🔫 Blasters',items:[['#FDE047','🟡','Yellow',0],['#38BDF8','🔵','Blue laser',30],['#F87171','🔴','Red laser',30],['#4ADE80','🟢','Green plasma',50],['rainbow','🌈','Rainbow',100]]},
+ armour:{t:'🛡️ Armour colour',items:[['','⚪','None',0],['#3B82F6','🔵','Blue',25],['#EF4444','🔴','Red',25],['#A855F7','🟣','Purple',40],['#EAB308','🟡','Gold',60]]},
+ pet:{t:'🐾 Pet',items:[['','🚫','No pet',0],['🐶','🐶','Puppy',40],['🐱','🐱','Kitten',40],['🦊','🦊','Fox',60],['🦉','🦉','Owl',60],['🐲','🐲','Baby dragon',120]]},
+ car:{t:'🏎️ Car skin',items:[['🏎️','🏎️','Racer',0],['🚙','🚙','Jeep',30],['🚜','🚜','Tractor',30],['🚓','🚓','Police car',40],['🚀','🚀','Rocket car',100]]}};
+const GR_SLOTS=24;let GR=null,GRPICK=null;
+function grDef(){return{coins:20,total:20,inv:{},own:['blast:#FDE047','armour:','pet:','car:🏎️'],eq:{blast:'#FDE047',armour:'',pet:'',car:'🏎️'},theme:'castle',base:{castle:Array(GR_SLOTS).fill(''),space:Array(GR_SLOTS).fill('')},at:0}}
+function grLocal(){try{return Object.assign(grDef(),JSON.parse(localStorage.getItem('ydGear')||'null')||{})}catch(e){return grDef()}}
+function grGet(){if(!GR)GR=grLocal();return GR}
+async function grSync(){let d={};try{d=await Promise.race([api('gameLoad','yuvaan'),new Promise((_,j)=>setTimeout(()=>j('slow'),5000))])||{}}catch(e){return grGet()}
+ let sv=null;try{sv=JSON.parse(d.gear||'null')}catch(e){}const lo=grLocal();GR=sv&&(sv.at||0)>(lo.at||0)?Object.assign(grDef(),sv):lo;return GR}
+function grSave(){GR.at=Date.now();const s=JSON.stringify(GR);try{localStorage.setItem('ydGear',s)}catch(e){}api('gameSave','yuvaan','gear',s).catch(()=>{})}
+function grAdd(n,why){if(!CHILD||CHILD.id!=='yuvaan'||!n)return;grGet();GR.coins+=n;GR.total+=n;grSave();toast('🪙 +'+n+' coins'+(why?' – '+why:''))}
+/* gear inside the games (Yuvaan only) */
+function grOn(){return CHILD&&CHILD.id==='yuvaan'&&!(QG&&QG.custom&&LVPLAY&&LVPLAY.who!=='yuvaan')}
+function gearBlast(){const b=grOn()?grGet().eq.blast:'';if(b==='rainbow')return 'hsl('+(Date.now()/4%360)+',90%,60%)';return b||'#FDE047'}
+function gearAura(x,cx,cy){if(!grOn())return;const a=grGet().eq.armour;if(!a)return;x.save();x.globalAlpha=0.45;x.fillStyle=a;x.beginPath();x.arc(cx,cy,30,0,7);x.fill();x.globalAlpha=1;x.lineWidth=3;x.strokeStyle=a;x.stroke();x.restore()}
+function gearPet(x,px,py){if(!grOn())return;const p=grGet().eq.pet;if(!p)return;x.save();x.font='26px serif';x.fillText(p,px,py+Math.sin(Date.now()/150)*4);x.restore()}
+function gearCar(){return grOn()&&grGet().eq.car||'🏎️'}
+/* ----- My base screen ----- */
+async function openBase(tab){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'base',id:CHILD.id,tab:tab||'base'});if(!GR)render('<div class="card">Loading…</div>',true);await grSync();grBase(tab||'base')}
+function grBase(tab){const G=grGet(),th=G.theme,tabs=[['base',th==='castle'?'🏰 My castle':'🚀 My space base'],['shop','🛒 Base shop'],['gear','⚔️ Gear']];
+ let body='';
+ if(tab==='base'){const pieces=GR_BASE[th],inv=Object.keys(G.inv).filter(k=>G.inv[k]>0&&pieces.some(p=>p[0]===k));
+  body=`<div class="row" style="gap:6px"><button style="flex:1;${th==='castle'?'background:#2A5FD6;color:#fff;font-weight:800':''}" onclick="grTheme('castle')">🏰 Castle</button><button style="flex:1;${th==='space'?'background:#2A5FD6;color:#fff;font-weight:800':''}" onclick="grTheme('space')">🚀 Space base</button></div>
+  <div class="card" style="background:${th==='castle'?'#DCFCE7':'#1E1B4B'};padding:10px"><div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">${G.base[th].map((v,i)=>{const p=pieces.find(x=>x[0]===v);return `<button onclick="grSlot(${i})" style="aspect-ratio:1;padding:0;min-height:0;font-size:clamp(20px,7vw,34px);border-radius:8px;background:${th==='castle'?'#BBF7D0':'#312E81'};border:2px dashed ${GRPICK?'#F59E0B':'transparent'}">${p?p[1]:''}</button>`}).join('')}</div></div>
+  <div class="card"><b>${GRPICK?'Tap a square to place it · tap a piece on the base to put it back':'My pieces – tap one, then tap a square'}</b><div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">${inv.map(k=>{const p=pieces.find(x=>x[0]===k);return `<button style="${GRPICK===k?'background:#FFE08A;font-weight:800':''}" onclick="grPick('${k}')"><span style="font-size:24px">${p[1]}</span> ×${G.inv[k]}</button>`}).join('')||'<span class="muted">No pieces yet – buy some in the 🛒 Base shop.</span>'}</div></div>`}
+ if(tab==='shop')body=`<div class="card"><b>${th==='castle'?'🏰 Castle pieces':'🚀 Space base pieces'}</b><div class="muted">Switch castle / space base on the first tab.</div>${GR_BASE[th].map(([k,e,n,c])=>`<div class="row" style="justify-content:space-between;align-items:center;border-bottom:1px solid #EEF1F7;padding:8px 0"><span><span style="font-size:30px">${e}</span> <b>${n}</b> <span class="muted">(you have ${G.inv[k]||0})</span></span><button class="primary" ${G.coins<c?'disabled':''} onclick="grBuyPiece('${k}',${c})">🪙 ${c}</button></div>`).join('')}</div>`;
+ if(tab==='gear')body=Object.keys(GR_GEAR).map(s=>`<div class="card"><b>${GR_GEAR[s].t}</b><div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">${GR_GEAR[s].items.map(([k,e,n,c])=>{const own=G.own.indexOf(s+':'+k)>=0,on=G.eq[s]===k;
+  return `<button style="${on?'background:#DDF5E3;font-weight:800;border:2px solid #16A34A':''}" ${!own&&G.coins<c?'disabled':''} onclick="grGear('${s}','${k}',${c})"><span style="font-size:22px">${e}</span> ${n}<br><span class="muted" style="font-size:12px">${on?'✓ using':own?'tap to use':'🪙 '+c}</span></button>`}).join('')}</div></div>`).join('')+`<div class="card muted">Blasters change your shots in Shooter and Jet. Armour colour and your pet show around you in the games. The car skin is your car in Race.</div>`;
+ render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:22px">${th==='castle'?'🏰':'🚀'} My base</b><span class="tag" style="background:#FEF3C7;color:#92400E;font-size:18px">🪙 ${G.coins}</span></div>
+ <div class="tabs">${tabs.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="grTab('${t[0]}')">${t[1]}</button>`).join('')}</div>${body}
+ <div class="muted" style="margin-top:8px">Win Quest rounds (+5 🪙), finish a level (+20 🪙), open the treasure chest (+10 🪙) and clear your own levels (+5 🪙).</div>`,true)}
+function grTab(t){GRPICK=null;setNav({v:'base',id:CHILD.id,tab:t});grBase(t)}
+function grTheme(t){GR.theme=t;GRPICK=null;grSave();grBase('base')}
+function grPick(k){GRPICK=GRPICK===k?null:k;grBase('base')}
+function grSlot(i){const G=GR,b=G.base[G.theme];if(b[i]){G.inv[b[i]]=(G.inv[b[i]]||0)+1;b[i]='';grSave();return grBase('base')}if(!GRPICK)return toast('Pick a piece first');if(!(G.inv[GRPICK]>0)){GRPICK=null;return grBase('base')}
+ b[i]=GRPICK;G.inv[GRPICK]--;if(!G.inv[GRPICK])GRPICK=null;grSave();grBase('base');sayFree('Placed!','en')}
+function grBuyPiece(k,c){const G=GR;if(G.coins<c)return toast('Not enough coins yet');G.coins-=c;G.inv[k]=(G.inv[k]||0)+1;grSave();toast('Bought! Place it on your base.');sayFree('Bought!','en');grBase('shop')}
+function grGear(s,k,c){const G=GR,id=s+':'+k;if(G.own.indexOf(id)<0){if(G.coins<c)return toast('Not enough coins yet');G.coins-=c;G.own.push(id);sayFree('Bought!','en')}G.eq[s]=k;grSave();grBase('gear')}
 /* ----- game 1: shooter (enemies come from the right) ----- */
 function gShooter(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowUp','▲'],['ArrowDown','▼']]);let py=240,t=0,es=[],bs=[],fx=[],kills=0,hits=0;const need=Math.round(6+g.d*1.2),sp=1.4+g.d*0.35,boss=(QV.prog||{}).round===4;let bossHp=boss?Math.round(6+g.d):0,bossY=240;
  function f(){if(g.over)return;t++;qBg(x,g,t);if(qKey(g,'ArrowUp','w'))py-=6;if(qKey(g,'ArrowDown','s'))py+=6;py=Math.max(30,Math.min(450,py));
@@ -1154,7 +1196,7 @@ function gShooter(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowU
   es=es.filter(e=>!e.dead&&!e.hit);bs=bs.filter(b=>b.x<920);
   if(boss&&kills>=need){bossY=240+Math.sin(t/25)*170;x.font='110px serif';x.fillText(g.lv.foe,760,bossY+40);bs.forEach(b=>{if(b.x>740&&Math.abs(b.y-bossY)<60){b.x=2000;bossHp--}});if(t%45===0)es.push({x:740,y:bossY,v:sp*1.5,shot:1})}
   x.font='44px serif';es.forEach(e=>x.fillText(e.shot?'🔥':g.lv.foe,e.x-22,e.y+16));fx.forEach(p=>{p.l--;x.font='16px serif';if(p.l>0)x.fillText('⭐',p.x+Math.cos(p.a)*(22-p.l)*3,p.y+Math.sin(p.a)*(22-p.l)*3)});fx=fx.filter(p=>p.l>0);
-  x.fillStyle='#FDE047';bs.forEach(b=>{x.beginPath();x.arc(b.x,b.y,5,0,7);x.fill()});x.font='50px serif';x.fillText('🧑‍🚀',30,py+18);
+  x.fillStyle=gearBlast();bs.forEach(b=>{x.beginPath();x.arc(b.x,b.y,5,0,7);x.fill()});x.font='50px serif';gearAura(x,48,py+4);x.fillText('🧑‍🚀',30,py+18);gearPet(x,2,py+54);
   if(!qHud((boss&&kills>=need?'BOSS ❤️ '+Math.max(0,bossHp)+' · ':'')+'Defeated '+Math.min(kills,need)+' / '+need+' · Hits '+hits+' / 3'))return;
   if(hits>=3)return qEnd(false);if(kills>=need&&(!boss||bossHp<=0))return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
 /* ----- game 2: jet fighter (enemies come from the top) ----- */
@@ -1165,7 +1207,7 @@ function gJet(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft'
   es.forEach(e=>bs.forEach(b=>{if(!e.dead&&Math.abs(b.x-e.x)<28&&Math.abs(b.y-e.y)<28){e.dead=1;b.y=-2000;kills++;for(let k=0;k<6;k++)fx.push({x:e.x,y:e.y,a:k,l:22})}}));
   es=es.filter(e=>!e.dead&&!e.hit);bs=bs.filter(b=>b.y>-20);
   x.font='44px serif';es.forEach(e=>x.fillText(g.lv.foe,e.x-22,e.y+16));fx.forEach(p=>{p.l--;x.font='16px serif';if(p.l>0)x.fillText('⭐',p.x+Math.cos(p.a)*(22-p.l)*3,p.y+Math.sin(p.a)*(22-p.l)*3)});fx=fx.filter(p=>p.l>0);
-  x.fillStyle='#FDE047';bs.forEach(b=>{x.fillRect(b.x-2,b.y,4,12)});x.font='54px serif';x.fillText('🛩️',px-27,460);
+  x.fillStyle=gearBlast();bs.forEach(b=>{x.fillRect(b.x-2,b.y,4,12)});x.font='54px serif';gearAura(x,px,448);x.fillText('🛩️',px-27,460);gearPet(x,px+30,476);
   if(!qHud('Shot down '+Math.min(kills,need)+' / '+need+' · Hits '+hits+' / 3'))return;if(hits>=3)return qEnd(false);if(kills>=need)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
 /* ----- game 3: jumper (run and jump over enemies, collect stars) ----- */
 function gJumper(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([[' ','⤒ Jump']]);let y=380,vy=0,t=0,obs=[],stars=0,hits=0,dist=0,inv=0;const goal=Math.round(900+g.d*160),sp=4+g.d*0.45;
@@ -1174,7 +1216,7 @@ function gJumper(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([[' ','⤒
   if(qKey(g,' ','ArrowUp','w')&&y>=380){vy=-15.5}vy+=0.8;y=Math.min(380,y+vy);if(inv>0)inv--;
   if(t%Math.max(34,Math.round(95-g.d*6))===0)obs.push({x:930,y:Math.random()<0.25?300:385,s:Math.random()<0.4});
   obs.forEach(o=>{o.x-=sp;if(!o.done&&Math.abs(o.x-120)<34&&Math.abs(o.y-y)<40){o.done=1;if(o.s)stars++;else if(!inv){hits++;inv=40}}});obs=obs.filter(o=>o.x>-40&&!(o.done&&o.s));
-  x.font='46px serif';obs.forEach(o=>x.fillText(o.s?'⭐':g.lv.foe,o.x-23,o.y+18));x.globalAlpha=inv%10<5?1:0.4;x.font='54px serif';x.fillText('🏃',95,y+20);x.globalAlpha=1;
+  x.font='46px serif';obs.forEach(o=>x.fillText(o.s?'⭐':g.lv.foe,o.x-23,o.y+18));x.globalAlpha=inv%10<5?1:0.4;x.font='54px serif';gearAura(x,113,y+4);x.fillText('🏃',95,y+20);gearPet(x,58,y+24);x.globalAlpha=1;
   x.fillStyle='#fff';x.fillRect(20,20,860,10);x.fillStyle='#22C55E';x.fillRect(20,20,860*Math.min(1,dist/goal),10);
   if(!qHud('Run to the flag 🚩 · Stars '+stars+' · Hits '+hits+' / 3'))return;if(hits>=3)return qEnd(false);if(dist>=goal)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
 /* ----- game 4: maze (eat all the dots, keep away from the enemies) ----- */
@@ -1191,7 +1233,7 @@ function gMaze(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft
    if(!d||Math.random()<0.3){const toward=opts.sort((a,b)=>(Math.abs(e.c+a[0]-P.c)+Math.abs(e.r+a[1]-P.r))-(Math.abs(e.c+b[0]-P.c)+Math.abs(e.r+b[1]-P.r)));d=Math.random()<0.5+g.d*0.03?toward[0]:opts[Math.floor(Math.random()*opts.length)]}if(d){e.c+=d[0];e.r+=d[1];e.d=d}});
   if(inv>0)inv--;E.forEach(e=>{if(e.c===P.c&&e.r===P.r&&!inv){hits++;inv=60}});
   for(let r=0;r<H;r++)for(let c=0;c<W;c++){if(wall[r][c]){x.fillStyle='#2563EB';x.fillRect(c*S+2,r*S+2,S-4,S-4)}else if(dots.has(r*W+c)){x.fillStyle='#FDE047';x.beginPath();x.arc(c*S+30,r*S+30,6,0,7);x.fill()}}
-  x.font='44px serif';E.forEach(e=>x.fillText(g.lv.foe,e.c*S+8,e.r*S+46));x.globalAlpha=inv%10<5?1:0.4;x.fillText('😋',P.c*S+8,P.r*S+46);x.globalAlpha=1;
+  x.font='44px serif';E.forEach(e=>x.fillText(g.lv.foe,e.c*S+8,e.r*S+46));x.globalAlpha=inv%10<5?1:0.4;gearAura(x,P.c*S+30,P.r*S+30);x.fillText('😋',P.c*S+8,P.r*S+46);x.globalAlpha=1;
   if(!qHud('Dots '+Math.min(eaten,need)+' / '+need+' · Caught '+hits+' / 3'))return;if(hits>=3)return qEnd(false);if(eaten>=need)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
 /* ----- game 5: bubble shooter (match 3 colours) ----- */
 function gBubble(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft','↺'],[' ','● Shoot'],['ArrowRight','↻']]);
@@ -1239,7 +1281,7 @@ function gRace(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft
   if(lk>0)lk--;if(!lk&&qKey(g,'ArrowLeft','a')&&lane>0){lane--;lk=10}if(!lk&&qKey(g,'ArrowRight','d')&&lane<2){lane++;lk=10}carX+=(lane-carX)*0.25;
   gy+=spd*0.55;x.font='bold 17px system-ui';x.textAlign='center';Q.opts.forEach((o,i)=>{x.fillStyle='#2563EB';x.fillRect(160+i*200,gy,180,52);x.fillStyle='#fff';x.fillText(String(o).slice(0,20),250+i*200,gy+32)});
   if(gy>380&&gy<380+spd*0.6){if(Q.opts[lane]===Q.ans){right++;sayFree('Correct! Boost!','en')}else{hits++;sayFree('Wrong gate! The answer was '+Q.ans,'en')}setTimeout(()=>{if(!g.over)newQ()},300)}
-  x.fillStyle='rgba(15,23,42,.85)';x.fillRect(150,0,600,40);x.fillStyle='#FDE047';x.fillText(Q.q.slice(0,70),450,27);x.textAlign='left';x.font='64px serif';x.fillText('🏎️',218+carX*200,450);
+  x.fillStyle='rgba(15,23,42,.85)';x.fillRect(150,0,600,40);x.fillStyle='#FDE047';x.fillText(Q.q.slice(0,70),450,27);x.textAlign='left';x.font='64px serif';gearAura(x,240+carX*200,436);x.fillText(gearCar(),218+carX*200,450);
   if(!qHud('Right gates '+right+' / '+need+' · Wrong '+hits+' / 3'))return;if(hits>=3)return qEnd(false);if(right>=need)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
 /* ----- ❤️ earn lives: the app gives a quest and checks it itself ----- */
 const QREAD=[
