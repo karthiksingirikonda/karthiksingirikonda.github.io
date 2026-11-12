@@ -28,6 +28,7 @@ button,.btn{min-height:48px;border-radius:14px;border:none;font:inherit;font-wei
 .tag{font-size:12px;font-weight:800;border-radius:8px;padding:3px 8px}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.kgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}.kt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;border-radius:22px;min-height:104px;font-size:17px;font-weight:800;color:#1F2A44;box-shadow:0 2px 8px #0001}.kt span{font-size:40px;line-height:1}.kt.sm{min-height:80px;font-size:14px;background:#F4F6FA}.kt.sm span{font-size:28px}
 .live{display:block;margin:14px auto 4px;background:#6B3FD9;color:#fff;border:0;border-radius:26px;padding:13px 26px;font-size:19px;font-weight:800;box-shadow:0 4px 14px #6B3FD955}.live.on{background:#C62828}
 .mic{width:110px;height:110px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 0 0 12px #D5E2FB}
 .mic.listen{animation:pulse 1.2s infinite}.mic.sleep{background:#9AA3B5;box-shadow:0 0 0 12px #E6E9EF}
@@ -69,8 +70,8 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v12 · Thu 12/11 12:30';const inflight={};
-function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v13 · Thu 12/11 12:45';const inflight={};
+function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
 function patchLocal(fn,a){
@@ -91,7 +92,8 @@ function micHelp(){const p=$('#askPanel');p.classList.remove('hidden');p.innerHT
  <ol style="padding-left:20px;line-height:1.6;margin:8px 0"><li>At the top, tap the small icon on the left of the web address (lock or sliders).</li><li>Tap <b>Permissions</b> or <b>Site settings</b> &#8594; <b>Microphone</b> &#8594; <b>Allow</b>.</li><li>If there is no Microphone there: phone <b>Settings &#8594; Apps &#8594; Chrome &#8594; Permissions &#8594; Microphone &#8594; Allow</b>.</li><li>Come back and reload this page.</li></ol><div class="muted">You can also type in the box instead.</div>`}
 function toast(m){const d=document.createElement('div');d.textContent=m;d.style.cssText='position:fixed;bottom:20px;left:16px;right:16px;background:#1F2A44;color:#fff;padding:12px 14px;border-radius:14px;z-index:9';document.body.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function render(html,showBack){LASTVIEW=PENDINGVIEW;PENDINGVIEW=null;$('#app').innerHTML=html;$('#backBtn').classList.toggle('hidden',!showBack);if(!QUIET)window.scrollTo(0,0)}
+let RENDERSEQ=0;
+function render(html,showBack){RENDERSEQ=NAVSEQ;LASTVIEW=PENDINGVIEW;PENDINGVIEW=null;$('#app').innerHTML=html;$('#backBtn').classList.toggle('hidden',!showBack);if(!QUIET)window.scrollTo(0,0)}
 
 /* ---------- home ---------- */
 async function start(){if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini);const lb=$('#liveBtn');if(lb&&GEM)lb.style.display=''}).catch(()=>{});if(!window.WARM)window.WARM=setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)net('voiceReady',[]).catch(()=>{})},240000);BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
@@ -100,7 +102,7 @@ async function start(){if(!FTOK)return familyScreen();net('voiceReady',[]).then(
  restoreNav()}
 function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children.find(c=>c.id===n.id);
  if(kid&&kid.introDone===false&&n.v==='talk')n.v='child';
- if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true)}
+ if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='colour')return openColour(n.i||0)}
  if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
  goHome()}
 function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN);if(ADMIN)updateDot()}
@@ -118,7 +120,7 @@ function goHome(){++NAVSEQ;setNav({v:'home'});PENDINGVIEW=()=>goHome();Voice.sto
 async function openChild(id){const SEQ=++NAVSEQ;setNav({v:'child',id:id});PENDINGVIEW=()=>openChild(id);CHILD=BOOT.children.find(c=>c.id===id);if(RESTING[id])return showRest();
  const t=await api('getToday',id);{const n=new Date();t.now=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')}
  const nowIdx=t.slots.findIndex((s,i)=>s.time<=t.now&&(!t.slots[i+1]||t.slots[i+1].time>t.now));
- if(SEQ!==NAVSEQ)return;render(`<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:24px;font-weight:800">Hi ${esc(CHILD.name)}!</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">${t.starsApproved} stars today</span></div>
+ if(SEQ!==NAVSEQ)return;if(id==='ditya')return render(dityaHome(t),true);render(`<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:24px;font-weight:800">Hi ${esc(CHILD.name)}!</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">${t.starsApproved} stars today</span></div>
  ${CHILD.introDone?'':`<button class="card big" style="background:#FFF1C9" onclick="openTalk('intro')"><span style="font-size:34px">&#128075;</span><div><div style="font-size:19px;font-weight:800">Meet your helper</div><div class="muted">Choose a name for your helper</div></div></button>`}
  <button class="primary" style="min-height:64px;font-size:19px" onclick="openTalk('${defaultMode(t)}')">Talk to ${esc(CHILD.helperName)}</button>
  <div class="grid2"><button class="ghost" onclick="openHomework()">Homework</button><button class="ghost" onclick="openStars()">My stars</button><button class="ghost" onclick="openVideos()">Videos</button><button class="ghost" onclick="openTalk('story')">Story</button></div>
@@ -299,7 +301,7 @@ async function kidPulse(){if(PULSE_BUSY)return;const now=Date.now(),secs=Math.mi
  if(document.visibilityState!=='visible'||!onKidView())return;PULSE_BUSY=true;const kid=CHILD.id;
  try{const r=await net('kidPulse',[kid,secs,MODE]);applyPulse(kid,r)}catch(e){}PULSE_BUSY=false}
 async function applyPulse(kid,r){if(!r)return;const s=r.screen||{};
- for(const c of (r.cmds||[])){if(c.kind==='say'&&c.value){if(Live.on)Live.say(c.value);else{addBubble('helper',c.value);if(!RESTING[kid])speakReply(c.value,'te')}}}
+ for(const c of (r.cmds||[])){if(c.kind==='homework'){const n=getNav()||{};if(n.v==='hw'&&CHILD&&CHILD.id===kid)openHomework()}if(c.kind==='say'&&c.value){if(Live.on)Live.say(c.value);else{addBubble('helper',c.value);if(!RESTING[kid])speakReply(c.value,'te')}}}
  if(s.over){if(!RESTING[kid]){RESTING[kid]=true;if(CHILD&&CHILD.id===kid)showRest()}return}
  if(RESTING[kid]){RESTING[kid]=false;WARNED[kid]=0;if(CHILD&&CHILD.id===kid){openChild(kid);speakReply('సరే! ఇంకొంచెం సేపు కలిసి నేర్చుకుందాం.','te')}return}
  const left=Math.min(s.leftMin==null?999:s.leftMin,s.stopIn==null?999:s.stopIn);
@@ -312,6 +314,95 @@ function showRest(){Voice.stop();const kid=CHILD;setNav({v:'child',id:kid.id});
  <button class="primary" style="margin-top:18px;width:100%" onclick="goHome()">🏠 Home</button></div>`,false);
  speakReply(kid.id==='ditya'?'ఇప్పుడు స్క్రీన్ టైమ్ అయిపోయింది. కళ్ళకి కొంచెం విశ్రాంతి ఇద్దాం. తర్వాత మళ్ళీ ఆడుకుందాం!':'ఇవాళ్టికి స్క్రీన్ టైమ్ అయిపోయింది. బాగా చేశావు! కాసేపు బయట ఆడుకో, తర్వాత మళ్ళీ కలుద్దాం.','te')}
 setInterval(kidPulse,8000);
+/* ---------- homework: Admin side (all ways to add) ---------- */
+let HWFILES=[];
+function hwAdminForm(){const kids=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
+ return `<div class="card"><b>Add homework</b><label>Child<select id="hKid">${kids}</select></label><label>Subject<input id="hSub" placeholder="e.g. EVS, Maths, Tables"></label>
+ <label>Type<select id="hKind"><option>Writing</option><option>Learn</option><option>Reading</option><option>Tables</option><option>Practice</option></select></label>
+ <div class="grid2"><label>Time<input id="hTime" type="time"></label><label>Minutes<input id="hMin" type="number" min="0" placeholder="20"></label></div>
+ <label>What to do (type or speak)<textarea id="hDet" rows="3" placeholder="e.g. Ask questions 1–5 from the photo, make him write answers in his own words"></textarea></label>
+ <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:6px"><button onclick="hwMic()" id="hwMicBtn">&#127908; Speak</button>
+ <button onclick="$('#hCam').click()">&#128247; Camera</button><button onclick="$('#hImg').click()">&#128444; Photos / screenshots</button><button onclick="$('#hPdf').click()">&#128196; PDF</button></div>
+ <div id="hwMicHint" class="muted"></div>
+ <input id="hCam" type="file" accept="image/*" capture="environment" hidden onchange="hwPick(this)"><input id="hImg" type="file" accept="image/*" multiple hidden onchange="hwPick(this)"><input id="hPdf" type="file" accept="application/pdf" multiple hidden onchange="hwPick(this)">
+ <div id="hFiles" class="muted" style="margin-top:6px"></div>
+ <button class="green" style="margin-top:10px;width:100%" id="hSave" onclick="addHw()">Save homework</button><div id="hRead"></div></div>`}
+function hwShowFiles(){const d=$('#hFiles');if(d)d.innerHTML=HWFILES.map((f,i)=>`<div class="row" style="justify-content:space-between">${f.mime==='application/pdf'?'&#128196;':'&#128444;'} ${esc(f.name)} <button class="ghost" onclick="HWFILES.splice(${i},1);hwShowFiles()">&#10005;</button></div>`).join('')}
+async function hwPick(inp){for(const f of [...inp.files]){try{HWFILES.push(f.type==='application/pdf'?{name:f.name,mime:f.type,b64:await blobB64(f)}:await shrinkImg(f))}catch(e){toast('Could not add '+f.name)}}inp.value='';hwShowFiles()}
+function shrinkImg(f){return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(f);img.onload=()=>{const k=Math.min(1,1600/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);res({name:f.name||'photo.jpg',mime:'image/jpeg',b64:c.toDataURL('image/jpeg',0.82).split(',')[1]})};img.onerror=rej;img.src=u})}
+function hwMic(){if(!GEM)return toast('Voice needs the Gemini key');if(Ears.on){Ears.finish();return}Voice.stop();const btn=$('#hwMicBtn');
+ Ears.start(async blob=>{Ears.stop();if(btn)btn.innerHTML='⏳ Writing…';try{const r=await net('adminTranscribe',[ADMIN.token,await blobB64(blob),blob.type]);const box=$('#hDet');if(box&&r.text)box.value=(box.value+' '+r.text).trim()}catch(e){}if(btn)btn.innerHTML='&#127908; Speak';$('#hwMicHint').textContent=''},'#hwMicHint').then(ok=>{if(ok&&btn)btn.innerHTML='&#9632; Done speaking'})}
+async function addHw(){const b=$('#hSave');if(b){b.disabled=true;b.textContent=HWFILES.length?'Saving and reading the pages…':'Saving…'}
+ try{const r=await api('adminAddHomework',ADMIN.token,$('#hKid').value,$('#hSub').value,$('#hKind').value,$('#hDet').value,$('#hTime').value,$('#hMin').value,HWFILES);HWFILES=[];toast('Homework saved');
+  await adminHome('hw');if(r&&r.material){const d=$('#hRead');if(d)d.innerHTML=`<div class="card" style="background:#F2F7FF;margin-top:10px"><b>What the app read from the pages</b><div style="white-space:pre-wrap;margin-top:6px">${esc(r.material)}</div></div>`}}
+ catch(e){if(b){b.disabled=false;b.textContent='Save homework'}}}
+function hwAdminList(list){if(!list.length)return '<div class="card muted">No homework for today yet.</div>';
+ return `<div class="card"><b>Today's homework</b>${list.map(h=>`<div style="border-bottom:1px solid #EEF1F7;padding:8px 0"><div class="row" style="justify-content:space-between"><span><b>${esc(h.subject)}</b> · ${esc(h.child)} ${h.time?'· '+esc(h.time):''} ${h.plannedMin?'· '+h.plannedMin+' min':''}</span><span class="muted">${esc(h.status)}${h.minutes?' · took '+h.minutes+' min':''}</span></div>
+ ${h.pendingNote?`<div class="muted">Pending: ${esc(h.pendingNote)}</div>`:''}<details><summary class="muted">Details${h.files?' · '+h.files+' file(s) in Drive':''}</summary><div class="muted" style="white-space:pre-wrap">${esc(h.details||'')}${h.material?'\n\nRead from pages:\n'+esc(h.material):''}</div></details></div>`).join('')}</div>`}
+
+/* ---------- homework: Yuvaan / Ditya side ---------- */
+let HWTIMER=null;
+function hwClock(min,label){clearInterval(HWTIMER);const el=$('#clock');if(!el||!min)return;const end=Date.now()+min*60000;let said=false;el.classList.remove('hidden');
+ const t=()=>{const left=Math.max(0,end-Date.now()),m=Math.floor(left/60000),s=Math.floor(left/1000)%60;if(!$('#clock')){clearInterval(HWTIMER);return}
+  el.innerHTML=`<b>⏱ ${m}:${String(s).padStart(2,'0')}</b> <span class="muted">${esc(label||'')}</span>`;if(!left&&!said){said=true;clearInterval(HWTIMER);const msg='ఈ పనికి సమయం అయిపోయింది! ఇప్పటివరకు ఎంత చేశామో చూద్దాం.';addBubble('helper',msg);speakReply(msg,'te')}};t();HWTIMER=setInterval(t,1000)}
+/* ---------- Ditya Sree (5): big picture tiles, letter tracing, colouring ---------- */
+function dityaHome(t){return `<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:26px;font-weight:800">Hi ${esc(CHILD.name)}! 🌸</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">⭐ ${t.starsApproved}</span></div>
+ ${CHILD.introDone?'':`<button class="card big" style="background:#FFF1C9" onclick="openTalk('intro')"><span style="font-size:34px">&#128075;</span><div><div style="font-size:19px;font-weight:800">Meet your helper</div></div></button>`}
+ <div class="kgrid">
+ <button class="kt" style="background:#E8F1FF" onclick="openTalk('chat')"><span>💬</span>Talk</button>
+ <button class="kt" style="background:#FFEFE3" onclick="openTrace('en')"><span>✏️</span>ABC</button>
+ <button class="kt" style="background:#EAF8EE" onclick="openTrace('te')"><span>✏️</span>అ ఆ</button>
+ <button class="kt" style="background:#F6ECFF" onclick="openTrace('hi')"><span>✏️</span>अ आ</button>
+ <button class="kt" style="background:#FFF6D6" onclick="openColour(0)"><span>🎨</span>Colouring</button>
+ <button class="kt" style="background:#E3F7F7" onclick="openTalk('story')"><span>📖</span>Story</button>
+ <button class="kt" style="background:#FFE8EE" onclick="openTalk('tellstory')"><span>🎤</span>My story</button>
+ <button class="kt" style="background:#EEF3FF" onclick="openTalk('speakEn')"><span>🗣️</span>English</button>
+ <button class="kt" style="background:#FFF0E0" onclick="openTalk('speakHi')"><span>🗣️</span>हिंदी</button>
+ <button class="kt" style="background:#EFEFEF" onclick="openVideos()"><span>🎬</span>Videos</button>
+ <button class="kt" style="background:#FFF1C9" onclick="openStars()"><span>⭐</span>Stars</button>
+ <button class="kt" style="background:#EFEAFB" onclick="openHomework()"><span>📚</span>Homework</button>
+ </div>
+ <div class="kgrid" style="margin-top:10px"><button class="kt sm" onclick="openRoutine('brushing')"><span>🪥</span>Brush</button><button class="kt sm" onclick="openRoutine('washroom')"><span>🚽</span>Washroom</button><button class="kt sm" onclick="openRoutine('ready')"><span>👗</span>Get ready</button><button class="kt sm" onclick="openRoutine('exercise')"><span>🧘</span>Exercise</button></div>`}
+const LETTERS={en:[['A','A for Apple'],['B','B for Ball'],['C','C for Cat'],['D','D for Dog'],['E','E for Elephant'],['F','F for Fish'],['G','G for Goat'],['H','H for Hat'],['I','I for Ice cream'],['J','J for Jug'],['K','K for Kite'],['L','L for Lion'],['M','M for Mango'],['N','N for Nest'],['O','O for Orange'],['P','P for Parrot'],['Q','Q for Queen'],['R','R for Rabbit'],['S','S for Sun'],['T','T for Tiger'],['U','U for Umbrella'],['V','V for Van'],['W','W for Watch'],['X','X for Xylophone'],['Y','Y for Yak'],['Z','Z for Zebra']],
+ te:[['అ','అ – అమ్మ'],['ఆ','ఆ – ఆవు'],['ఇ','ఇ – ఇల్లు'],['ఈ','ఈ – ఈగ'],['ఉ','ఉ – ఉడుత'],['ఊ','ఊ – ఊయల'],['ఋ','ఋ – ఋషి'],['ఎ','ఎ – ఎలుక'],['ఏ','ఏ – ఏనుగు'],['ఐ','ఐ – ఐదు'],['ఒ','ఒ – ఒంటె'],['ఓ','ఓ – ఓడ'],['ఔ','ఔ – ఔషధం'],['క','క – కప్ప'],['గ','గ – గడియారం'],['చ','చ – చేప'],['జ','జ – జింక'],['ట','ట – టమాట'],['త','త – తాబేలు'],['న','న – నక్క'],['ప','ప – పడవ'],['బ','బ – బంతి'],['మ','మ – మామిడి'],['ర','ర – రథం'],['ల','ల – లడ్డు'],['వ','వ – వల']],
+ hi:[['अ','अ – अनार'],['आ','आ – आम'],['इ','इ – इमली'],['ई','ई – ईख'],['उ','उ – उल्लू'],['ऊ','ऊ – ऊन'],['ए','ए – एड़ी'],['ऐ','ऐ – ऐनक'],['ओ','ओ – ओखली'],['औ','औ – औरत'],['क','क – कबूतर'],['ख','ख – खरगोश'],['ग','ग – गमला'],['घ','घ – घड़ी'],['च','च – चम्मच'],['ज','ज – जहाज'],['त','त – तरबूज'],['न','न – नल'],['प','प – पतंग'],['म','म – मछली']]};
+let TR={set:'en',i:0,drawing:false,last:null};
+function openTrace(set,i){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();TR={set:set,i:i||0,drawing:false,last:null};setNav({v:'trace',id:CHILD.id,set:set,i:TR.i});
+ const L=LETTERS[set][TR.i];render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">✏️ Trace the letter</b><span class="muted">${TR.i+1} / ${LETTERS[set].length}</span></div>
+ <canvas id="trc" style="width:100%;aspect-ratio:1/1;background:#fff;border-radius:22px;box-shadow:0 2px 10px #0001;touch-action:none"></canvas>
+ <div style="text-align:center;font-size:22px;font-weight:800;margin:6px 0" id="trWord">${esc(L[1])}</div>
+ <div class="grid2"><button onclick="trClear()">🧽 Clear</button><button onclick="speakReply('${L[1].replace(/'/g,"\\'")}','${set==='en'?'en':set}')">🔊 Hear it</button><button onclick="trMove(-1)">◀ Back</button><button class="green" onclick="trCheck()">✅ Done</button></div>`,true);
+ const c=$('#trc'),dp=window.devicePixelRatio||1;const g=c.getContext('2d');const size=()=>{const w=c.clientWidth||($('#app').clientWidth-32)||340;c.width=Math.round(w*dp);c.height=Math.round(w*dp);trGuide()};size();requestAnimationFrame(size);
+ const pos=e=>{const b=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;return[(p.clientX-b.left)*dp,(p.clientY-b.top)*dp]};
+ const down=e=>{e.preventDefault();TR.drawing=true;TR.last=pos(e)},move=e=>{if(!TR.drawing)return;e.preventDefault();const p=pos(e);g.strokeStyle='#2F6FED';g.lineWidth=c.width/14;g.lineCap='round';g.lineJoin='round';g.beginPath();g.moveTo(TR.last[0],TR.last[1]);g.lineTo(p[0],p[1]);g.stroke();TR.last=p},up=()=>{TR.drawing=false};
+ c.addEventListener('pointerdown',down);c.addEventListener('pointermove',move);window.addEventListener('pointerup',up);
+ speakReply(L[1],set==='en'?'en':set)}
+function trFont(){return TR.set==='en'?'bold':'bold'}
+function trGuide(){const c=$('#trc');if(!c)return;const g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);g.fillStyle='#E4E9F2';g.textAlign='center';g.textBaseline='middle';g.font=`700 ${Math.round(c.width*0.72)}px "Noto Sans Telugu","Noto Sans Devanagari",sans-serif`;g.fillText(LETTERS[TR.set][TR.i][0],c.width/2,c.height*0.54)}
+function trClear(){trGuide()}
+function trMove(d){const n=LETTERS[TR.set].length;openTrace(TR.set,(TR.i+d+n)%n)}
+function trCheck(){const c=$('#trc');if(!c)return;const g=c.getContext('2d'),w=c.width,h=c.height,img=g.getImageData(0,0,w,h).data;
+ const m=document.createElement('canvas');m.width=w;m.height=h;const mg=m.getContext('2d');mg.fillStyle='#000';mg.textAlign='center';mg.textBaseline='middle';mg.font=`700 ${Math.round(w*0.72)}px "Noto Sans Telugu","Noto Sans Devanagari",sans-serif`;mg.fillText(LETTERS[TR.set][TR.i][0],w/2,h*0.54);const md=mg.getImageData(0,0,w,h).data;
+ let inL=0,hit=0,ink=0,out=0;for(let i=0;i<md.length;i+=16){const letter=md[i+3]>100,blue=img[i+2]>200&&img[i]<120;if(letter){inL++;if(blue)hit++}if(blue){ink++;if(!letter)out++}}
+ const cover=inL?hit/inL:0,neat=ink?1-out/ink:0;
+ if(cover>0.45&&neat>0.35){const p=['చాలా బాగా రాశావు!','సూపర్! ఇంకోటి రాద్దాం!','అద్భుతం దిత్యా!','భలే! నువ్వు స్టార్‌వి!'];const t=p[Math.floor(Math.random()*p.length)];toast('⭐ '+t);speakReply(t,'te').then(()=>trMove(1))}
+ else{const t=cover<=0.45?'ఇంకొంచెం అక్షరం మొత్తం మీద రాయి. నువ్వు చేయగలవు!':'అక్షరం గీతల మీదనే రాయడానికి ప్రయత్నిద్దాం!';toast(t);speakReply(t,'te')}}
+const CPICS=[
+ ['Sun','<circle class="r" cx="100" cy="100" r="42"/>'+[0,45,90,135,180,225,270,315].map(a=>`<path class="r" d="M100 100 m${Math.round(60*Math.cos(a*Math.PI/180))} ${Math.round(60*Math.sin(a*Math.PI/180))} l${Math.round(25*Math.cos((a-12)*Math.PI/180))} ${Math.round(25*Math.sin((a-12)*Math.PI/180))} l${Math.round(25*Math.cos((a+12)*Math.PI/180)-25*Math.cos((a-12)*Math.PI/180))} ${Math.round(25*Math.sin((a+12)*Math.PI/180)-25*Math.sin((a-12)*Math.PI/180))} z"/>`).join('')],
+ ['House','<rect class="r" x="45" y="95" width="110" height="80"/><path class="r" d="M35 100 L100 40 L165 100 Z"/><rect class="r" x="88" y="125" width="26" height="50"/><rect class="r" x="55" y="110" width="24" height="22"/><rect class="r" x="122" y="110" width="24" height="22"/><circle class="r" cx="160" cy="30" r="14"/>'],
+ ['Fish','<path class="r" d="M40 100 Q100 40 150 100 Q100 160 40 100 Z"/><path class="r" d="M150 100 L185 70 L185 130 Z"/><circle class="r" cx="70" cy="92" r="7"/><path class="r" d="M95 65 Q105 50 120 62 Z"/>'],
+ ['Apple','<path class="r" d="M100 60 C60 40 30 80 45 125 C58 165 90 175 100 160 C110 175 142 165 155 125 C170 80 140 40 100 60 Z"/><path class="r" d="M100 60 Q98 40 108 28 L112 32 Q104 44 105 60 Z"/><path class="r" d="M108 45 Q130 25 150 40 Q130 55 108 45 Z"/>'],
+ ['Flower','<circle class="r" cx="100" cy="85" r="16"/>'+[0,60,120,180,240,300].map(a=>`<ellipse class="r" cx="${100+Math.round(30*Math.cos(a*Math.PI/180))}" cy="${85+Math.round(30*Math.sin(a*Math.PI/180))}" rx="16" ry="12" transform="rotate(${a} ${100+Math.round(30*Math.cos(a*Math.PI/180))} ${85+Math.round(30*Math.sin(a*Math.PI/180))})"/>`).join('')+'<rect class="r" x="96" y="115" width="8" height="70"/><path class="r" d="M100 150 Q70 135 65 155 Q85 165 100 150 Z"/>'],
+ ['Butterfly','<ellipse class="r" cx="100" cy="100" rx="8" ry="40"/><path class="r" d="M95 90 Q50 30 35 70 Q30 105 95 100 Z"/><path class="r" d="M105 90 Q150 30 165 70 Q170 105 105 100 Z"/><path class="r" d="M95 108 Q50 120 55 150 Q80 160 95 115 Z"/><path class="r" d="M105 108 Q150 120 145 150 Q120 160 105 115 Z"/>']];
+const PALETTE=['#E53935','#FB8C00','#FDD835','#43A047','#1E88E5','#8E24AA','#EC407A','#6D4C41','#FFFFFF','#90A4AE'];let PEN='#E53935';
+function openColour(i){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();i=((i||0)+CPICS.length)%CPICS.length;setNav({v:'colour',id:CHILD.id,i:i});
+ render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">🎨 Colour the ${CPICS[i][0]}</b><span class="muted">${i+1} / ${CPICS.length}</span></div>
+ <svg id="pic" viewBox="0 0 200 200" style="width:100%;background:#fff;border-radius:22px;box-shadow:0 2px 10px #0001">${CPICS[i][1]}</svg>
+ <div class="row" style="flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0">${PALETTE.map(p=>`<button aria-label="colour" onclick="PEN='${p}';document.querySelectorAll('.pc').forEach(x=>x.style.outline='');this.style.outline='4px solid #1F2A44'" class="pc" style="width:46px;height:46px;border-radius:50%;background:${p};border:2px solid #ccd;padding:0"></button>`).join('')}</div>
+ <div class="grid2"><button onclick="openColour(${i-1})">◀ Back</button><button class="green" onclick="colourDone(${i})">✅ Done</button></div>`,true);
+ document.querySelectorAll('#pic .r').forEach(el=>{el.setAttribute('fill','#fff');el.setAttribute('stroke','#333');el.setAttribute('stroke-width','2');el.addEventListener('click',()=>el.setAttribute('fill',PEN))});
+ speakReply(CPICS[i][0]==='Sun'?'సూర్యుడికి రంగులు వేద్దామా?':'ఇప్పుడు దీనికి నీకు ఇష్టమైన రంగులు వేయి!','te')}
+function colourDone(i){const t='ఎంత అందంగా రంగులు వేశావు! సూపర్!';toast('⭐ '+t);speakReply(t,'te').then(()=>openColour(i+1))}
 const Voice={
  begin(wake){if(GEM){if(wake)this.toggle();else{const h=$('#micHint');if(h)h.textContent='Tap the mic to talk'}}else VoiceOld.begin(wake)},
  async toggle(){if(Live.on)return Live.stop();if(!GEM)return VoiceOld.toggle();const m=$('#micBtn');
@@ -382,17 +473,19 @@ function rtEnd(){clearInterval(RT.timer);if(RT.audio)RT.audio.pause();$('#rtMusi
 
 /* ---------- homework / stars / videos ---------- */
 async function openHomework(){const SEQ=++NAVSEQ;setNav({v:'hw',id:CHILD.id});PENDINGVIEW=()=>openHomework();const hw=await api('getHomework',CHILD.id);
- if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">Homework race</div><div class="muted">One hour for everything. Pick one to start.</div>`+
- (hw.length?hw.map(h=>`<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><div><span class="tag" style="background:#EFEAFB;color:#5B3FB0">${esc(h.kind)}</span> <b>${esc(h.subject)}</b><div class="muted">${esc(h.details)}</div></div><span class="muted">${esc(h.status)}</span></div>
- <div class="row" style="margin-top:10px">${h.status==='done'?`<span class="chip">Done ${h.minutes?h.minutes+' min':''}</span>`:`<button class="primary" onclick="hwStart('${h.id}','${esc(h.kind)}')">Start</button><button class="green" onclick="hwDone('${h.id}')">Done</button><button class="danger" onclick="hwPending('${h.id}')">Later</button>`}</div></div>`).join(''):'<div class="card muted">No homework added yet. Amma adds it from the diary.</div>'),true)}
-async function hwStart(id,kind){await api('homeworkUpdate',id,'started','');openTalk(/learn|read/i.test(kind)?'check':'homework')}
+ const left=hw.filter(h=>h.status!=='done');
+ if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">Today's missions</div><div class="muted">${hw.length?left.length+' of '+hw.length+' left – you can do it!':''}</div>`+
+ (left.length?`<button class="primary" style="min-height:64px;font-size:20px;width:100%" onclick="openTalk('hwplan')">🚀 Start today's homework</button>`:'')+
+ (hw.length?hw.map(h=>`<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><div><span class="tag" style="background:#EFEAFB;color:#5B3FB0">${esc(h.kind)}</span> <b>${esc(h.subject)}</b><div class="muted">${h.time?'⏰ '+esc(h.time)+' ':''}${h.plannedMin?'⏱ '+h.plannedMin+' min':''}</div></div><span class="muted">${esc(h.status)}</span></div>
+ <div class="row" style="margin-top:10px">${h.status==='done'?`<span class="chip">Done ${h.minutes?h.minutes+' min':''}</span>`:`<button class="primary" onclick="hwStart('${h.id}','${esc(h.kind)}',${h.plannedMin||0},'${esc(h.subject)}')">Start</button><button class="green" onclick="hwDone('${h.id}')">Done</button><button class="danger" onclick="hwPending('${h.id}')">Later</button>`}</div></div>`).join(''):'<div class="card muted">No homework today. 🎉 Want to read your book?</div>'),true)}
+async function hwStart(id,kind,min,sub){api('homeworkUpdate',id,'started','');openTalk((/learn|read/i.test(kind)?'check':'homework')+'|'+id);if(min)hwClock(min,sub)}
 async function hwDone(id){await api('homeworkUpdate',id,'done','');await api('claimStar',CHILD.id,'Homework item done','');toast('Great! Amma will check your star.');openHomework()}
 async function hwPending(id){await api('homeworkUpdate',id,'pending','Moved to later');openHomework()}
 async function openStars(){const SEQ=++NAVSEQ;setNav({v:'stars',id:CHILD.id});PENDINGVIEW=()=>openStars();const s=await api('getStars',CHILD.id);
  if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">My stars</div><div class="card"><b>This week: ${s.week} stars</b><div class="muted">Bronze 20 · Silver 25 · Gold 30</div></div>`+
  (s.today.map(x=>`<div class="slot"><span>${x.status==='approved'?'&#11088;':'&#9734;'}</span><span>${esc(x.item)}</span><span class="muted" style="margin-left:auto">${x.status==='waiting'?'Amma checks':esc(x.status)}</span></div>`).join('')||'<div class="card muted">No stars yet today.</div>'),true)}
 function videoEmbed(v){if(v.source==='facebook')return `<iframe src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(v.link)}&show_text=false" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
- const m=String(v.link).match(/\/d\/([^/]+)/);if(v.source==='drive'&&m)return `<iframe src="https://drive.google.com/file/d/${m[1]}/preview" allow="autoplay"></iframe>`;return `<a href="${esc(v.link)}" target="_blank">Open video</a>`}
+ const m=String(v.link).match(/\/d\/([^/]+)/);if(v.source==='drive'&&m)return `<iframe src="https://drive.google.com/file/d/${m[1]}/preview" allow="autoplay"></iframe>`;if(/\.mp4(\?|$)/i.test(String(v.link)))return `<video controls playsinline preload="metadata" style="width:100%;border-radius:12px;background:#000" src="${esc(v.link)}"></video>${v.notes?`<div class="muted" style="margin-top:6px">👀 ${esc(v.notes)}</div>`:''}`;return `<a href="${esc(v.link)}" target="_blank">Open video</a>`}
 async function openVideos(){const SEQ=++NAVSEQ;setNav({v:'videos',id:CHILD.id});PENDINGVIEW=()=>openVideos();const vs=await api('getVideos',CHILD.id);
  if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">Video corner</div>`+(vs.map(v=>`<div class="card"><b>${esc(v.title)}</b> <span class="tag" style="background:#EEF1F7">${esc(v.status)}</span><div style="margin-top:10px">${videoEmbed(v)}</div><button class="ghost" style="margin-top:8px" onclick="api('markVideoShown','${v.id}');toast('Saved')">I watched it</button></div>`).join('')||'<div class="card muted">No videos yet.</div>'),true)}
 
@@ -412,7 +505,7 @@ async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PEN
  if(tab==='stars'){body=(d.waitingStars.map(s=>`<div class="card"><b>${esc(s.child)}</b> · ${esc(s.item)} <div class="muted">${esc(s.date)} ${esc(s.proof)}</div><div class="grid2" style="margin-top:10px"><button class="green" onclick="decide('${s.id}',true)">Approve</button><button class="danger" onclick="decide('${s.id}',false)">No</button></div></div>`).join('')||'<div class="card muted">No stars waiting.</div>')+
   `<div class="card"><b>Give a star</b><label>Child<select id="gsKid">${kidOpts}</select></label><label>For<input id="gsItem" placeholder="e.g. Helped at home"></label><button class="green" style="margin-top:8px" onclick="giveStar()">Give star</button></div>`}
  if(tab==='instr'){body=`<div class="card"><label>Child<select id="iKid">${kidOpts}</select></label><label>What<select id="iKind"><option value="read">Read</option><option value="questions">Ask questions</option><option value="video">Show video</option><option value="task">Task</option></select></label><label>Details<textarea id="iText"></textarea></label><label>Time<input id="iTime" type="time"></label><label>Date<input id="iDate" type="date"></label><button class="green" style="margin-top:8px" onclick="addInstr()">Save</button></div>`}
- if(tab==='hw'){body=`<div class="card"><label>Child<select id="hKid">${kidOpts}</select></label><label>Subject<input id="hSub" placeholder="EVS"></label><label>Type<select id="hKind"><option>Writing</option><option>Learn</option><option>Reading</option></select></label><label>Details<textarea id="hDet" placeholder="Habitats p.4-8"></textarea></label><button class="green" style="margin-top:8px" onclick="addHw()">Add homework</button></div>`}
+ if(tab==='hw'){HWFILES=[];const L=await api('adminHomework',ADMIN.token);body=hwAdminForm()+hwAdminList(L)}
  if(tab==='tt'){const rows=await api('adminGetTimetable',ADMIN.token,'yuvaan');body=`<div class="card"><b>Yuvaan – timetable</b>${rows.map(r=>`<div class="row" style="justify-content:space-between;border-bottom:1px solid #EEF1F7;padding:8px 0"><span><b>${esc(r.time)}</b> ${esc(r.activity)}</span><span class="muted">${esc(r.days)}</span></div>`).join('')}</div>
   <div class="card"><b>Add a slot</b><label>Child<select id="tKid">${kidOpts}</select></label><label>Days<input id="tDays" value="Mon,Tue,Wed,Thu,Fri"></label><label>Time<input id="tTime" type="time"></label><label>Activity<input id="tAct"></label><button class="green" style="margin-top:8px" onclick="addSlot()">Save slot</button></div>`}
  if(tab==='vid'){body=`<div class="card"><label>Child<select id="vKid">${kidOpts}</select></label><label>Title<input id="vTitle"></label><label>Facebook link or Google Drive link<input id="vLink" placeholder="Paste link"></label><button class="green" style="margin-top:8px" onclick="addVid()">Save video</button><div class="muted" style="margin-top:8px">Facebook links play inside the app. To make questions from a reel, upload the saved video to Drive – Karthik's Claude chat processes it.</div></div>`}
@@ -432,7 +525,6 @@ async function addMem(k){const t=$('#mem_'+k).value;if(!t.trim())return;await ap
 async function decide(id,ok){await api('adminDecideStar',ADMIN.token,id,ok);adminHome('stars')}
 async function giveStar(){await api('adminGiveStar',ADMIN.token,$('#gsKid').value,$('#gsItem').value);toast('Star given');adminHome('stars')}
 async function addInstr(){await api('adminAddInstruction',ADMIN.token,$('#iKid').value,$('#iDate').value,$('#iTime').value,$('#iKind').value,$('#iText').value);toast('Saved');adminHome('instr')}
-async function addHw(){await api('adminAddHomework',ADMIN.token,$('#hKid').value,$('#hSub').value,$('#hKind').value,$('#hDet').value);toast('Homework added');adminHome('hw')}
 async function addSlot(){await api('adminSaveSlot',ADMIN.token,null,$('#tKid').value,$('#tDays').value,$('#tTime').value,$('#tAct').value,'task',true);toast('Saved');adminHome('tt')}
 async function addVid(){await api('adminAddVideo',ADMIN.token,$('#vKid').value,$('#vTitle').value,$('#vLink').value);toast('Video saved');adminHome('vid')}
 async function addMusic(){await api('adminAddMusic',ADMIN.token,$('#mRt').value,$('#mTitle').value,$('#mLink').value,'');toast('Music added');adminHome('music')}
