@@ -69,7 +69,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v11.1 · Thu 12/11 11:40';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v12 · Thu 12/11 12:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -115,7 +115,7 @@ function goHome(){++NAVSEQ;setNav({v:'home'});PENDINGVIEW=()=>goHome();Voice.sto
  `<div class="row" style="justify-content:flex-end"><button class="ghost" onclick="adminLoginScreen()">&#128274; Parents</button></div><div class="muted" style="text-align:center;font-size:12px;margin-top:12px">YD ${APPVER}</div>`)}
 
 /* ---------- child today ---------- */
-async function openChild(id){const SEQ=++NAVSEQ;setNav({v:'child',id:id});PENDINGVIEW=()=>openChild(id);CHILD=BOOT.children.find(c=>c.id===id);
+async function openChild(id){const SEQ=++NAVSEQ;setNav({v:'child',id:id});PENDINGVIEW=()=>openChild(id);CHILD=BOOT.children.find(c=>c.id===id);if(RESTING[id])return showRest();
  const t=await api('getToday',id);{const n=new Date();t.now=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')}
  const nowIdx=t.slots.findIndex((s,i)=>s.time<=t.now&&(!t.slots[i+1]||t.slots[i+1].time>t.now));
  if(SEQ!==NAVSEQ)return;render(`<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:24px;font-weight:800">Hi ${esc(CHILD.name)}!</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">${t.starsApproved} stars today</span></div>
@@ -129,13 +129,13 @@ async function openChild(id){const SEQ=++NAVSEQ;setNav({v:'child',id:id});PENDIN
 function defaultMode(t){const n=t.now;if(n>=BOOT.morningEnd&&n<'14:00')return 'chat';if(n<BOOT.morningEnd)return 'morning';if(n>='14:00'&&n<'15:00')return 'fact';if(n>='15:00'&&n<'16:00')return 'homework';return 'chat'}
 
 /* ---------- talk (hands-free voice) ---------- */
-function openTalk(mode,restored){++NAVSEQ;MODE=mode;if(mode!=='intro')setNav({v:'talk',id:CHILD.id,mode:mode});
+function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;MODE=mode;if(mode!=='intro')setNav({v:'talk',id:CHILD.id,mode:mode});
  render(`<div class="muted" style="font-weight:800">${mode==='intro'?'Hello! Let\'s meet':'Talking with '+esc(CHILD.helperName)} <span class="tag" style="background:#EEF1F7">computer helper</span></div>
  <div id="clock" class="card hidden"></div>
  <div id="screenShow"></div>
  <div id="chat" style="display:flex;flex-direction:column;gap:8px"></div>
  <div id="micBtn" class="mic sleep" role="button" aria-label="Start talking" onclick="Voice.toggle()"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
- <button id="liveBtn" class="live" onclick="Live.toggle()" style="${GEM?'':'display:none'}">⚡ Live talk</button>
+ ${mode==='chat'?`<button id="liveBtn" class="live" onclick="Live.toggle()" style="${GEM?'':'display:none'}">⚡ Live talk</button>`:''}
  <div id="liveText" style="text-align:center;min-height:24px;font-size:17px;color:#2A5FD6"></div>
  <div class="muted" id="micHint" style="text-align:center">Say "Hey ${esc(CHILD.helperName)}" or tap the mic</div>
  <div class="row"><input id="typeBox" placeholder="Or type here" style="flex:1"><button class="primary" onclick="sendTyped()">Send</button></div>`,true);
@@ -198,7 +198,7 @@ function pcmToWavUrl(b64,rate){const pcm=Uint8Array.from(atob(b64),c=>c.charCode
 let PLAYING=null;
 let SPKSEQ=0;
 function playVoice(v){return new Promise(res=>{let url;try{url=/wav/i.test(String(v.mime))?URL.createObjectURL(new Blob([Uint8Array.from(atob(v.pcm),c=>c.charCodeAt(0))],{type:'audio/wav'})):pcmToWavUrl(v.pcm,+((String(v.mime).match(/rate=(\d+)/)||[])[1]||24000))}catch(e){return res(false)}
- const a=new Audio(url);PLAYING=a;const done=ok=>{if(PLAYING===a)PLAYING=null;URL.revokeObjectURL(url);res(ok)};a.onended=()=>done(true);a.onerror=()=>done(false);a.onpause=()=>{if(!a.ended)done(false)};a.play().catch(()=>done(false))})}
+ const a=new Audio(url);if(CHILD&&CHILD.id==='ditya'){a.playbackRate=0.88;a.preservesPitch=true}PLAYING=a;const done=ok=>{if(PLAYING===a)PLAYING=null;URL.revokeObjectURL(url);res(ok)};a.onended=()=>done(true);a.onerror=()=>done(false);a.onpause=()=>{if(!a.ended)done(false)};a.play().catch(()=>done(false))})}
 function splitFirst(t){t=String(t||'').trim();const re=/^[\s\S]*?[.!?।]+(?=\s|$)/;let m=t.match(re),f=m?m[0]:t;if(m&&f.length<25){const m2=t.slice(f.length).match(re);if(m2)f+=m2[0]}return[f.trim(),t.slice(f.length).trim()]}
 // Voice in two pieces: the first sentence plays at once while the rest is being made.
 async function speakReply(text,lang,pre){if(!text)return;const my=++SPKSEQ;const h=$('#micHint');if(h)h.textContent='🔊 Speaking…';lang=lang||'te';
@@ -262,7 +262,8 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
   try{const r=await net('liveLog',[CHILD.id,MODE,t,u]);if(r&&r.budget===false&&on){stop();addBubble('helper','ఈరోజుకి నా సమయం అయిపోయింది. రేపు మళ్ళీ మాట్లాడుకుందాం!')}}catch(e){turns=t.concat(turns)}sending=false}
  async function start(){if(on||busy)return;Voice.stop();busy=true;ui('wait');
   try{const t=await net('liveToken',[CHILD.id,MODE]);
-   if(t.resting){addBubble('helper','ఈరోజుకి నా సమయం అయిపోయింది. రేపు మళ్ళీ మాట్లాడుకుందాం!');throw 0}
+   if(t.notHere){toast('Live talk is only for free chat');throw 0}
+   if(t.resting){addBubble('helper',t.live?'ఇవాళ్టికి లైవ్ టాక్ అయిపోయింది. మైక్ బటన్‌తో మాట్లాడుకుందాం!':'ఇప్పుడు కొంచెం విశ్రాంతి తీసుకుందాం. తర్వాత మళ్ళీ మాట్లాడుకుందాం!');throw 0}
    if(!t.token)throw new Error('off');
    play=new AudioContext({sampleRate:24000});try{await play.resume()}catch(e){}
    mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
@@ -289,7 +290,28 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
  function cleanup(){clearInterval(idle);idle=null;try{ws&&ws.readyState<2&&ws.close()}catch(e){}ws=null;try{mic&&mic.getTracks().forEach(t=>t.stop())}catch(e){}mic=null;
   try{ctx&&ctx.close()}catch(e){}ctx=null;node=null;hush();const p=play;play=null;setTimeout(()=>{try{p&&p.close()}catch(e){}},300);try{lock&&lock.release()}catch(e){}lock=null}
  function stop(msg){const was=on;on=false;busy=false;cleanup();if(was){endTurn();save()}ui('off');if(msg)toast(msg)}
- return{start,stop,toggle(){on||busy?stop():start()},get on(){return on||busy}}})();
+ function say(t){if(on&&ws&&ws.readyState===1)ws.send(JSON.stringify({realtimeInput:{text:'(Say this to the child now, warmly, in your own words, in one or two short sentences: '+t+')'}}))}
+ return{start,stop,say,toggle(){on||busy?stop():start()},get on(){return on||busy}}})();
+/* ---------- screen time + live control: kids' screens report every 8 s and follow the parents' side ---------- */
+const RESTING={};let PULSE_T=Date.now(),PULSE_BUSY=false,WARNED={};
+function onKidView(){const n=getNav()||{};return !!(CHILD&&FTOK&&!ADMIN_VIEW()&&n.v&&n.v!=='home'&&n.v!=='admin')}
+async function kidPulse(){if(PULSE_BUSY)return;const now=Date.now(),secs=Math.min(15,Math.round((now-PULSE_T)/1000));PULSE_T=now;
+ if(document.visibilityState!=='visible'||!onKidView())return;PULSE_BUSY=true;const kid=CHILD.id;
+ try{const r=await net('kidPulse',[kid,secs,MODE]);applyPulse(kid,r)}catch(e){}PULSE_BUSY=false}
+async function applyPulse(kid,r){if(!r)return;const s=r.screen||{};
+ for(const c of (r.cmds||[])){if(c.kind==='say'&&c.value){if(Live.on)Live.say(c.value);else{addBubble('helper',c.value);if(!RESTING[kid])speakReply(c.value,'te')}}}
+ if(s.over){if(!RESTING[kid]){RESTING[kid]=true;if(CHILD&&CHILD.id===kid)showRest()}return}
+ if(RESTING[kid]){RESTING[kid]=false;WARNED[kid]=0;if(CHILD&&CHILD.id===kid){openChild(kid);speakReply('సరే! ఇంకొంచెం సేపు కలిసి నేర్చుకుందాం.','te')}return}
+ const left=Math.min(s.leftMin==null?999:s.leftMin,s.stopIn==null?999:s.stopIn);
+ if(left<=2&&WARNED[kid]!==2){WARNED[kid]=2;const t='ఇంకా '+left+' నిమిషాలే ఉంది. ఇప్పుడు చేస్తున్నది ముగిద్దాం.';if(Live.on)Live.say(t);else{addBubble('helper',t);speakReply(t,'te')}}
+ else if(left>2)WARNED[kid]=0}
+function showRest(){Voice.stop();const kid=CHILD;setNav({v:'child',id:kid.id});
+ render(`<div class="card" style="text-align:center;margin-top:24px;padding:28px 18px"><div style="font-size:64px">🌙</div>
+ <div style="font-size:24px;font-weight:800;margin-top:6px">స్క్రీన్ టైమ్ అయిపోయింది</div>
+ <div class="muted" style="font-size:17px;margin-top:8px">Screen time is over for now. Let's rest our eyes, play, and come back later!</div>
+ <button class="primary" style="margin-top:18px;width:100%" onclick="goHome()">🏠 Home</button></div>`,false);
+ speakReply(kid.id==='ditya'?'ఇప్పుడు స్క్రీన్ టైమ్ అయిపోయింది. కళ్ళకి కొంచెం విశ్రాంతి ఇద్దాం. తర్వాత మళ్ళీ ఆడుకుందాం!':'ఇవాళ్టికి స్క్రీన్ టైమ్ అయిపోయింది. బాగా చేశావు! కాసేపు బయట ఆడుకో, తర్వాత మళ్ళీ కలుద్దాం.','te')}
+setInterval(kidPulse,8000);
 const Voice={
  begin(wake){if(GEM){if(wake)this.toggle();else{const h=$('#micHint');if(h)h.textContent='Tap the mic to talk'}}else VoiceOld.begin(wake)},
  async toggle(){if(Live.on)return Live.stop();if(!GEM)return VoiceOld.toggle();const m=$('#micBtn');
@@ -380,12 +402,13 @@ function adminLoginScreen(){render(`<div style="font-size:22px;font-weight:800">
  <label>PIN<input id="aPin" type="password" inputmode="numeric"></label><div class="muted">First time: the PIN you type now becomes your PIN.</div>
  <button class="green" onclick="doLogin()">Open</button>`,true)}
 async function doLogin(){const r=await api('adminLogin',$('#aRole').value,$('#aPin').value);if(!r.ok)return toast('Wrong PIN');ADMIN=r;try{localStorage.setItem('ydAdmin',JSON.stringify(r))}catch(e){}showFab();pollThread();adminHome('today')}
-const ATABS=[['today','Today'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','Ask Claude'],['use','Usage']];
+const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','Ask Claude'],['use','Usage']];
 async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
  const d=await api('adminToday',ADMIN.token);let body='';
  const kidOpts=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
  if(tab==='today'){body=['yuvaan','ditya'].map(k=>{const t=d[k];const n=d.children.find(c=>c.id===k);return `<div class="card"><b>${esc(n.name)}</b> <span class="muted">helper: ${esc(n.helperName)}${n.nameChosenOn?' (chosen '+esc(n.nameChosenOn)+')':''}</span><div class="muted">Stars today: ${t.starsApproved} approved, ${t.starsWaiting} waiting</div></div>`}).join('')+
   `<div class="card"><b>Yuvaan's homework</b>${d.homework.map(h=>`<div class="row" style="justify-content:space-between"><span>${esc(h.subject)}</span><span class="muted">${esc(h.status)} ${h.minutes?h.minutes+' min':''}</span></div>`).join('')||'<div class="muted">None added</div>'}</div>`}
+ if(tab==='live'){const L=await api('adminLive',ADMIN.token);body=liveCards(L);setTimeout(()=>{const n=getNav()||{};if(n.v==='admin'&&n.tab==='live'&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#app textarea,#app input')))adminHome('live')},15000)}
  if(tab==='stars'){body=(d.waitingStars.map(s=>`<div class="card"><b>${esc(s.child)}</b> · ${esc(s.item)} <div class="muted">${esc(s.date)} ${esc(s.proof)}</div><div class="grid2" style="margin-top:10px"><button class="green" onclick="decide('${s.id}',true)">Approve</button><button class="danger" onclick="decide('${s.id}',false)">No</button></div></div>`).join('')||'<div class="card muted">No stars waiting.</div>')+
   `<div class="card"><b>Give a star</b><label>Child<select id="gsKid">${kidOpts}</select></label><label>For<input id="gsItem" placeholder="e.g. Helped at home"></label><button class="green" style="margin-top:8px" onclick="giveStar()">Give star</button></div>`}
  if(tab==='instr'){body=`<div class="card"><label>Child<select id="iKid">${kidOpts}</select></label><label>What<select id="iKind"><option value="read">Read</option><option value="questions">Ask questions</option><option value="video">Show video</option><option value="task">Task</option></select></label><label>Details<textarea id="iText"></textarea></label><label>Time<input id="iTime" type="time"></label><label>Date<input id="iDate" type="date"></label><button class="green" style="margin-top:8px" onclick="addInstr()">Save</button></div>`}
@@ -397,6 +420,15 @@ async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PEN
  if(tab==='ask'){body=`<div class="card"><b>&#10022; Claude chat</b><div class="muted" style="margin-top:4px">Ask anything about the app or say what you want changed – in Telugu or English. Claude answers here; a change is made only after you tap <b>Yes, make it</b>, and you see Saved → Being built → Done &#10003; in the same chat. The &#10022; Claude button at the top opens the same chat on every screen.</div><button class="green" style="margin-top:10px;width:100%" onclick="askOpen()">Open Claude chat</button></div>`}
  if(tab==='use'){const b=d.budget;body=`<div class="card"><b>This month: ₹${b.spentMonth} of ₹${b.cap}</b><div class="muted">Today: ₹${b.spentToday} (daily share ₹${b.dailyAllowance})</div>${b.warn?'<div class="danger" style="padding:8px;border-radius:10px;margin-top:8px">80% of the monthly cap used</div>':''}</div>`}
  if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">Admin · ${esc(ADMIN.role)}</div>`+tabs+body,true)}
+function liveCards(L){return ['yuvaan','ditya'].map(k=>{const n=BOOT.children.find(c=>c.id===k)||{name:k};const s=L[k].screen;const st=s.over?'<span style="color:#C62828;font-weight:800">Stopped – rest screen showing</span>':(s.stopIn?'Stops in '+s.stopIn+' min':(s.leftMin!=null?s.leftMin+' min left today':'No limit today'));
+ return `<div class="card"><div class="row" style="justify-content:space-between"><b>${esc(n.name)}</b><span class="muted">used ${s.usedMin} min today</span></div><div style="margin:6px 0">${st}</div>
+ <div class="grid2"><button class="danger" onclick="ctl('${k}','stopNow')">⏹ Stop now</button><button onclick="ctl('${k}','stopIn',10)">⏳ Stop in 10 min</button><button class="green" onclick="ctl('${k}','addMin',10)">➕ 10 more min</button><button onclick="ctl('${k}','resume',30)">▶ Allow again</button></div>
+ <label>Daily screen limit (minutes, 0 = none)<div class="row"><input id="lim_${k}" type="number" min="0" value="${s.dailyLimit||0}" style="flex:1"><button onclick="ctl('${k}','limit',$('#lim_${k}').value)">Save</button></div></label>
+ <label>Tell ${esc(n.name)} now (the app says it in its own words)<div class="row"><input id="say_${k}" placeholder="e.g. time to drink water" style="flex:1"><button class="green" onclick="ctl('${k}','say',$('#say_${k}').value)">Send</button></div></label>
+ <details style="margin-top:8px"><summary><b>Memory</b> – what the helper remembers (${L[k].memory.length} recent)</summary>${L[k].memory.map(m=>`<div class="muted" style="border-bottom:1px solid #EEF1F7;padding:6px 0;white-space:pre-wrap">${esc(m.date)} · ${esc(m.kind)}: ${esc(String(m.text).slice(0,400))}</div>`).join('')}
+ <textarea id="mem_${k}" rows="3" placeholder="Paste a summary or add a note to remember"></textarea><button class="green" style="margin-top:6px" onclick="addMem('${k}')">Save to memory</button></details></div>`}).join('')}
+async function ctl(k,kind,v){if(kind==='say'&&!String(v||'').trim())return;await api('adminControl',ADMIN.token,k,kind,v);toast(kind==='say'?'Sent – the app will say it':'Done');adminHome('live')}
+async function addMem(k){const t=$('#mem_'+k).value;if(!t.trim())return;await api('adminMemory',ADMIN.token,k,t);toast('Saved to memory');adminHome('live')}
 async function decide(id,ok){await api('adminDecideStar',ADMIN.token,id,ok);adminHome('stars')}
 async function giveStar(){await api('adminGiveStar',ADMIN.token,$('#gsKid').value,$('#gsItem').value);toast('Star given');adminHome('stars')}
 async function addInstr(){await api('adminAddInstruction',ADMIN.token,$('#iKid').value,$('#iDate').value,$('#iTime').value,$('#iKind').value,$('#iText').value);toast('Saved');adminHome('instr')}
