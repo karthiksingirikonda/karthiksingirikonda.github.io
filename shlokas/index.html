@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="te">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>శ్లోకాలు · Shlokas</title>
+<meta name="theme-color" content="#8A2E0B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#FFF8EC;--card:#fff;--ink:#2B1A0E;--mut:#7A6656;--acc:#B5480F;--acc2:#F4A11A;--line:#F0DFC6;--kid:#E9F6EC;--kidb:#3E9B5B;--par:#F3EEF9;--parb:#7A5BB5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans Telugu","Noto Sans Devanagari",sans-serif;font-size:17px;line-height:1.55}
+header{position:sticky;top:0;z-index:5;background:#8A2E0B;color:#fff;display:flex;align-items:center;gap:8px;padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top))}
+header h1{font-size:19px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header button{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:10px;padding:7px 11px;font-size:15px}
+main{padding:12px;max-width:760px;margin:0 auto 120px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:10px 0;box-shadow:0 1px 3px rgba(120,60,10,.06)}
+.tap{display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.ico{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex:none;background:#FCE7C8}
+.muted{color:var(--mut);font-size:14px}
+.pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:20px;background:#FCE7C8;color:#8A2E0B;margin-left:4px}
+.soon{opacity:.55}
+.sa{font-size:19px;font-family:"Noto Sans Devanagari",system-ui,sans-serif;white-space:pre-line;color:#5A1E05;font-weight:600}
+.tr{font-size:14px;color:var(--mut);white-space:pre-line;font-style:italic;margin-top:4px}
+.mean{margin-top:10px}
+.kid{background:var(--kid);border-left:4px solid var(--kidb);border-radius:10px;padding:8px 10px;margin-top:10px;font-size:15.5px}
+.par{background:var(--par);border-left:4px solid var(--parb);border-radius:10px;padding:8px 10px;margin-top:10px;font-size:15px}
+.vno{font-weight:800;color:var(--acc)}
+.play{background:var(--acc);color:#fff;border:0;border-radius:24px;padding:8px 16px;font-size:16px;font-weight:700}
+.play.on{background:#2B1A0E}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.playing{outline:3px solid var(--acc2);background:#FFFBF2}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:7px 12px;font:inherit;font-size:14px;color:var(--ink)}
+.seg button.on{background:var(--acc);color:#fff}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#2B1A0E;color:#fff;padding:10px 14px;padding-bottom:max(10px,env(safe-area-inset-bottom));display:none;align-items:center;gap:10px;z-index:9}
+.bar.show{display:flex}
+.bar span{flex:1;font-size:14px}
+.bar button{background:var(--acc2);color:#2B1A0E;border:0;border-radius:20px;padding:8px 14px;font-weight:800;font-size:15px}
+.warn{background:#FFF1D6;border:1px solid #F4C56E;border-radius:12px;padding:10px;font-size:14.5px}
+details summary{cursor:pointer;color:var(--parb);font-size:14px;margin-top:8px}
+.foot{text-align:center;color:var(--mut);font-size:12px;margin-top:20px}
+</style>
+</head>
+<body>
+<header><button id="back" onclick="history.back()" style="display:none">‹</button><h1 id="ttl">శ్లోకాలు</h1><button id="info" onclick="openInfo()">ⓘ</button></header>
+<main id="app"></main>
+<div class="bar" id="bar"><span id="barT"></span><button onclick="stopAll()">■ Stop</button></div>
+<script>
+const APPVER='s1 · Thu 12/11/26';
+const BOOKS=[
+ {id:'gita',te:'భగవద్గీత',en:'Bhagavad Gita',ico:'🪔',note:'18 అధ్యాయాలు · 700 శ్లోకాలు'},
+ {id:'ramayana',te:'రామాయణం',en:'Ramayana',ico:'🏹',note:'త్వరలో · Coming soon',soon:1},
+ {id:'bhagavatam',te:'భాగవతం',en:'Bhagavatam',ico:'🦚',note:'త్వరలో · Coming soon',soon:1},
+ {id:'mahabharata',te:'మహాభారతం',en:'Mahabharata',ico:'⚔️',note:'త్వరలో · Coming soon',soon:1}];
+const $=s=>document.querySelector(s),app=$('#app');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let LANG=localStorage.getItem('shLang')||'te';const DATA={};
+function setLang(l){LANG=l;localStorage.setItem('shLang',l);route()}
+async function book(id){if(!DATA[id]){const r=await fetch('data/'+id+'.json');DATA[id]=await r.json()}return DATA[id]}
+function langSeg(){return `<div class="seg"><button class="${LANG==='te'?'on':''}" onclick="setLang('te')">తెలుగు</button><button class="${LANG==='en'?'on':''}" onclick="setLang('en')">English</button></div>`}
+function go(h){location.hash=h}
+window.addEventListener('hashchange',()=>{stopAll();route()});window.addEventListener('popstate',()=>{if($('#ttl').textContent.startsWith('ⓘ'))route()});
+async function route(){const h=location.hash.slice(1).split('/');$('#back').style.display=h[0]?'':'none';
+ if(!h[0])return home();const b=BOOKS.find(x=>x.id===h[0]);if(!b||b.soon)return home();
+ app.innerHTML='<div class="muted" style="padding:20px">తెరుస్తోంది…</div>';const d=await book(b.id);
+ if(h[1])return chapter(d,+h[1]);return chapters(d)}
+function home(){$('#ttl').textContent='శ్లోకాలు · Shlokas';
+ app.innerHTML=voiceWarn()+BOOKS.map(b=>`<button class="card tap ${b.soon?'soon':''}" ${b.soon?'':`onclick="go('${b.id}')"`}><div class="ico">${b.ico}</div><div><div style="font-size:20px;font-weight:800">${b.te}</div><div class="muted">${b.en} · ${b.note}</div></div></button>`).join('')+`<div class="foot">${APPVER}</div>`}
+function chapters(d){$('#ttl').textContent=d.te;
+ app.innerHTML=`<div class="row" style="justify-content:space-between">${langSeg()}</div>`+d.chapters.map(c=>{const done=c.verses.filter(v=>v.te).length;
+  return `<button class="card tap" onclick="go('${d.book}/${c.n}')"><div class="ico" style="font-weight:800;color:#8A2E0B">${c.n}</div><div><div style="font-weight:800">${LANG==='te'?c.te:c.en}</div><div class="muted">${c.verses.length} శ్లోకాలు${done<c.verses.length?` · అర్థాలు ${done}/${c.verses.length}`:''}</div></div></button>`}).join('')}
+function chapter(d,n){const c=d.chapters.find(x=>x.n===n);if(!c)return chapters(d);$('#ttl').textContent=`${n}. ${c.te}`;
+ app.innerHTML=`<div class="card"><div style="font-weight:800;font-size:20px">${n}. ${LANG==='te'?c.te:c.en}</div><div class="mean">${esc(LANG==='te'?c.ste:c.sen)}</div>
+ <div class="row" style="margin-top:10px">${langSeg()}<button class="play" id="pc" onclick="playChapter('${d.book}',${n})">▶ అధ్యాయం మొత్తం వినండి</button></div></div>`+
+ c.verses.map((v,i)=>{const m=LANG==='te'?v.te:v.en;
+ return `<div class="card" id="v${i}"><div class="row" style="justify-content:space-between"><span class="vno">${n}.${v.v}</span><button class="play" id="p${i}" onclick="playOne('${d.book}',${n},${i})">▶ వినండి</button></div>
+ <div class="sa" style="margin-top:8px">${esc(v.sa)}</div><div class="tr">${esc(v.tr)}</div>
+ <div class="mean">${m?esc(m):'<span class="muted">అర్థం త్వరలో వస్తుంది · Meaning coming soon</span>'}</div>
+ ${v.kid?`<div class="kid"><b>👧👦 పిల్లలకు:</b> ${esc(v.kid)}</div>`:''}
+ ${v.par?`<details><summary>👨‍👩 పెద్దలకు మాత్రమే</summary><div class="par">${esc(v.par)}</div></details>`:''}</div>`}).join('')+
+ `<div class="row" style="justify-content:space-between;margin-top:14px">${n>1?`<button class="card tap" style="width:48%" onclick="go('${d.book}/${n-1}')">‹ ${n-1}వ అధ్యాయం</button>`:'<span></span>'}${n<d.chapters.length?`<button class="card tap" style="width:48%;justify-content:flex-end" onclick="go('${d.book}/${n+1}')">${n+1}వ అధ్యాయం ›</button>`:''}</div>`}
+
+/* ---------- voice (phone's own free voice) ---------- */
+let VOICES=[],RUN=0;
+function loadVoices(){VOICES=speechSynthesis.getVoices()||[]}
+if('speechSynthesis' in window){loadVoices();speechSynthesis.onvoiceschanged=()=>{loadVoices();if(!location.hash)home()}}
+const vFor=l=>VOICES.find(v=>v.lang.replace('_','-').toLowerCase().startsWith(l));
+function voiceWarn(){if(!('speechSynthesis' in window))return '<div class="warn">ఈ ఫోన్ బ్రౌజర్‌లో వినే సౌకర్యం లేదు. Chrome లో తెరవండి.</div>';
+ if(VOICES.length&&!vFor('te'))return `<div class="warn">🔈 తెలుగు గొంతు ఫోన్‌లో లేదు. ఇలా జోడించండి: Settings → General management → Text-to-speech → Preferred engine: <b>Speech Services by Google</b> → ⚙ → Install voice data → <b>Telugu</b> (and <b>Hindi</b>) డౌన్‌లోడ్ చేయండి.</div>`;return ''}
+function chunks(t){return String(t).replace(/।।[^।]*।।/g,'।').split(/(?<=[।.!?\n])\s*/).map(s=>s.trim()).filter(Boolean)}
+function say(text,lang,rate,run){return new Promise(res=>{const parts=chunks(text);let i=0;
+ const next=()=>{if(run!==RUN||i>=parts.length)return res();const u=new SpeechSynthesisUtterance(parts[i++]);const v=vFor(lang);if(v)u.voice=v;u.lang=lang==='te'?'te-IN':'hi-IN';u.rate=rate;u.onend=next;u.onerror=next;speechSynthesis.speak(u)};next()})}
+const pause=(ms,run)=>new Promise(r=>setTimeout(r,run===RUN?ms:0));
+async function speakVerse(c,i,run){const v=c.verses[i];const el=$('#v'+i);document.querySelectorAll('.playing').forEach(e=>e.classList.remove('playing'));
+ if(el){el.classList.add('playing');el.scrollIntoView({behavior:'smooth',block:'center'})}$('#barT').textContent=`${c.n}.${v.v} వింటున్నారు`;
+ await say(v.sa,'hi',0.8,run);if(run!==RUN)return;await pause(500,run);
+ if(v.te){await say(v.te,'te',0.95,run);if(v.kid&&run===RUN){await pause(300,run);await say('పిల్లలకు: '+v.kid,'te',0.95,run)}}
+ if(el)el.classList.remove('playing')}
+async function playOne(b,n,i){const on=$('#p'+i).classList.contains('on');stopAll();if(on)return;const run=++RUN;$('#p'+i).classList.add('on');$('#p'+i).textContent='■ ఆపు';$('#bar').classList.add('show');
+ await speakVerse(DATA[b].chapters.find(x=>x.n===n),i,run);if(run===RUN)stopAll()}
+async function playChapter(b,n){const on=$('#pc').classList.contains('on');stopAll();if(on)return;const run=++RUN;const c=DATA[b].chapters.find(x=>x.n===n);
+ $('#pc').classList.add('on');$('#pc').textContent='■ ఆపు';$('#bar').classList.add('show');
+ await say(c.ste,'te',0.95,run);for(let i=0;i<c.verses.length&&run===RUN;i++){await speakVerse(c,i,run);await pause(700,run)}if(run===RUN)stopAll()}
+function stopAll(){RUN++;try{speechSynthesis.cancel()}catch(e){}$('#bar').classList.remove('show');document.querySelectorAll('.play.on').forEach(b=>{b.classList.remove('on');b.textContent=b.id==='pc'?'▶ అధ్యాయం మొత్తం వినండి':'▶ వినండి'});document.querySelectorAll('.playing').forEach(e=>e.classList.remove('playing'))}
+function openInfo(){stopAll();$('#back').style.display='';history.pushState({},'');$('#ttl').textContent='ⓘ ఎలా వాడాలి';
+ app.innerHTML=`<div class="card"><b>📖 చదవటం</b><div class="muted">పుస్తకం → అధ్యాయం ఎంచుకోండి. ప్రతి శ్లోకం సంస్కృతంలో, దాని కింద అర్థం. పైన తెలుగు / English మార్చుకోవచ్చు.</div></div>
+ <div class="card"><b>▶ వినటం</b><div class="muted">ప్రతి శ్లోకం పక్కన ▶ నొక్కితే ముందు సంస్కృత శ్లోకం, తర్వాత తెలుగులో అర్థం వినిపిస్తుంది. "అధ్యాయం మొత్తం వినండి" నొక్కితే ఒకదాని తర్వాత ఒకటి వరుసగా వినిపిస్తుంది. ఆపాలంటే కింద ■ Stop.</div></div>
+ <div class="card"><b>👧👦 పిల్లలకు</b><div class="muted">ఆకుపచ్చ పెట్టెలో పిల్లలకు చెప్పదగిన నీతి, ఉదాహరణ.</div></div>
+ <div class="card"><b>👨‍👩 పెద్దలకు మాత్రమే</b><div class="muted">కొన్ని శ్లోకాలకు పెద్దలకు మాత్రమే వివరణ - నొక్కితేనే తెరుచుకుంటుంది.</div></div>
+ <div class="card"><b>📲 ఫోన్‌లో యాప్‌లా</b><div class="muted">Chrome మెనూ ⋮ → "Add to Home screen" / "Install app". ఒకసారి తెరిచిన భాగాలు ఇంటర్నెట్ లేకపోయినా తెరుచుకుంటాయి. ఉచితం - ఎన్నిసార్లు చదివినా, విన్నా ఖర్చు లేదు.</div></div>
+ <div class="card"><b>🔈 గొంతు</b><div class="muted">ఫోన్‌లోని ఉచిత గొంతు వాడుతుంది. తెలుగు వినిపించకపోతే: Settings → General management → Text-to-speech → Speech Services by Google → Install voice data → Telugu, Hindi.</div></div>`}
+route();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
