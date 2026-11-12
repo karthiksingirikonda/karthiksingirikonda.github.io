@@ -68,7 +68,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v9.1 · Thu 12/11 11:00';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v10 · Thu 12/11 11:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -93,7 +93,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
 function render(html,showBack){LASTVIEW=PENDINGVIEW;PENDINGVIEW=null;$('#app').innerHTML=html;$('#backBtn').classList.toggle('hidden',!showBack);if(!QUIET)window.scrollTo(0,0)}
 
 /* ---------- home ---------- */
-async function start(){if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini)}).catch(()=>{});BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
+async function start(){if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini)});if(!window.WARM)WARM=setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)net('voiceReady',[]).catch(()=>{})},240000).catch(()=>{});BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
  let t=null;try{t=JSON.parse(localStorage.getItem('ydAdmin')||'null')}catch(e){}
  if(t&&t.token){ADMIN=t;showFab();api('adminCheckToken',t.token).then(c=>{if(!c.ok){ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();const n=getNav();if(n&&n.v==='admin')goHome()}else pollThread()}).catch(()=>{})}
  restoreNav()}
@@ -146,9 +146,9 @@ function addBubble(who,text,cap){const c=$('#chat');if(!c)return;const d=documen
 function sendTyped(){const b=$('#typeBox');if(b.value.trim()){send(b.value.trim());b.value=''}}
 async function send(text){if(!text.startsWith('('))addBubble('me',text);Voice.pause();
  addBubble('helper','• • •');const dots=$('#chat')&&$('#chat').lastElementChild;if(dots)dots.id='thinking';
- try{const r=await api('talk',CHILD.id,MODE,text);const th=$('#thinking');th&&th.remove();addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
+ try{const r=GEM?await api('talkSpeak',CHILD.id,MODE,text):await api('talk',CHILD.id,MODE,text);const th=$('#thinking');th&&th.remove();addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
   if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true;$('#micHint').textContent='Say "Hey '+r.helperName+'" any time'}
-  await speakReply(r.say||r.text,r.lang||'te');
+  await speakReply(r.say||r.text,r.lang||'te',r);
  }catch(e){const th=$('#thinking');th&&th.remove()}
  Voice.resume()}
 async function showOnScreen(show){const box=$('#screenShow');if(!box||!show)return;
@@ -194,10 +194,20 @@ function pcmToWavUrl(b64,rate){const pcm=Uint8Array.from(atob(b64),c=>c.charCode
  const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};w(0,'RIFF');v.setUint32(4,36+pcm.length,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,pcm.length,true);new Uint8Array(buf,44).set(pcm);
  return URL.createObjectURL(new Blob([buf],{type:'audio/wav'}))}
 let PLAYING=null;
-async function speakReply(text,lang){if(!text)return;const h=$('#micHint');if(h)h.textContent='🔊 Speaking…';
- if(GEM){try{const r=await net('speakText',[text,lang||'te']);if(r&&r.pcm){const rate=+((String(r.mime).match(/rate=(\d+)/)||[])[1]||24000);const url=/wav/i.test(String(r.mime))?URL.createObjectURL(new Blob([Uint8Array.from(atob(r.pcm),c=>c.charCodeAt(0))],{type:'audio/wav'})):pcmToWavUrl(r.pcm,rate);
-  await new Promise(res=>{const a=new Audio(url);PLAYING=a;a.onended=a.onerror=()=>{PLAYING=null;URL.revokeObjectURL(url);res()};a.play().catch(()=>{PLAYING=null;res()})});return}}catch(e){}}
- await VoiceOld.speak(text,lang)}
+let SPKSEQ=0;
+function playVoice(v){return new Promise(res=>{let url;try{url=/wav/i.test(String(v.mime))?URL.createObjectURL(new Blob([Uint8Array.from(atob(v.pcm),c=>c.charCodeAt(0))],{type:'audio/wav'})):pcmToWavUrl(v.pcm,+((String(v.mime).match(/rate=(\d+)/)||[])[1]||24000))}catch(e){return res(false)}
+ const a=new Audio(url);PLAYING=a;const done=ok=>{if(PLAYING===a)PLAYING=null;URL.revokeObjectURL(url);res(ok)};a.onended=()=>done(true);a.onerror=()=>done(false);a.onpause=()=>{if(!a.ended)done(false)};a.play().catch(()=>done(false))})}
+function splitFirst(t){t=String(t||'').trim();const re=/^[\s\S]*?[.!?।]+(?=\s|$)/;let m=t.match(re),f=m?m[0]:t;if(m&&f.length<25){const m2=t.slice(f.length).match(re);if(m2)f+=m2[0]}return[f.trim(),t.slice(f.length).trim()]}
+// Voice in two pieces: the first sentence plays at once while the rest is being made.
+async function speakReply(text,lang,pre){if(!text)return;const my=++SPKSEQ;const h=$('#micHint');if(h)h.textContent='🔊 Speaking…';lang=lang||'te';
+ if(GEM){try{let first,rest;
+  if(pre&&pre.voice){first=Promise.resolve(pre.voice);rest=pre.rest||''}
+  else{const p=splitFirst(text);first=net('speakText',[p[0],lang]).then(r=>r&&r.pcm?r:null);rest=p[1]}
+  const restP=rest?net('speakText',[rest,lang]).then(r=>r&&r.pcm?r:null).catch(()=>null):Promise.resolve(null);
+  const v1=await first;
+  if(v1){const ok=await playVoice(v1);if(!ok||my!==SPKSEQ)return;if(rest){const v2=await restP;if(my!==SPKSEQ)return;if(v2)await playVoice(v2);else await VoiceOld.speak(rest,lang)}return}
+ }catch(e){}}
+ if(my===SPKSEQ)await VoiceOld.speak(text,lang)}
 function blobB64(b){return new Promise(res=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.readAsDataURL(b)})}
 const Ears=(()=>{let stream=null,ctx=null,an=null,data=null,timer=null,on=false,hold=false,rec=null,chunks=[],loudSince=0,lastLoud=0,recStart=0,thr=0.02,floor=[],lastAny=0,onDone=null,label='';
  function rms(){an.getFloatTimeDomainData(data);let s=0;for(let i=0;i<data.length;i++)s+=data[i]*data[i];return Math.sqrt(s/data.length)}
@@ -227,7 +237,7 @@ async function onKidSpeech(blob){const m=$('#micBtn');if(m){m.classList.remove('
   if(r.local){addBubble('me',r.heard);if(/^(bye|బై)/i.test(r.heard)){Voice.stop();await speakReply('సరే, మళ్ళీ పిలువు!','te');return}localCommand(r.heard)}
   else{addBubble('me',r.heard);addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
    if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true}
-   await speakReply(r.say||r.text,r.lang||'te')}
+   await speakReply(r.say||r.text,r.lang||'te',r)}
  }catch(e){const th=$('#thinking');th&&th.remove();if(h)h.textContent='Network problem – say it again'}
  if(Ears.on){Ears.resume();m&&m.classList.add('listen')}}
 const Voice={
@@ -237,7 +247,7 @@ const Voice={
   const ok=await Ears.start(onKidSpeech,'#micHint');if(ok&&m){m.classList.remove('sleep');m.classList.add('listen')}},
  pause(){if(GEM)Ears.pause();else VoiceOld.pause()},
  resume(){if(GEM){if(Ears.on){Ears.resume()}else{const h=$('#micHint');if(h)h.textContent='Tap the mic to talk'}}else VoiceOld.resume()},
- stop(){Ears.stop();VoiceOld.stop();if(PLAYING){try{PLAYING.pause()}catch(e){}PLAYING=null}},
+ stop(){SPKSEQ++;Ears.stop();VoiceOld.stop();if(PLAYING){try{PLAYING.pause()}catch(e){}PLAYING=null}},
  speak(t,l){return VoiceOld.speak(t,l)}};
 
 
