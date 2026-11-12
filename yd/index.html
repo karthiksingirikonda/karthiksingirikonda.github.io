@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v41 · Thu 12/11 20:50';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v42 · Thu 12/11 21:10';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -979,6 +979,7 @@ async function openQuest(){if(QG)qStop();if(CHILD&&RESTING[CHILD.id])return show
  render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:22px">${title}</b><span class="tag" style="background:#FFE8EE;color:#B91C1C">${qLives()}</span></div>
  ${st?`<div class="card"><b>📖 ${esc(st.title)}${(p.season||1)>1?' · Season '+p.season:''}</b><div class="muted">Level ${(p.level||0)+1} of 6: ${esc(lv.name)} ${lv.foe} · round ${(p.round||0)+1} of 5</div></div>`:`<div class="card"><b>🐰 Help Bunny grow the Fruit Garden</b><div class="muted">Level ${(p.level||0)+1} · round ${(p.round||0)+1} of 5</div></div>`}
  ${action}
+ ${kid?'':bossCard()}
  <div class="card"><b>⏳ My game time this week: ${v.minutes} of ${v.cap} min</b>${v.unlim?`<div style="color:#16A34A;font-weight:800">♾️ Unlimited lives until ${esc(v.unlim)}</div>`:''}<div style="margin-top:6px;line-height:1.8">${earned}</div></div>
  ${(!v.unlim&&v.lives>0)?`<button style="width:100%" onclick="qLifeMenu()">❤️ Win more lives (quests and projects)</button>`:''}`,true);
  sayFree(kid?'Fruit Garden!':'Quest!','en')}
@@ -1002,7 +1003,7 @@ document.addEventListener('keydown',e=>{if(!QG||QG.over)return;const n=getNav()|
 document.addEventListener('keyup',e=>{if(QG)QG.keys[e.key]=0});
 function qKey(g,...ks){return ks.some(k=>g.keys[k]||g.touch[k])}
 function qBg(x,g,t){const[c,deco]=QW[g.lv.world]||QW.forest;x.fillStyle=c;x.fillRect(0,0,900,480);x.globalAlpha=0.5;x.font='30px serif';for(let i=0;i<10;i++)x.fillText(deco,(i*97+t*0.3)%940-40,40+(i*53)%420);x.globalAlpha=1}
-async function qEnd(win){if(QG&&QG.custom)return lvEnd(win);if(!QG||QG.over&&QG.ended)return;QG.over=true;QG.ended=true;cancelAnimationFrame(QG.raf);clearInterval(QTICK);
+async function qEnd(win){if(QG&&QG.custom){QG.custom==='boss'?bossEnd(win):lvEnd(win);return}if(!QG||QG.over&&QG.ended)return;QG.over=true;QG.ended=true;cancelAnimationFrame(QG.raf);clearInterval(QTICK);
  const kid=CHILD.id==='ditya',p=QV.prog||{},w=(QV.wins||[]).concat([win?1:0]).slice(-20);let msg,next=kid?'fcStart()':'qPlay()',nextLabel='▶ Next round',puzzle=false;
  if(win){p.round=(p.round||0)+1;if(p.round>=5){p.round=0;p.seen=0;p.level=(p.level||0)+1;puzzle=true;if(p.level>=6){p.level=0;p.story=(p.story||0)+1;if(p.story%QSTORIES.length===0)p.season=(p.season||1)+1}}msg='🏆 Round won!';if(!kid)grAdd(puzzle?25:5,puzzle?'level done':'round won')}
  else{msg='💥 You lost this round.';if(!QV.unlim){try{await qLoad('lose')}catch(e){}}}
@@ -1161,7 +1162,7 @@ async function grSync(){let d={};try{d=await Promise.race([api('gameLoad','yuvaa
 function grSave(){GR.at=Date.now();const s=JSON.stringify(GR);try{localStorage.setItem('ydGear',s)}catch(e){}api('gameSave','yuvaan','gear',s).catch(()=>{})}
 function grAdd(n,why){if(!CHILD||CHILD.id!=='yuvaan'||!n)return;grGet();GR.coins+=n;GR.total+=n;grSave();toast('🪙 +'+n+' coins'+(why?' – '+why:''))}
 /* gear inside the games (Yuvaan only) */
-function grOn(){return CHILD&&CHILD.id==='yuvaan'&&!(QG&&QG.custom&&LVPLAY&&LVPLAY.who!=='yuvaan')}
+function grOn(){return CHILD&&CHILD.id==='yuvaan'&&!(QG&&QG.custom===1&&LVPLAY&&LVPLAY.who!=='yuvaan')}
 function gearBlast(){const b=grOn()?grGet().eq.blast:'';if(b==='rainbow')return 'hsl('+(Date.now()/4%360)+',90%,60%)';return b||'#FDE047'}
 function gearAura(x,cx,cy){if(!grOn())return;const a=grGet().eq.armour;if(!a)return;x.save();x.globalAlpha=0.45;x.fillStyle=a;x.beginPath();x.arc(cx,cy,30,0,7);x.fill();x.globalAlpha=1;x.lineWidth=3;x.strokeStyle=a;x.stroke();x.restore()}
 function gearPet(x,px,py){if(!grOn())return;const p=grGet().eq.pet;if(!p)return;x.save();x.font='26px serif';x.fillText(p,px,py+Math.sin(Date.now()/150)*4);x.restore()}
@@ -1173,7 +1174,7 @@ function grBase(tab){const G=grGet(),th=G.theme,tabs=[['base',th==='castle'?'�
  if(tab==='base'){const pieces=GR_BASE[th],inv=Object.keys(G.inv).filter(k=>G.inv[k]>0&&pieces.some(p=>p[0]===k));
   body=`<div class="row" style="gap:6px"><button style="flex:1;${th==='castle'?'background:#2A5FD6;color:#fff;font-weight:800':''}" onclick="grTheme('castle')">🏰 Castle</button><button style="flex:1;${th==='space'?'background:#2A5FD6;color:#fff;font-weight:800':''}" onclick="grTheme('space')">🚀 Space base</button></div>
   <div class="card" style="background:${th==='castle'?'#DCFCE7':'#1E1B4B'};padding:10px"><div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">${G.base[th].map((v,i)=>{const p=pieces.find(x=>x[0]===v);return `<button onclick="grSlot(${i})" style="aspect-ratio:1;padding:0;min-height:0;font-size:clamp(20px,7vw,34px);border-radius:8px;background:${th==='castle'?'#BBF7D0':'#312E81'};border:2px dashed ${GRPICK?'#F59E0B':'transparent'}">${p?p[1]:''}</button>`}).join('')}</div></div>
-  <div class="card"><b>${GRPICK?'Tap a square to place it · tap a piece on the base to put it back':'My pieces – tap one, then tap a square'}</b><div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">${inv.map(k=>{const p=pieces.find(x=>x[0]===k);return `<button style="${GRPICK===k?'background:#FFE08A;font-weight:800':''}" onclick="grPick('${k}')"><span style="font-size:24px">${p[1]}</span> ×${G.inv[k]}</button>`}).join('')||'<span class="muted">No pieces yet – buy some in the 🛒 Base shop.</span>'}</div></div>`}
+  <div class="card"><b>${GRPICK?'Tap a square to place it · tap a piece on the base to put it back':'My pieces – tap one, then tap a square'}</b><div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">${inv.map(k=>{const p=pieces.find(x=>x[0]===k);return `<button style="${GRPICK===k?'background:#FFE08A;font-weight:800':''}" onclick="grPick('${k}')"><span style="font-size:24px">${p[1]}</span> ×${G.inv[k]}</button>`}).join('')||'<span class="muted">No pieces yet – buy some in the 🛒 Base shop.</span>'}</div></div><div class="card"><b>🏆 Trophies</b><div style="margin-top:4px;line-height:1.8">${(G.trophies||[]).map(t=>`${t.foe} ${esc(t.name)} <span class="muted">(${esc(t.d)})</span>`).join('<br>')||'<span class="muted">Beat the Saturday Boss to win your first trophy.</span>'}</div></div>`}
  if(tab==='shop')body=`<div class="card"><b>${th==='castle'?'🏰 Castle pieces':'🚀 Space base pieces'}</b><div class="muted">Switch castle / space base on the first tab.</div>${GR_BASE[th].map(([k,e,n,c])=>`<div class="row" style="justify-content:space-between;align-items:center;border-bottom:1px solid #EEF1F7;padding:8px 0"><span><span style="font-size:30px">${e}</span> <b>${n}</b> <span class="muted">(you have ${G.inv[k]||0})</span></span><button class="primary" ${G.coins<c?'disabled':''} onclick="grBuyPiece('${k}',${c})">🪙 ${c}</button></div>`).join('')}</div>`;
  if(tab==='gear')body=Object.keys(GR_GEAR).map(s=>`<div class="card"><b>${GR_GEAR[s].t}</b><div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">${GR_GEAR[s].items.map(([k,e,n,c])=>{const own=G.own.indexOf(s+':'+k)>=0,on=G.eq[s]===k;
   return `<button style="${on?'background:#DDF5E3;font-weight:800;border:2px solid #16A34A':''}" ${!own&&G.coins<c?'disabled':''} onclick="grGear('${s}','${k}',${c})"><span style="font-size:22px">${e}</span> ${n}<br><span class="muted" style="font-size:12px">${on?'✓ using':own?'tap to use':'🪙 '+c}</span></button>`}).join('')}</div></div>`).join('')+`<div class="card muted">Blasters change your shots in Shooter and Jet. Armour colour and your pet show around you in the games. The car skin is your car in Race.</div>`;
@@ -1187,6 +1188,38 @@ function grSlot(i){const G=GR,b=G.base[G.theme];if(b[i]){G.inv[b[i]]=(G.inv[b[i]
  b[i]=GRPICK;G.inv[GRPICK]--;if(!G.inv[GRPICK])GRPICK=null;grSave();grBase('base');sayFree('Placed!','en')}
 function grBuyPiece(k,c){const G=GR;if(G.coins<c)return toast('Not enough coins yet');G.coins-=c;G.inv[k]=(G.inv[k]||0)+1;grSave();toast('Bought! Place it on your base.');sayFree('Bought!','en');grBase('shop')}
 function grGear(s,k,c){const G=GR,id=s+':'+k;if(G.own.indexOf(id)<0){if(G.coins<c)return toast('Not enough coins yet');G.coins-=c;G.own.push(id);sayFree('Bought!','en')}G.eq[s]=k;grSave();grBase('gear')}
+/* ---------- ⚔️ W14 Saturday Boss (Yuvaan): once a week, 3 fights in a row + a riddle; 3 tries; reward coins + trophy ---------- */
+const BOSSES=[{name:'Dragon King',foe:'🐉',fights:[['volcano','jumper'],['sky','jet'],['castle','shooter']]},{name:'Space Titan',foe:'👾',fights:[['space','maze'],['space','bubble'],['space','jet']]},
+ {name:'Kraken of the Deep',foe:'🦑',fights:[['ocean','match'],['ocean','shooter'],['ocean','brick']]},{name:'Mega Robot',foe:'🤖',fights:[['city','race'],['city','brick'],['city','shooter']]},
+ {name:'Desert Giant',foe:'🦂',fights:[['desert','jumper'],['desert','race'],['desert','maze']]},{name:'Ghost Emperor',foe:'👻',fights:[['castle','brick'],['forest','maze'],['castle','jet']]}];
+const BOSS_TRIES=3,BOSS_COINS=50;let BOSSP=null;
+function bossWeek(){const d=new Date(),j=new Date(d.getFullYear(),0,1);return d.getFullYear()+'-W'+Math.ceil(((d-j)/864e5+j.getDay()+1)/7)}
+function bossNow(){const G=grGet(),wk=bossWeek();if(!G.boss||G.boss.wk!==wk)G.boss={wk,tries:0,won:false};const n=parseInt(wk.split('W')[1],10);return{B:BOSSES[n%BOSSES.length],S:G.boss}}
+function bossDay(){return new Date().getDay()===6}
+function bossCard(){const{B,S}=bossNow(),tr=(grGet().trophies||[]).length;
+ if(S.won)return `<div class="card" style="background:#FEF3C7"><b>🏆 You beat the ${esc(B.name)} ${B.foe} this week!</b><div class="muted">A new boss comes next Saturday. Trophies: ${tr}</div></div>`;
+ if(!bossDay())return `<div class="card"><b>⚔️ Saturday Boss: ${esc(B.name)} ${B.foe}</b><div class="muted">Comes on Saturday – 3 fights in a row, then a riddle. Win 🪙 ${BOSS_COINS} and a trophy.</div></div>`;
+ const left=BOSS_TRIES-S.tries;return `<div class="card" style="background:#FEE2E2"><b style="font-size:18px">⚔️ Saturday Boss: ${esc(B.name)} ${B.foe}</b><div class="muted">Beat 3 fights in a row, then solve the riddle. Tries left today: ${left} of ${BOSS_TRIES}. Prize: 🪙 ${BOSS_COINS} + 🏆 trophy.</div>
+ <button class="primary" style="width:100%;margin-top:8px;min-height:58px;font-size:20px;background:#B91C1C" ${left<=0||qLeft()<=0||!QV.open?'disabled':''} onclick="bossStart()">⚔️ Fight the boss</button>${left<=0?'<div class="muted">No tries left – try again next Saturday.</div>':''}</div>`}
+function bossStart(){const{B,S}=bossNow();if(S.won||S.tries>=BOSS_TRIES||!bossDay())return openQuest();S.tries++;grSave();BOSSP={B,stage:0};
+ tmCard(B.foe,'Saturday Boss: '+B.name,'The '+B.name+' is here! Beat 3 fights in a row. If you lose one, this try is over.','The '+B.name+' is here! Beat three fights in a row.',()=>bossFight())}
+function bossFight(){const P=BOSSP,[w,gm]=P.B.fights[P.stage],tr=(grGet().trophies||[]).length,d=7+P.stage*1.5+Math.min(4,tr*0.5);
+ ++NAVSEQ;setNav({v:'lvplay',id:CHILD.id});const lv={name:P.B.name,world:w,game:gm,foe:P.B.foe};
+ render(`<div class="row" style="justify-content:space-between;align-items:center;gap:6px"><b>⚔️ ${P.B.foe} ${esc(P.B.name)} · fight ${P.stage+1}/3</b><span class="tag" style="background:#E8F1FF;color:#1C4AAE">⏱ <span id="qTime"></span></span></div>
+ <div id="qHud" style="font-weight:800;margin:4px 0"></div><canvas id="qCv" width="900" height="480" style="width:100%;max-width:900px;border-radius:14px;touch-action:none;display:block;margin:0 auto"></canvas><div class="row" style="gap:8px;margin-top:8px" id="qPad"></div>`,true);
+ QG={lv,d,over:false,paused:false,keys:{},touch:{},custom:'boss'};qTimerStart();({shooter:gShooter,jet:gJet,jumper:gJumper,maze:gMaze,bubble:gBubble,match:gMatch,brick:gBrick,race:gRace})[gm](QG);
+ sayFree('Fight '+(P.stage+1)+'. Go!','en')}
+function bossEnd(win){if(!QG||QG.ended)return;QG.over=true;QG.ended=true;cancelAnimationFrame(QG.raf);clearInterval(QTICK);const left=QUSED%30;if(left&&CHILD)api('questKid',CHILD.id,'use',{sec:left}).catch(()=>{});QUSED-=left;
+ const P=BOSSP,S=bossNow().S;
+ if(!win){const tl=BOSS_TRIES-S.tries;render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:60px">💥</div><div style="font-size:22px;font-weight:800">The ${esc(P.B.name)} won this time.</div><div class="muted">Tries left today: ${tl}</div>
+  ${tl>0?`<button class="primary" style="width:100%;margin-top:12px" onclick="bossStart()">⚔️ Try again</button>`:''}<button style="width:100%;margin-top:8px" onclick="openQuest()">Quest map</button></div>`,true);return sayFree('The boss won this time. '+(tl>0?'Try again!':'Come back next Saturday.'),'en')}
+ P.stage++;if(P.stage<3){render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:60px">⚔️</div><div style="font-size:22px;font-weight:800">Fight ${P.stage} won!</div><div class="muted">${3-P.stage} more to go.</div><button class="primary" style="width:100%;margin-top:12px" onclick="bossFight()">▶ Next fight</button></div>`,true);return sayFree('Fight won! Next fight.','en')}
+ const Z=qPuzzleItem();P.z=Z;render(`<div class="card" style="text-align:center"><div style="font-size:76px">${P.B.foe}</div><b style="font-size:20px">Last step! Answer to beat the ${esc(P.B.name)}.</b></div><div class="card"><div style="font-size:20px;font-weight:800">${esc(Z.q)}</div>${Z.opts.map((o,i)=>`<button style="display:block;width:100%;margin-top:8px;min-height:54px;font-size:18px;font-weight:800" id="bz${i}" onclick="bossPick(${i})">${esc(o)}</button>`).join('')}<div id="bzMsg" style="font-weight:800;margin-top:8px"></div></div>`,true);
+ sayFree('Last step! '+Z.q,'en')}
+function bossPick(i){const P=BOSSP,o=P.z.opts[i];if(o!==P.z.ans){$('#bz'+i).style.background='#FFD9D9';$('#bzMsg').textContent='Not this one – think again!';return sayFree('Not this one. Think again!','en')}
+ const G=grGet(),S=bossNow().S;S.won=true;G.trophies=(G.trophies||[]).concat([{wk:S.wk,name:P.B.name,foe:P.B.foe,d:lvDay()}]);grSave();grAdd(BOSS_COINS,'boss beaten');
+ render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:70px">🏆</div><div style="font-size:24px;font-weight:800">You beat the ${esc(P.B.name)}!</div><div class="muted">${esc(P.z.why)}</div><div style="font-size:20px;margin-top:8px">🪙 +${BOSS_COINS} · trophy added to My base</div><button class="primary" style="width:100%;margin-top:12px" onclick="openQuest()">Quest map</button></div>`,true);
+ sayFree('You beat the '+P.B.name+'! You win fifty coins and a trophy!','en')}
 /* ----- game 1: shooter (enemies come from the right) ----- */
 function gShooter(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowUp','▲'],['ArrowDown','▼']]);let py=240,t=0,es=[],bs=[],fx=[],kills=0,hits=0;const need=Math.round(6+g.d*1.2),sp=1.4+g.d*0.35,boss=(QV.prog||{}).round===4;let bossHp=boss?Math.round(6+g.d):0,bossY=240;
  function f(){if(g.over)return;t++;qBg(x,g,t);if(qKey(g,'ArrowUp','w'))py-=6;if(qKey(g,'ArrowDown','s'))py+=6;py=Math.max(30,Math.min(450,py));
