@@ -50,7 +50,7 @@ label{font-weight:700;font-size:14px;color:var(--muted);display:flex;flex-direct
 </style>
 </head>
 <body>
-<header><button class="ghost hidden" id="backBtn" aria-label="Back" onclick="goHome()">&#8592;</button><b id="appTitle">YD Technologies</b><span class="muted" id="todayLbl"></span><button class="green hidden" id="askFab" aria-label="Ask for a change" onclick="askOpen()" style="min-height:40px;font-size:14px;padding:0 12px">&#10022;</button></header>
+<header><button class="ghost hidden" id="backBtn" aria-label="Back" onclick="goBack()">&#8592;</button><b id="appTitle">YD Technologies</b><span class="muted" id="todayLbl"></span><button class="green hidden" id="askFab" aria-label="Ask for a change" onclick="askOpen()" style="min-height:40px;font-size:14px;padding:0 12px">&#10022;</button></header>
 <div id="askPanel" class="hidden" style="position:fixed;left:12px;right:12px;top:70px;z-index:20;background:#fff;border-radius:20px;padding:16px;box-shadow:0 8px 30px rgba(31,42,68,.25);max-width:520px;margin:0 auto"></div>
 <main id="app"></main>
 
@@ -70,7 +70,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v16 · Thu 12/11 14:30';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v17 · Thu 12/11 14:35';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -107,6 +107,11 @@ function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children
  if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
  goHome()}
 function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN);if(ADMIN)updateDot()}
+// Back: from any of a child's screens → that child's page; from the child's page (or Admin) → main screen.
+function goBack(){const n=getNav()||{};if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
+// phone/browser back button follows the same rule
+try{history.pushState({yd:1},'')}catch(e){}
+window.addEventListener('popstate',()=>{const n=getNav()||{};if(n.v&&n.v!=='home'){goBack();try{history.pushState({yd:1},'')}catch(e){}}});
 function setNav(o){try{localStorage.setItem('ydNav',JSON.stringify(o))}catch(e){}}
 function getNav(){try{return JSON.parse(localStorage.getItem('ydNav')||'null')}catch(e){return null}}
 function goHome(){++NAVSEQ;setNav({v:'home'});PENDINGVIEW=()=>goHome();Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}CHILD=null;
