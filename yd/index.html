@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v35 · Thu 12/11 21:30';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v36 · Thu 12/11 18:50';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -129,10 +129,13 @@ function setNav(o){try{localStorage.setItem('ydNav',JSON.stringify(o))}catch(e){
 function getNav(){try{return JSON.parse(localStorage.getItem('ydNav')||'null')}catch(e){return null}}
 function goHome(){++NAVSEQ;setNav({v:'home'});PENDINGVIEW=()=>goHome();Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}CHILD=null;
  const colors={yuvaan:['#DCE6FB','#2A5FD6'],ditya:['#FBE1EE','#C2367C']};
- render(`<h1 style="margin:4px 0;font-size:28px">Who's learning today?</h1>`+
- BOOT.children.map(c=>{const col=colors[c.id]||['#eee','#333'];
-  return `<button class="card big" onclick="openChild('${c.id}')"><div class="avatar" style="background-color:${col[0]};color:${col[1]};border:5px solid ${col[1]};${c.photoUrl?`background-image:url('${esc(c.photoUrl)}')`:''}">${c.photoUrl?'':esc(c.name[0])}</div>
-  <div><div style="font-size:24px;font-weight:800">${esc(c.name)}</div><div class="muted">Helper: ${esc(c.helperName)} <span class="tag" style="background:#EEF1F7">computer helper</span></div></div></button>`}).join('')+
+ const ord=['yuvaan','ditya'],kids=BOOT.children.slice().sort((a,b)=>(ord.indexOf(a.id)+9)%9-(ord.indexOf(b.id)+9)%9);
+ render(`<h1 style="margin:4px 0 10px;font-size:26px;text-align:center">Who's learning today?</h1><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">`+
+ kids.map(c=>{const col=colors[c.id]||['#eee','#333'];
+  return `<button onclick="openChild('${c.id}')" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 8px;border-radius:20px;border:4px solid ${col[1]};background:${col[0]};min-height:52vh;justify-content:center">
+  <div style="font-size:clamp(26px,8vw,40px);font-weight:900;color:${col[1]};line-height:1.1;text-align:center;word-break:break-word;min-height:2.3em;display:flex;align-items:center">${esc(c.name)}</div>
+  <div style="width:100%;aspect-ratio:3/4;border-radius:16px;border:4px solid ${col[1]};background:#fff center/cover no-repeat;${c.photoUrl?`background-image:url('${esc(c.photoUrl)}')`:''};display:flex;align-items:center;justify-content:center;font-size:64px;font-weight:900;color:${col[1]}">${c.photoUrl?'':esc(c.name[0])}</div>
+  <div class="muted" style="font-size:14px">Helper: ${esc(c.helperName)}</div></button>`}).join('')+`</div>`+
  `<div class="row" style="justify-content:flex-end"><button class="ghost" onclick="adminLoginScreen()">&#128274; Parents</button></div><div class="muted" style="text-align:center;font-size:12px;margin-top:12px">YD ${APPVER}</div>`)}
 
 /* ---------- child today ---------- */
