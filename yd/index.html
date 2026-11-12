@@ -70,7 +70,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v14 · Thu 12/11 13:45';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v15 · Thu 12/11 14:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -96,7 +96,8 @@ let RENDERSEQ=0;
 function render(html,showBack){RENDERSEQ=NAVSEQ;LASTVIEW=PENDINGVIEW;PENDINGVIEW=null;$('#app').innerHTML=html;$('#backBtn').classList.toggle('hidden',!showBack);if(!QUIET)window.scrollTo(0,0)}
 
 /* ---------- home ---------- */
-async function start(){if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini);0}).catch(()=>{});if(!window.WARM)window.WARM=setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)net('voiceReady',[]).catch(()=>{})},240000);BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
+async function start(){const jm=(location.hash||'').match(/join=([a-f0-9]{20})/);if(jm){history.replaceState(null,'',location.pathname);if(!FTOK){try{const j=await post({fn:'familyJoin',code:jm[1]});const r=j&&j.data;if(r&&r.ok){FTOK=r.token;try{localStorage.setItem('ydFam',FTOK)}catch(e){}}else return familyScreen(r?r.msg:'Link not valid')}catch(e){return familyScreen('No internet – please try again')}}}
+ if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini);0}).catch(()=>{});if(!window.WARM)window.WARM=setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)net('voiceReady',[]).catch(()=>{})},240000);BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
  let t=null;try{t=JSON.parse(localStorage.getItem('ydAdmin')||'null')}catch(e){}
  if(t&&t.token){ADMIN=t;showFab();api('adminCheckToken',t.token).then(c=>{if(!c.ok){ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();const n=getNav();if(n&&n.v==='admin')goHome()}else pollThread()}).catch(()=>{})}
  restoreNav()}
@@ -149,7 +150,7 @@ function addBubble(who,text,cap){const c=$('#chat');if(!c)return;const d=documen
 function sendTyped(){const b=$('#typeBox');if(b.value.trim()){send(b.value.trim());b.value=''}}
 async function send(text){if(!text.startsWith('('))addBubble('me',text);Voice.pause();
  addBubble('helper','• • •');const dots=$('#chat')&&$('#chat').lastElementChild;if(dots)dots.id='thinking';
- try{const r=GEM?await api('talkSpeak',CHILD.id,MODE,text):await api('talk',CHILD.id,MODE,text);const th=$('#thinking');th&&th.remove();addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
+ try{const r=GEM?await api('talkSpeak',CHILD.id,MODE,text):await api('talk',CHILD.id,MODE,text);const th=$('#thinking');th&&th.remove();if(!(r.say||r.text)){Voice.resume();return}addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
   if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true;$('#micHint').textContent='Say "Hey '+r.helperName+'" any time'}
   await speakReply(r.say||r.text,r.lang||'te',r);
  }catch(e){const th=$('#thinking');th&&th.remove()}
@@ -219,10 +220,10 @@ const Ears=(()=>{let stream=null,ctx=null,an=null,data=null,timer=null,on=false,
  function startRec(){chunks=[];const m=mime();rec=new MediaRecorder(stream,m?{mimeType:m}:undefined);rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};rec.start(250);recStart=Date.now();status('🎤 Hearing you…')}
  function stopRec(){if(!rec)return;const r=rec;rec=null;const dur=Date.now()-recStart;r.onstop=()=>{const b=new Blob(chunks,{type:r.mimeType||'audio/webm'});if(dur<600||b.size<2000){if(on&&!hold)status('🎤 Listening… speak any time');return}hold=true;onDone&&onDone(b)};try{r.stop()}catch(e){}}
  function tick(){if(!on)return;const v=rms(),now=Date.now();
-  if(floor.length<10){floor.push(v);if(floor.length===10){const f=floor.reduce((a,b)=>a+b,0)/10;thr=Math.max(0.012,f*3)}return}
+  if(floor.length<10){floor.push(v);if(floor.length===10){const f=floor.reduce((a,b)=>a+b,0)/10;thr=Math.max(0.025,f*4)}return}
   if(hold||PLAYING){loudSince=0;return}
   const loud=v>thr;if(loud){lastLoud=now;lastAny=now}
-  if(!rec){if(loud){if(!loudSince)loudSince=now;if(now-loudSince>120)startRec()}else loudSince=0;
+  if(!rec){if(loud){if(!loudSince)loudSince=now;if(now-loudSince>250)startRec()}else loudSince=0;
    if(now-lastAny>120000){stop();status('Tap the mic to talk')}return}
   if(now-lastLoud>1300&&now-recStart>500)stopRec();else if(now-recStart>30000)stopRec()}
  async function start(done,lab){onDone=done;label=lab||'';if(on){hold=false;status('🎤 Listening… speak any time');return true}
@@ -238,6 +239,7 @@ async function onKidSpeech(blob){const m=$('#micBtn');if(m){m.classList.remove('
  try{const b64=await blobB64(blob);const r=await net('talkVoice',[CHILD.id,MODE,b64,blob.type]);const th=$('#thinking');th&&th.remove();
   if(!r.heard){if(h)h.textContent="Didn't catch that – say it again";Ears.resume();m&&m.classList.add('listen');return}
   if(r.local){addBubble('me',r.heard);if(/^(bye|బై)/i.test(r.heard)){Voice.stop();await speakReply('సరే, మళ్ళీ పిలువు!','te');return}localCommand(r.heard)}
+  else if(!(r.say||r.text)){if(h)h.textContent='🎤 Listening… speak any time'}
   else{addBubble('me',r.heard);addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
    if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true}
    await speakReply(r.say||r.text,r.lang||'te',r);LASTREPLY=Date.now()}
@@ -262,7 +264,7 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
  async function save(){if(sending||(!turns.length&&!use.inText&&!use.outAudio))return;sending=true;const t=turns.splice(0),u=use;use={inText:0,inAudio:0,outText:0,outAudio:0};
   const secs=segStart?Math.round((Date.now()-segStart)/1000):0;segStart=on?Date.now():0;
   try{const r=await net('liveLog',[CHILD.id,MODE,t,u,secs,why]);if(r&&r.budget===false&&on)toMic()}catch(e){turns=t.concat(turns)}sending=false}
- async function start(reason){if(on||busy)return;why=reason||'start';userStop=false;if(why!=='reconnect'){Ears.stop();SPKSEQ++;if(PLAYING){try{PLAYING.pause()}catch(e){}}totalStart=Date.now()}busy=true;ui('wait');
+ async function start(reason){if(on||busy)return;Wake.stop();why=reason||'start';userStop=false;if(why!=='reconnect'){Ears.stop();SPKSEQ++;if(PLAYING){try{PLAYING.pause()}catch(e){}}totalStart=Date.now()}busy=true;ui('wait');
   try{const t=await net('liveToken',[CHILD.id,MODE]);
    if(t.resting){busy=false;ui('off');if(CHILD)showRest();return}
    if(t.micOnly||!t.token){busy=false;ui('off');return micStart()}
@@ -271,11 +273,11 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
    ctx=new AudioContext();await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([LIVE_WORKLET],{type:'text/javascript'})));
    node=new AudioWorkletNode(ctx,'pcm16');ctx.createMediaStreamSource(mic).connect(node);
    ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(t.token));
-   ws.onopen=()=>ws.send(JSON.stringify({setup:{model:'models/'+t.model,generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:t.voice}}}},systemInstruction:{parts:[{text:t.system}]},inputAudioTranscription:{},outputAudioTranscription:{}}}));
+   ws.onopen=()=>ws.send(JSON.stringify({setup:{model:'models/'+t.model,generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:t.voice}}}},systemInstruction:{parts:[{text:t.system}]},realtimeInputConfig:{automaticActivityDetection:{startOfSpeechSensitivity:'START_SENSITIVITY_LOW'}},inputAudioTranscription:{},outputAudioTranscription:{}}}));
    ws.onmessage=async ev=>{let m;try{m=JSON.parse(typeof ev.data==='string'?ev.data:await ev.data.text())}catch(e){return}
     if(m.setupComplete){on=true;busy=false;ui('on');lastAct=lastKid=Date.now();segStart=Date.now();endAt=Date.now()+(t.maxMin||12)*60000;
      node.port.onmessage=e=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({realtimeInput:{audio:{data:b64(e.data),mimeType:'audio/pcm;rate=16000'}}}))};
-     const gk=CHILD.id+'|'+MODE;if(why==='start'&&!greeted[gk]){greeted[gk]=1;ws.send(JSON.stringify({realtimeInput:{text:'(The child just opened this screen. Start it in one short, warm Telugu sentence, as your own idea, following the mode above.)'}}))}}
+     const gk=CHILD.id+'|'+MODE;if(why==='start'&&!greeted[gk]){greeted[gk]=1;ws.send(JSON.stringify({realtimeInput:{text:'(The child just opened this screen. Start it in one short, warm Telugu sentence, as your own idea, following the mode above. Use the right part of day from the clock – never "good morning" after 12 noon.)'}}))}}
     const sc=m.serverContent;if(sc){lastAct=Date.now();
      if(sc.interrupted){hush();if(cur.helper.trim())cur.helper+=' …'}
      if(sc.inputTranscription&&sc.inputTranscription.text){if(cur.helper.trim()&&!cur.child)endTurn();lastKid=Date.now();cur.child+=sc.inputTranscription.text;const lt=$('#liveText');if(lt)lt.textContent=cur.child}
@@ -299,6 +301,36 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
   start('reconnect')}
  function say(t){if(on&&ws&&ws.readyState===1)ws.send(JSON.stringify({realtimeInput:{text:'(Say this to the child now, warmly, in your own words, in one or two short sentences: '+t+')'}}))}
  return{start,stop,say,toMic,toggle(){on||busy?stop():start('start')},get on(){return on||busy}}})();
+/* ---------- wake by name (laptop/desktop Chrome): free listening only for the helper's name ---------- */
+const Wake=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let r=null,on=false;
+ const norm=x=>String(x||'').toLowerCase().replace(/[^a-z\u0c00-\u0c7f ]/g,' ').replace(/\s+/g,' ').trim();
+ function start(){if(!SR||on||!CHILD)return;const name=norm(CHILD.helperName);if(!name)return;on=true;try{r=new SR();r.lang='en-IN';r.continuous=true;r.interimResults=true;
+  r.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){const t=norm(e.results[i][0].transcript),k=t.indexOf(name);if(k>=0&&(e.results[i].isFinal||t.length-k-name.length<2)){const rest=e.results[i].isFinal?t.slice(k+name.length).trim():'';stop();woke(rest);return}}};
+  r.onend=()=>{r=null;on=false};r.onerror=()=>{};r.start()}catch(e){on=false;r=null}}
+ function stop(){on=false;try{r&&r.abort()}catch(e){}r=null}
+ return{start,stop,get on(){return on},ok:!!SR}})();
+const DESKTOP=!/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+function chime(){try{const c=new AudioContext(),o=c.createOscillator(),g=c.createGain();o.frequency.value=880;g.gain.setValueAtTime(0.15,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.25);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+0.25);setTimeout(()=>c.close(),400)}catch(e){}}
+async function woke(rest){chime();const n=getNav()||{};if(n.v!=='talk'){const d=new Date();openTalk(defaultMode({now:String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}),true)}
+ if(rest&&rest.length>2){if(localCommand(rest))return;send(rest);return}
+ await Voice.toggle()}
+setInterval(()=>{if(!DESKTOP||!Wake.ok)return;const idle=document.visibilityState==='visible'&&onKidView()&&!Ears.on&&!Live.on&&!PLAYING&&!(CHILD&&RESTING[CHILD.id]);if(idle)Wake.start();else if(Wake.on)Wake.stop()},2500);
+/* ---------- parents' side locks itself after 10 idle minutes ---------- */
+let LASTTOUCH=Date.now();['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{LASTTOUCH=Date.now()},true));
+setInterval(()=>{if(ADMIN&&Date.now()-LASTTOUCH>10*60000){try{askClose()}catch(e){}ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();if((getNav()||{}).v==='admin')goHome()}},30000);
+function securityCard(){return `<div class="card"><b>🔑 PIN and install link</b>
+ <div class="muted" style="font-size:13px">Your PIN – only you know it. Admin locks itself after 10 idle minutes.</div>
+ <div class="grid2"><label>Old PIN<input id="pOld" type="password" inputmode="numeric" maxlength="8"></label><label>New PIN<input id="pNew" type="password" inputmode="numeric" maxlength="8"></label></div>
+ <label>New PIN again<input id="pNew2" type="password" inputmode="numeric" maxlength="8"></label>
+ <button class="primary" style="width:100%;margin-top:8px" onclick="changePin()">Save new PIN</button>
+ <hr style="border:none;border-top:1px solid #E3E8F2;margin:14px 0">
+ <div class="muted" style="font-size:13px">Install YD on a laptop, tab or phone: make a link, open it there in Chrome, then tap Install. Works for 24 hours on up to 3 devices.</div>
+ <button class="ghost" style="width:100%;margin-top:8px" onclick="makeInvite()">📲 Make install link</button><div id="invOut" style="margin-top:8px;word-break:break-all"></div></div>`}
+async function changePin(){const o=$('#pOld').value.trim(),n=$('#pNew').value.trim(),n2=$('#pNew2').value.trim();if(n!==n2)return toast('New PINs do not match');
+ const r=await api('adminChangePin',ADMIN.token,o,n);if(!r.ok)return toast(r.msg||'Not saved');['pOld','pNew','pNew2'].forEach(i=>$('#'+i).value='');toast('New PIN saved')}
+async function makeInvite(){const r=await api('adminInvite',ADMIN.token);const url=location.origin+location.pathname+'#join='+r.code;
+ $('#invOut').innerHTML=`<div class="muted" style="font-size:13px">Valid till ${esc(r.until)} · 3 devices</div><div style="font-size:14px;margin:6px 0">${esc(url)}</div><button class="green" style="width:100%" id="invCopy">Copy link</button>`;
+ $('#invCopy').onclick=()=>{try{navigator.clipboard.writeText(url);toast('Link copied')}catch(e){toast('Select and copy the link')}}}
 /* ---------- screen time + live control: kids' screens report every 8 s and follow the parents' side ---------- */
 const RESTING={};let PULSE_T=Date.now(),PULSE_BUSY=false,WARNED={};
 function onKidView(){const n=getNav()||{};return !!(CHILD&&FTOK&&!ADMIN_VIEW()&&n.v&&n.v!=='home'&&n.v!=='admin')}
@@ -410,7 +442,7 @@ function openColour(i){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Vo
 function colourDone(i){const t='ఎంత అందంగా రంగులు వేశావు! సూపర్!';toast('⭐ '+t);speakReply(t,'te').then(()=>openColour(i+1))}
 /* ---------- Smart mode: one mic button; Live where talk flows, normal mic for one-off questions ---------- */
 const LIVE_FIRST=['story','tellstory','speakEn','speakHi','morning','fact'];let QUICK=0,LASTREPLY=0;
-async function micStart(){const m=$('#micBtn');QUICK=0;const ok=await Ears.start(onKidSpeech,'#micHint');if(ok&&m){m.classList.remove('sleep');m.classList.add('listen')}}
+async function micStart(){Wake.stop();const m=$('#micBtn');QUICK=0;const ok=await Ears.start(onKidSpeech,'#micHint');if(ok&&m){m.classList.remove('sleep');m.classList.add('listen')}}
 function noteKidTurn(){const quick=LASTREPLY&&Date.now()-LASTREPLY<25000;QUICK=quick?QUICK+1:0;
  if(QUICK>=3&&GEM&&!Live.on&&String(MODE).split('|')[0]!=='check'){QUICK=0;return true}return false}
 const Voice={
@@ -432,6 +464,9 @@ let SW=null,TM=null;
 function numIn(s){const d=s.match(/\d+/);if(d)return +d[0];for(const k in TE_NUM)if(s.includes(k))return TE_NUM[k];for(const k in EN_NUM)if(s.toLowerCase().includes(k))return EN_NUM[k];return null}
 function localCommand(said){const s=said.toLowerCase();
  if(/stop ?watch|స్టాప్ ?వాచ్|స్టాప్‌వాచ్/.test(s)){if(/stop|ఆపు|ఆపేయ్/.test(s.replace(/stop ?watch/,''))&&SW){stopStopwatch();return true}startStopwatch();return true}
+ if(/timer|టైమర్/.test(s)&&TM&&/pause|wait|hold|ఆగు|పాజ్/.test(s)){pauseTimer();return true}
+ if(/timer|టైమర్/.test(s)&&TM&&/resume|continue|start again|మళ్ళీ|కంటిన్యూ|రెజ్యూమ్/.test(s)&&TM.paused!=null){resumeTimer();return true}
+ if(/timer|టైమర్/.test(s)&&TM&&/stop|off|cancel|ఆపు|ఆపేయ్|ఆఫ్|క్యాన్సిల్/.test(s)){stopTimer();return true}
  if(/timer|టైమర్/.test(s)){const n=numIn(s);if(!n){Voice.speak('ఎన్ని నిమిషాలు టైమర్ పెట్టాలి?','te');return true}const sec=/sec|సెకన్/.test(s)?n:n*60;startTimer(sec);return true}
  if(/what.*time|time now|టైం ఎంత|ఎన్ని గంటలు|సమయం ఎంత/.test(s)){const d=new Date();Voice.speak('ఇప్పుడు టైం '+d.getHours()+' గంటల '+d.getMinutes()+' నిమిషాలు','te');return true}
  return false}
@@ -439,7 +474,10 @@ function bigBox(html){let b=$('#bigTimer');if(!b){b=document.createElement('div'
 function mmss(s){s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 function startStopwatch(){const t0=Date.now();clearInterval(SW&&SW.i);SW={t0:t0,i:setInterval(()=>bigBox(mmss((Date.now()-t0)/1000)+'<div style="font-size:15px">stopwatch · say "stop" or tap</div>'),500)};$('#bigTimer')||bigBox('0:00');$('#bigTimer').onclick=stopStopwatch;Voice.speak('స్టాప్‌వాచ్ మొదలైంది!','te')}
 function stopStopwatch(){if(!SW)return;const sec=(Date.now()-SW.t0)/1000;clearInterval(SW.i);SW=null;bigBox(mmss(sec)+'<div style="font-size:15px">done</div>');setTimeout(()=>{const b=$('#bigTimer');b&&b.remove()},4000);if(CHILD)api('logTimer',CHILD.id,'stopwatch','',Math.round(sec));Voice.speak('మొత్తం '+Math.floor(sec/60)+' నిమిషాల '+Math.round(sec%60)+' సెకన్లు. బాగుంది!','te')}
-function startTimer(sec){clearInterval(TM&&TM.i);const end=Date.now()+sec*1000;TM={i:setInterval(()=>{const left=(end-Date.now())/1000;bigBox(mmss(left)+'<div style="font-size:15px">timer</div>');if(left<=0){clearInterval(TM.i);TM=null;const b=$('#bigTimer');b&&b.remove();if(CHILD)api('logTimer',CHILD.id,'timer','',sec);Voice.speak('టైం అయిపోయింది! ఎంతవరకు అయింది? ఇంకా ఎంత టైం కావాలి?','te')}},500)};Voice.speak(Math.round(sec/60)+' నిమిషాల టైమర్ పెట్టాను.','te')}
+function startTimer(sec,quiet){clearInterval(TM&&TM.i);const end=Date.now()+sec*1000;TM={sec:sec,end:end,i:setInterval(()=>{const left=(end-Date.now())/1000;bigBox(mmss(left)+'<div style="font-size:15px">timer</div>');if(left<=0){clearInterval(TM.i);TM=null;const b=$('#bigTimer');b&&b.remove();if(CHILD)api('logTimer',CHILD.id,'timer','',sec);Voice.speak('టైం అయిపోయింది! ఎంతవరకు అయింది? ఇంకా ఎంత టైం కావాలి?','te')}},500)};if(!quiet)Voice.speak(Math.round(sec/60)+' నిమిషాల టైమర్ పెట్టాను.','te')}
+function pauseTimer(){if(!TM||TM.paused!=null)return;clearInterval(TM.i);TM.paused=Math.max(0,(TM.end-Date.now())/1000);bigBox(mmss(TM.paused)+'<div style="font-size:15px">paused</div>');Voice.speak('టైమర్ ఆపాను. మళ్ళీ మొదలుపెట్టమంటే చెప్పు.','te')}
+function resumeTimer(){if(!TM||TM.paused==null)return;startTimer(TM.paused,true);Voice.speak('టైమర్ మళ్ళీ మొదలైంది.','te')}
+function stopTimer(){if(!TM)return;clearInterval(TM.i);TM=null;const b=$('#bigTimer');b&&b.remove();Voice.speak('టైమర్ ఆఫ్ చేశాను.','te')}
 
 /* ---------- routines with music (brushing, washroom, ready, exercise) ---------- */
 const PICS={ // simple stick-figure pictures, drawn here (no copyright issues)
@@ -511,7 +549,7 @@ async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PEN
  const d=await api('adminToday',ADMIN.token);let body='';
  const kidOpts=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
  if(tab==='today'){body=['yuvaan','ditya'].map(k=>{const t=d[k];const n=d.children.find(c=>c.id===k);return `<div class="card"><b>${esc(n.name)}</b> <span class="muted">helper: ${esc(n.helperName)}${n.nameChosenOn?' (chosen '+esc(n.nameChosenOn)+')':''}</span><div class="muted">Stars today: ${t.starsApproved} approved, ${t.starsWaiting} waiting</div></div>`}).join('')+
-  `<div class="card"><b>Yuvaan's homework</b>${d.homework.map(h=>`<div class="row" style="justify-content:space-between"><span>${esc(h.subject)}</span><span class="muted">${esc(h.status)} ${h.minutes?h.minutes+' min':''}</span></div>`).join('')||'<div class="muted">None added</div>'}</div>`}
+  `<div class="card"><b>Yuvaan's homework</b>${d.homework.map(h=>`<div class="row" style="justify-content:space-between"><span>${esc(h.subject)}</span><span class="muted">${esc(h.status)} ${h.minutes?h.minutes+' min':''}</span></div>`).join('')||'<div class="muted">None added</div>'}</div>`+securityCard()}
  if(tab==='live'){const L=await api('adminLive',ADMIN.token);body=liveCards(L);setTimeout(()=>{const n=getNav()||{};if(n.v==='admin'&&n.tab==='live'&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#app textarea,#app input')))adminHome('live')},15000)}
  if(tab==='stars'){body=(d.waitingStars.map(s=>`<div class="card"><b>${esc(s.child)}</b> · ${esc(s.item)} <div class="muted">${esc(s.date)} ${esc(s.proof)}</div><div class="grid2" style="margin-top:10px"><button class="green" onclick="decide('${s.id}',true)">Approve</button><button class="danger" onclick="decide('${s.id}',false)">No</button></div></div>`).join('')||'<div class="card muted">No stars waiting.</div>')+
   `<div class="card"><b>Give a star</b><label>Child<select id="gsKid">${kidOpts}</select></label><label>For<input id="gsItem" placeholder="e.g. Helped at home"></label><button class="green" style="margin-top:8px" onclick="giveStar()">Give star</button></div>`}
