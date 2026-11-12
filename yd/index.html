@@ -70,7 +70,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v13 · Thu 12/11 12:45';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v14 · Thu 12/11 13:45';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -96,7 +96,7 @@ let RENDERSEQ=0;
 function render(html,showBack){RENDERSEQ=NAVSEQ;LASTVIEW=PENDINGVIEW;PENDINGVIEW=null;$('#app').innerHTML=html;$('#backBtn').classList.toggle('hidden',!showBack);if(!QUIET)window.scrollTo(0,0)}
 
 /* ---------- home ---------- */
-async function start(){if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini);const lb=$('#liveBtn');if(lb&&GEM)lb.style.display=''}).catch(()=>{});if(!window.WARM)window.WARM=setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)net('voiceReady',[]).catch(()=>{})},240000);BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
+async function start(){if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini);0}).catch(()=>{});if(!window.WARM)window.WARM=setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)net('voiceReady',[]).catch(()=>{})},240000);BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
  let t=null;try{t=JSON.parse(localStorage.getItem('ydAdmin')||'null')}catch(e){}
  if(t&&t.token){ADMIN=t;showFab();api('adminCheckToken',t.token).then(c=>{if(!c.ok){ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();const n=getNav();if(n&&n.v==='admin')goHome()}else pollThread()}).catch(()=>{})}
  restoreNav()}
@@ -137,8 +137,7 @@ function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();+
  <div id="screenShow"></div>
  <div id="chat" style="display:flex;flex-direction:column;gap:8px"></div>
  <div id="micBtn" class="mic sleep" role="button" aria-label="Start talking" onclick="Voice.toggle()"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
- ${mode==='chat'?`<button id="liveBtn" class="live" onclick="Live.toggle()" style="${GEM?'':'display:none'}">⚡ Live talk</button>`:''}
- <div id="liveText" style="text-align:center;min-height:24px;font-size:17px;color:#2A5FD6"></div>
+  <div id="liveText" style="text-align:center;min-height:24px;font-size:17px;color:#2A5FD6"></div>
  <div class="muted" id="micHint" style="text-align:center">Say "Hey ${esc(CHILD.helperName)}" or tap the mic</div>
  <div class="row"><input id="typeBox" placeholder="Or type here" style="flex:1"><button class="primary" onclick="sendTyped()">Send</button></div>`,true);
  if(mode==='morning')clockTick();
@@ -206,8 +205,8 @@ function splitFirst(t){t=String(t||'').trim();const re=/^[\s\S]*?[.!?।]+(?=\s|
 async function speakReply(text,lang,pre){if(!text)return;const my=++SPKSEQ;const h=$('#micHint');if(h)h.textContent='🔊 Speaking…';lang=lang||'te';
  if(GEM){try{let first,rest;
   if(pre&&pre.voice){first=Promise.resolve(pre.voice);rest=pre.rest||''}
-  else{const p=splitFirst(text);first=net('speakText',[p[0],lang]).then(r=>r&&r.pcm?r:null);rest=p[1]}
-  const restP=rest?net('speakText',[rest,lang]).then(r=>r&&r.pcm?r:null).catch(()=>null):Promise.resolve(null);
+  else{const p=splitFirst(text);first=net('speakText',[p[0],lang,CHILD&&CHILD.id,MODE]).then(r=>r&&r.pcm?r:null);rest=p[1]}
+  const restP=rest?net('speakText',[rest,lang,CHILD&&CHILD.id,MODE]).then(r=>r&&r.pcm?r:null).catch(()=>null):Promise.resolve(null);
   const v1=await first;
   if(v1){const ok=await playVoice(v1);if(!ok||my!==SPKSEQ)return;if(rest){const v2=await restP;if(my!==SPKSEQ)return;if(v2)await playVoice(v2);else await VoiceOld.speak(rest,lang)}return}
  }catch(e){}}
@@ -234,25 +233,25 @@ const Ears=(()=>{let stream=null,ctx=null,an=null,data=null,timer=null,on=false,
  function stop(){on=false;clearInterval(timer);try{rec&&rec.stop()}catch(e){}rec=null;try{stream&&stream.getTracks().forEach(t=>t.stop())}catch(e){}try{ctx&&ctx.close()}catch(e){}stream=null;ctx=null;try{Ears.lock&&Ears.lock.release()}catch(e){}}
  return{start,stop,pause(){hold=true;if(rec)stopRec()},resume(){hold=false;if(on)status('🎤 Listening… speak any time')},get on(){return on},finish(){if(rec)stopRec()}}})();
 // Kids' Talk screen: one voice session; each sentence goes to the helper and the reply is spoken.
-async function onKidSpeech(blob){const m=$('#micBtn');if(m){m.classList.remove('listen')}
+async function onKidSpeech(blob){const m=$('#micBtn');if(m){m.classList.remove('listen')}const goLive=noteKidTurn();
  const h=$('#micHint');if(h)h.textContent='💭 Thinking…';addBubble('helper','• • •');const dots=$('#chat')&&$('#chat').lastElementChild;if(dots)dots.id='thinking';
  try{const b64=await blobB64(blob);const r=await net('talkVoice',[CHILD.id,MODE,b64,blob.type]);const th=$('#thinking');th&&th.remove();
   if(!r.heard){if(h)h.textContent="Didn't catch that – say it again";Ears.resume();m&&m.classList.add('listen');return}
   if(r.local){addBubble('me',r.heard);if(/^(bye|బై)/i.test(r.heard)){Voice.stop();await speakReply('సరే, మళ్ళీ పిలువు!','te');return}localCommand(r.heard)}
   else{addBubble('me',r.heard);addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
    if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true}
-   await speakReply(r.say||r.text,r.lang||'te',r)}
+   await speakReply(r.say||r.text,r.lang||'te',r);LASTREPLY=Date.now()}
  }catch(e){const th=$('#thinking');th&&th.remove();if(h)h.textContent='Network problem – say it again'}
+ if(goLive&&Ears.on){Ears.stop();Live.start('flow');return}
  if(Ears.on){Ears.resume();m&&m.classList.add('listen')}}
 // ⚡ Live talk: Alexa-style. The phone talks straight to Google's live voice with a one-time pass from our script.
 const LIVE_WORKLET=`class P extends AudioWorkletProcessor{constructor(){super();this.r=sampleRate/16000;this.a=0;this.s=0;this.n=0;this.o=[]}
 process(i){const c=i[0]&&i[0][0];if(c){for(let k=0;k<c.length;k++){this.s+=c[k];this.n++;this.a+=1;if(this.a>=this.r){this.a-=this.r;this.o.push(this.s/this.n);this.s=0;this.n=0}}
 if(this.o.length>=1600){const b=new Int16Array(this.o.length);for(let k=0;k<b.length;k++){const v=Math.max(-1,Math.min(1,this.o[k]));b[k]=v<0?v*32768:v*32767}this.port.postMessage(b.buffer,[b.buffer]);this.o=[]}}return true}}
 registerProcessor('pcm16',P)`;
-const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[],on=false,busy=false,turns=[],cur={child:'',helper:''},use={inText:0,inAudio:0,outText:0,outAudio:0},lastAct=0,idle=null,endAt=0,lock=null,sending=false;
+const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[],on=false,busy=false,turns=[],cur={child:'',helper:''},use={inText:0,inAudio:0,outText:0,outAudio:0},lastAct=0,lastKid=0,idle=null,endAt=0,lock=null,sending=false,why='start',segStart=0,totalStart=0,userStop=false,greeted={};
  const b64=buf=>{let s='';const u=new Uint8Array(buf);for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)};
- function ui(st){const b=$('#liveBtn');if(b){b.classList.toggle('on',st==='on');b.textContent=st==='on'?'■ Stop live talk':st==='wait'?'Connecting…':'⚡ Live talk'}
-  const h=$('#micHint');if(h)h.textContent=st==='on'?'Live – just talk. You can stop me any time.':st==='wait'?'Getting ready…':'Tap ⚡ Live talk or the mic';const m=$('#micBtn');if(m){m.classList.toggle('listen',st==='on');m.classList.toggle('sleep',st!=='on')}}
+ function ui(st){const h=$('#micHint');if(h&&st!=='off')h.textContent=st==='on'?'🎤 Listening… just talk':'🎤 One moment…';const m=$('#micBtn');if(m){m.classList.toggle('listen',st==='on');m.classList.toggle('sleep',st!=='on')}}
  function playChunk(d){const bin=atob(d),n=bin.length>>1,f=new Float32Array(n);for(let i=0;i<n;i++){let v=bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8);if(v>=32768)v-=65536;f[i]=v/32768}
   const buf=play.createBuffer(1,n,24000);buf.copyToChannel(f,0);const s=play.createBufferSource();s.buffer=buf;s.connect(play.destination);const t=Math.max(next,play.currentTime+0.04);s.start(t);next=t+buf.duration;srcs.push(s);s.onended=()=>{srcs=srcs.filter(x=>x!==s)}}
  function hush(){srcs.forEach(s=>{try{s.stop()}catch(e){}});srcs=[];next=0}
@@ -261,12 +260,12 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
  function endTurn(){const lt=$('#liveText');if(lt)lt.textContent='';if(cur.child.trim())addBubble('me',cur.child.trim());if(cur.helper.trim())addBubble('helper',cur.helper.trim());
   if(cur.child.trim()||cur.helper.trim())turns.push({child:cur.child.trim(),helper:cur.helper.trim()});cur={child:'',helper:''};save()}
  async function save(){if(sending||(!turns.length&&!use.inText&&!use.outAudio))return;sending=true;const t=turns.splice(0),u=use;use={inText:0,inAudio:0,outText:0,outAudio:0};
-  try{const r=await net('liveLog',[CHILD.id,MODE,t,u]);if(r&&r.budget===false&&on){stop();addBubble('helper','ఈరోజుకి నా సమయం అయిపోయింది. రేపు మళ్ళీ మాట్లాడుకుందాం!')}}catch(e){turns=t.concat(turns)}sending=false}
- async function start(){if(on||busy)return;Voice.stop();busy=true;ui('wait');
+  const secs=segStart?Math.round((Date.now()-segStart)/1000):0;segStart=on?Date.now():0;
+  try{const r=await net('liveLog',[CHILD.id,MODE,t,u,secs,why]);if(r&&r.budget===false&&on)toMic()}catch(e){turns=t.concat(turns)}sending=false}
+ async function start(reason){if(on||busy)return;why=reason||'start';userStop=false;if(why!=='reconnect'){Ears.stop();SPKSEQ++;if(PLAYING){try{PLAYING.pause()}catch(e){}}totalStart=Date.now()}busy=true;ui('wait');
   try{const t=await net('liveToken',[CHILD.id,MODE]);
-   if(t.notHere){toast('Live talk is only for free chat');throw 0}
-   if(t.resting){addBubble('helper',t.live?'ఇవాళ్టికి లైవ్ టాక్ అయిపోయింది. మైక్ బటన్‌తో మాట్లాడుకుందాం!':'ఇప్పుడు కొంచెం విశ్రాంతి తీసుకుందాం. తర్వాత మళ్ళీ మాట్లాడుకుందాం!');throw 0}
-   if(!t.token)throw new Error('off');
+   if(t.resting){busy=false;ui('off');if(CHILD)showRest();return}
+   if(t.micOnly||!t.token){busy=false;ui('off');return micStart()}
    play=new AudioContext({sampleRate:24000});try{await play.resume()}catch(e){}
    mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
    ctx=new AudioContext();await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([LIVE_WORKLET],{type:'text/javascript'})));
@@ -274,26 +273,32 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
    ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(t.token));
    ws.onopen=()=>ws.send(JSON.stringify({setup:{model:'models/'+t.model,generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:t.voice}}}},systemInstruction:{parts:[{text:t.system}]},inputAudioTranscription:{},outputAudioTranscription:{}}}));
    ws.onmessage=async ev=>{let m;try{m=JSON.parse(typeof ev.data==='string'?ev.data:await ev.data.text())}catch(e){return}
-    if(m.setupComplete){on=true;busy=false;ui('on');lastAct=Date.now();endAt=Date.now()+(t.maxMin||15)*60000;
+    if(m.setupComplete){on=true;busy=false;ui('on');lastAct=lastKid=Date.now();segStart=Date.now();endAt=Date.now()+(t.maxMin||12)*60000;
      node.port.onmessage=e=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({realtimeInput:{audio:{data:b64(e.data),mimeType:'audio/pcm;rate=16000'}}}))};
-     ws.send(JSON.stringify({realtimeInput:{text:'(Live talk just started. Greet '+CHILD.name+' in one short, warm Telugu sentence and ask what they want to talk about.)'}}))}
+     const gk=CHILD.id+'|'+MODE;if(why==='start'&&!greeted[gk]){greeted[gk]=1;ws.send(JSON.stringify({realtimeInput:{text:'(The child just opened this screen. Start it in one short, warm Telugu sentence, as your own idea, following the mode above.)'}}))}}
     const sc=m.serverContent;if(sc){lastAct=Date.now();
      if(sc.interrupted){hush();if(cur.helper.trim())cur.helper+=' …'}
-     if(sc.inputTranscription&&sc.inputTranscription.text){if(cur.helper.trim()&&!cur.child)endTurn();cur.child+=sc.inputTranscription.text;const lt=$('#liveText');if(lt)lt.textContent=cur.child}
+     if(sc.inputTranscription&&sc.inputTranscription.text){if(cur.helper.trim()&&!cur.child)endTurn();lastKid=Date.now();cur.child+=sc.inputTranscription.text;const lt=$('#liveText');if(lt)lt.textContent=cur.child}
      if(sc.outputTranscription&&sc.outputTranscription.text)cur.helper+=sc.outputTranscription.text;
      ((sc.modelTurn||{}).parts||[]).forEach(p=>{const d=p.inlineData||p.inline_data;if(d&&d.data)playChunk(d.data)});
      if(sc.turnComplete)endTurn()}
     if(m.usageMetadata)addUse(m.usageMetadata);
-    if(m.goAway)stop()};
-   ws.onclose=ev=>{if(on||busy)stop(ev.code===1000?'':'Live talk stopped ('+ev.code+')')};
-   idle=setInterval(()=>{if(on&&(Date.now()-lastAct>120000||Date.now()>endAt))stop()},5000);
+    if(m.goAway)reconnect()};
+   ws.onclose=ev=>{if((on||busy)&&!userStop)reconnect()};
+   idle=setInterval(()=>{if(!on)return;const n=Date.now();if(!srcs.length&&n-lastKid>60000&&n-lastAct>8000)return toMic();if(n>endAt&&!srcs.length&&n-lastAct>1500)reconnect()},4000);
    try{lock=await navigator.wakeLock.request('screen')}catch(e){}
-  }catch(e){busy=false;cleanup();ui('off');if(e&&e.name==='NotAllowedError')micHelp();else if(e)toast('Live talk is not ready – use the mic button')}}
+  }catch(e){busy=false;cleanup();ui('off');if(e&&e.name==='NotAllowedError')micHelp();else micStart()}}
  function cleanup(){clearInterval(idle);idle=null;try{ws&&ws.readyState<2&&ws.close()}catch(e){}ws=null;try{mic&&mic.getTracks().forEach(t=>t.stop())}catch(e){}mic=null;
   try{ctx&&ctx.close()}catch(e){}ctx=null;node=null;hush();const p=play;play=null;setTimeout(()=>{try{p&&p.close()}catch(e){}},300);try{lock&&lock.release()}catch(e){}lock=null}
- function stop(msg){const was=on;on=false;busy=false;cleanup();if(was){endTurn();save()}ui('off');if(msg)toast(msg)}
+ function stop(msg){userStop=true;const was=on;on=false;busy=false;cleanup();if(was){endTurn();save()}ui('off');const h=$('#micHint');if(h)h.textContent='Tap the mic to talk';if(msg)toast(msg)}
+ // quiet hand-over to the normal mic (child never sees a difference)
+ function toMic(){if(!on)return;userStop=true;on=false;cleanup();endTurn();save();micStart()}
+ // a fresh session carries on where the last one stopped – no goodbye, no greeting
+ function reconnect(){if(userStop)return;const was=on;on=false;busy=false;cleanup();if(was){endTurn();save()}
+  if(!onKidView()||(getNav()||{}).v!=='talk')return;if(Date.now()-totalStart>30*60000){const t='చాలా సేపు మాట్లాడాం! కొంచెం విరామం తీసుకుందాం.';addBubble('helper',t);speakReply(t,'te');return}
+  start('reconnect')}
  function say(t){if(on&&ws&&ws.readyState===1)ws.send(JSON.stringify({realtimeInput:{text:'(Say this to the child now, warmly, in your own words, in one or two short sentences: '+t+')'}}))}
- return{start,stop,say,toggle(){on||busy?stop():start()},get on(){return on||busy}}})();
+ return{start,stop,say,toMic,toggle(){on||busy?stop():start('start')},get on(){return on||busy}}})();
 /* ---------- screen time + live control: kids' screens report every 8 s and follow the parents' side ---------- */
 const RESTING={};let PULSE_T=Date.now(),PULSE_BUSY=false,WARNED={};
 function onKidView(){const n=getNav()||{};return !!(CHILD&&FTOK&&!ADMIN_VIEW()&&n.v&&n.v!=='home'&&n.v!=='admin')}
@@ -403,11 +408,17 @@ function openColour(i){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Vo
  document.querySelectorAll('#pic .r').forEach(el=>{el.setAttribute('fill','#fff');el.setAttribute('stroke','#333');el.setAttribute('stroke-width','2');el.addEventListener('click',()=>el.setAttribute('fill',PEN))});
  speakReply(CPICS[i][0]==='Sun'?'సూర్యుడికి రంగులు వేద్దామా?':'ఇప్పుడు దీనికి నీకు ఇష్టమైన రంగులు వేయి!','te')}
 function colourDone(i){const t='ఎంత అందంగా రంగులు వేశావు! సూపర్!';toast('⭐ '+t);speakReply(t,'te').then(()=>openColour(i+1))}
+/* ---------- Smart mode: one mic button; Live where talk flows, normal mic for one-off questions ---------- */
+const LIVE_FIRST=['story','tellstory','speakEn','speakHi','morning','fact'];let QUICK=0,LASTREPLY=0;
+async function micStart(){const m=$('#micBtn');QUICK=0;const ok=await Ears.start(onKidSpeech,'#micHint');if(ok&&m){m.classList.remove('sleep');m.classList.add('listen')}}
+function noteKidTurn(){const quick=LASTREPLY&&Date.now()-LASTREPLY<25000;QUICK=quick?QUICK+1:0;
+ if(QUICK>=3&&GEM&&!Live.on&&String(MODE).split('|')[0]!=='check'){QUICK=0;return true}return false}
 const Voice={
  begin(wake){if(GEM){if(wake)this.toggle();else{const h=$('#micHint');if(h)h.textContent='Tap the mic to talk'}}else VoiceOld.begin(wake)},
  async toggle(){if(Live.on)return Live.stop();if(!GEM)return VoiceOld.toggle();const m=$('#micBtn');
   if(Ears.on){Ears.stop();m&&m.classList.remove('listen');m&&m.classList.add('sleep');const h=$('#micHint');if(h)h.textContent='Tap the mic to talk';return}
-  const ok=await Ears.start(onKidSpeech,'#micHint');if(ok&&m){m.classList.remove('sleep');m.classList.add('listen')}},
+  if(LIVE_FIRST.indexOf(String(MODE).split('|')[0])>=0)return Live.start('start');
+  micStart()},
  pause(){if(GEM)Ears.pause();else VoiceOld.pause()},
  resume(){if(GEM){if(Ears.on){Ears.resume()}else{const h=$('#micHint');if(h)h.textContent='Tap the mic to talk'}}else VoiceOld.resume()},
  stop(){SPKSEQ++;if(Live.on)Live.stop();Ears.stop();VoiceOld.stop();if(PLAYING){try{PLAYING.pause()}catch(e){}PLAYING=null}},
@@ -495,7 +506,7 @@ function adminLoginScreen(){render(`<div style="font-size:22px;font-weight:800">
  <label>PIN<input id="aPin" type="password" inputmode="numeric"></label><div class="muted">First time: the PIN you type now becomes your PIN.</div>
  <button class="green" onclick="doLogin()">Open</button>`,true)}
 async function doLogin(){const r=await api('adminLogin',$('#aRole').value,$('#aPin').value);if(!r.ok)return toast('Wrong PIN');ADMIN=r;try{localStorage.setItem('ydAdmin',JSON.stringify(r))}catch(e){}showFab();pollThread();adminHome('today')}
-const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','Ask Claude'],['use','Usage']];
+const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','Ask Claude'],['use','📊 Usage']];
 async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
  const d=await api('adminToday',ADMIN.token);let body='';
  const kidOpts=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
@@ -511,7 +522,7 @@ async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PEN
  if(tab==='vid'){body=`<div class="card"><label>Child<select id="vKid">${kidOpts}</select></label><label>Title<input id="vTitle"></label><label>Facebook link or Google Drive link<input id="vLink" placeholder="Paste link"></label><button class="green" style="margin-top:8px" onclick="addVid()">Save video</button><div class="muted" style="margin-top:8px">Facebook links play inside the app. To make questions from a reel, upload the saved video to Drive – Karthik's Claude chat processes it.</div></div>`}
  if(tab==='music'){body=`<div class="card"><b>Add music for a routine</b><label>Routine<select id="mRt"><option value="brushing">Brushing</option><option value="washroom">Washroom</option><option value="ready">Get ready</option><option value="exercise">Exercise / yoga</option><option value="bath">After bath (devotional)</option><option value="breakfast">Breakfast (devotional)</option></select></label><label>Title<input id="mTitle" placeholder="e.g. Flute – morning raga"></label><label>YouTube link or Google Drive link<input id="mLink"></label><button class="green" style="margin-top:8px" onclick="addMusic()">Add (approved)</button><div class="muted" style="margin-top:8px">Brushing and washroom work best with Drive files of the right length. Devotional plays from official YouTube channels.</div></div>`}
  if(tab==='ask'){body=`<div class="card"><b>&#10022; Claude chat</b><div class="muted" style="margin-top:4px">Ask anything about the app or say what you want changed – in Telugu or English. Claude answers here; a change is made only after you tap <b>Yes, make it</b>, and you see Saved → Being built → Done &#10003; in the same chat. The &#10022; Claude button at the top opens the same chat on every screen.</div><button class="green" style="margin-top:10px;width:100%" onclick="askOpen()">Open Claude chat</button></div>`}
- if(tab==='use'){const b=d.budget;body=`<div class="card"><b>This month: ₹${b.spentMonth} of ₹${b.cap}</b><div class="muted">Today: ₹${b.spentToday} (daily share ₹${b.dailyAllowance})</div>${b.warn?'<div class="danger" style="padding:8px;border-radius:10px;margin-top:8px">80% of the monthly cap used</div>':''}</div>`}
+ if(tab==='use'){const U=await api('adminUsage',ADMIN.token);body=usageDash(U)}
  if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">Admin · ${esc(ADMIN.role)}</div>`+tabs+body,true)}
 function liveCards(L){return ['yuvaan','ditya'].map(k=>{const n=BOOT.children.find(c=>c.id===k)||{name:k};const s=L[k].screen;const st=s.over?'<span style="color:#C62828;font-weight:800">Stopped – rest screen showing</span>':(s.stopIn?'Stops in '+s.stopIn+' min':(s.leftMin!=null?s.leftMin+' min left today':'No limit today'));
  return `<div class="card"><div class="row" style="justify-content:space-between"><b>${esc(n.name)}</b><span class="muted">used ${s.usedMin} min today</span></div><div style="margin:6px 0">${st}</div>
@@ -520,6 +531,24 @@ function liveCards(L){return ['yuvaan','ditya'].map(k=>{const n=BOOT.children.fi
  <label>Tell ${esc(n.name)} now (the app says it in its own words)<div class="row"><input id="say_${k}" placeholder="e.g. time to drink water" style="flex:1"><button class="green" onclick="ctl('${k}','say',$('#say_${k}').value)">Send</button></div></label>
  <details style="margin-top:8px"><summary><b>Memory</b> – what the helper remembers (${L[k].memory.length} recent)</summary>${L[k].memory.map(m=>`<div class="muted" style="border-bottom:1px solid #EEF1F7;padding:6px 0;white-space:pre-wrap">${esc(m.date)} · ${esc(m.kind)}: ${esc(String(m.text).slice(0,400))}</div>`).join('')}
  <textarea id="mem_${k}" rows="3" placeholder="Paste a summary or add a note to remember"></textarea><button class="green" style="margin-top:6px" onclick="addMem('${k}')">Save to memory</button></details></div>`}).join('')}
+function usageDash(U){const r=n=>'₹'+(Math.round(n*10)/10).toLocaleString('en-IN'),mins=s=>Math.round(s/60);
+ const pct=Math.min(100,Math.round(U.month/U.cap*100)),gl=U.google;
+ const bars=(obj,label)=>{const ks=Object.keys(obj).sort((a,b)=>obj[b].cost-obj[a].cost);const mx=Math.max(0.01,...ks.map(k=>obj[k].cost));
+  return ks.length?ks.map(k=>`<div style="margin:6px 0"><div class="row" style="justify-content:space-between"><span>${esc(label(k))}</span><b>${r(obj[k].cost)}</b></div><div style="background:#EEF1F7;border-radius:6px;height:10px"><div style="width:${Math.round(obj[k].cost/mx*100)}%;background:#2F6FED;height:10px;border-radius:6px"></div></div><div class="muted" style="font-size:12px">${obj[k].secs?mins(obj[k].secs)+' min Live · ':''}${obj[k].turns} turns</div></div>`).join(''):'<div class="muted">No talk yet</div>'};
+ const mx=Math.max(1,...U.series.map(x=>x.cost));
+ const modes=Object.keys(U.names).filter(m=>m!=='intro');
+ const tips=Object.keys(U.byMode).filter(m=>U.byMode[m].cost>0&&U.micOnly.indexOf(m)<0).sort((a,b)=>U.byMode[b].cost-U.byMode[a].cost).slice(0,2);
+ return `<div class="kgrid" style="grid-template-columns:repeat(3,1fr)"><div class="card" style="text-align:center"><div class="muted">Today</div><b style="font-size:20px">${r(U.today)}</b></div><div class="card" style="text-align:center"><div class="muted">7 days</div><b style="font-size:20px">${r(U.week)}</b></div><div class="card" style="text-align:center"><div class="muted">Month</div><b style="font-size:20px">${r(U.month)}</b></div></div>
+ <div class="card"><div class="row" style="justify-content:space-between"><b>Monthly cap</b><span>${r(U.month)} of ${r(U.cap)}</span></div><div style="background:#EEF1F7;border-radius:6px;height:12px;margin-top:6px"><div style="width:${pct}%;background:${pct>=80?'#C62828':'#1F8A5B'};height:12px;border-radius:6px"></div></div>
+ <div class="muted" style="margin-top:6px">Google (listening, voice, Live) ${r(U.monthGoogle)} · Claude (answers, checks) ${r(U.monthClaude)} · daily soft limit ${r(U.soft)} (after that Live only for stories and speaking practice)</div></div>
+ <div class="card"><b>Where the money comes from</b><div style="margin-top:6px">🟢 <b>Google prepaid</b>: ${r(gl.prepaid)} loaded on ${esc(new Date(gl.since+'T12:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'numeric',year:'2-digit'}))}, used ${r(gl.spent)}, <b style="color:${gl.left<150?'#C62828':'#1F2A44'}">about ${r(gl.left)} left</b>${gl.left<150?' – please top up':''}</div><div style="margin-top:4px">🟣 <b>Anthropic Console credits</b> (Claude): used ${r(U.claudeTotal)} so far</div><div class="muted" style="margin-top:4px">Your Claude Max plan and Claude Code credit are not used by the app.</div></div>
+ <div class="card"><b>Last 30 days</b><div style="display:flex;align-items:flex-end;gap:2px;height:90px;margin-top:8px">${U.series.map(x=>`<div title="${esc(x.date)} ${r(x.cost)}" style="flex:1;background:${x.cost>U.soft?'#E8A33D':'#2F6FED'};height:${Math.max(2,Math.round(x.cost/mx*86))}px;border-radius:3px 3px 0 0"></div>`).join('')}</div><div class="muted" style="font-size:12px">Orange = above the daily soft limit</div></div>
+ <div class="card"><b>By child (30 days)</b>${bars(U.byChild,k=>({yuvaan:'Yuvaan',ditya:'Ditya Sree'})[k]||k)}</div>
+ <div class="card"><b>By screen (30 days)</b>${bars(U.byMode,k=>U.names[k]||k)}</div>
+ <div class="card"><b>Live vs mic (30 days)</b>${bars(U.byKind,k=>k==='live'?'Live (fast voice)':'Mic (normal)')}</div>
+ ${tips.length?`<div class="card" style="background:#FFF8E6"><b>💡 Saving tip</b><div style="margin-top:4px">Most Live cost is on ${tips.map(m=>'<b>'+esc(U.names[m]||m)+'</b>').join(' and ')}. If those are mostly one-off questions, switch them to mic only below.</div></div>`:''}
+ <div class="card"><b>Live or mic per screen</b><div class="muted">Kids never see this. "Mic only" = that screen never uses Live.</div>${modes.map(m=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #EEF1F7"><span>${esc(U.names[m])}</span><span style="display:flex;align-items:center;gap:6px;white-space:nowrap"><input type="checkbox" style="width:22px;height:22px;min-height:0;margin:0" ${U.micOnly.indexOf(m)>=0?'checked':''} onchange="micOnly('${m}',this.checked)">mic only</span></div>`).join('')}</div>`}
+async function micOnly(m,on){await api('adminMicOnly',ADMIN.token,m,on);toast(on?'This screen will use the mic only':'Smart mode on for this screen')}
 async function ctl(k,kind,v){if(kind==='say'&&!String(v||'').trim())return;await api('adminControl',ADMIN.token,k,kind,v);toast(kind==='say'?'Sent – the app will say it':'Done');adminHome('live')}
 async function addMem(k){const t=$('#mem_'+k).value;if(!t.trim())return;await api('adminMemory',ADMIN.token,k,t);toast('Saved to memory');adminHome('live')}
 async function decide(id,ok){await api('adminDecideStar',ADMIN.token,id,ok);adminHome('stars')}
