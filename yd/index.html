@@ -42,6 +42,8 @@ label{font-weight:700;font-size:14px;color:var(--muted);display:flex;flex-direct
 .tabs button.on{background:var(--green);color:#fff}
 .muted{color:var(--muted);font-size:14px}
 .hidden{display:none!important}
+#askFab{position:relative}#askFab .dot{position:absolute;top:-3px;right:-3px;width:12px;height:12px;border-radius:50%;background:#E53935;border:2px solid #fff}
+.pmsg{align-self:flex-end;background:#EEF1F7;border-radius:14px;padding:8px 12px;max-width:85%}.cmsg{align-self:flex-start;background:#E8F0FE;border-radius:14px;padding:8px 12px;max-width:90%}.smsg{align-self:stretch;border:2px solid #DDE3EE;border-radius:14px;padding:8px 12px}.mt{font-size:11px;color:#5A6478;margin-top:2px}
 .chip{background:#E2F5EC;color:#157A52;border-radius:10px;padding:6px 10px;font-size:14px;font-weight:700}
 </style>
 </head>
@@ -58,7 +60,7 @@ const EXEC='https://script.google.com/macros/s/AKfycbzlbBcB1A44zfK6o79kL52P6fLAR
 async function post(body){const r=await fetch(EXEC,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});return r.json()}
 const net=(fn,args)=>post({tok:FTOK,name:fn,args:args}).then(j=>{if(!j.ok)throw new Error(j.error);return j.data}).catch(e=>{if(/FAMILY_CODE/.test(e.message)){try{localStorage.removeItem('ydFam')}catch(x){}FTOK=null;familyScreen()}else toast(/Failed to fetch|NetworkError|Load failed/.test(e.message)?'No internet – please try again':e.message);throw e});
 /* ---------- speed: phone-side copy of everything, refreshed quietly ---------- */
-const READS=new Set(['getBoot','getToday','getHomework','getStars','getVideos','getRoutine','adminToday','adminGetTimetable','adminRequests']);
+const READS=new Set(['getBoot','getToday','getHomework','getStars','getVideos','getRoutine','adminToday','adminGetTimetable','adminRequests','adminThread']);
 const QUIET_WRITES=new Set(['homeworkUpdate','claimStar','markVideoShown','logTimer']);
 const dayKey=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()};
 let MEM={day:dayKey(),data:{}};try{const m=JSON.parse(localStorage.getItem('ydCache')||'null');if(m&&m.day===dayKey())MEM=m}catch(e){}
@@ -91,11 +93,19 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
 function render(html,showBack){LASTVIEW=PENDINGVIEW;PENDINGVIEW=null;$('#app').innerHTML=html;$('#backBtn').classList.toggle('hidden',!showBack);if(!QUIET)window.scrollTo(0,0)}
 
 /* ---------- home ---------- */
-async function start(){if(!FTOK)return familyScreen();BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;goHome();
+async function start(){if(!FTOK)return familyScreen();BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
  let t=null;try{t=JSON.parse(localStorage.getItem('ydAdmin')||'null')}catch(e){}
- if(t&&t.token){const c=await api('adminCheckToken',t.token);if(c.ok){ADMIN=t;showFab()}else{try{localStorage.removeItem('ydAdmin')}catch(e){}}}}
-function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN)}
-function goHome(){PENDINGVIEW=()=>goHome();Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}CHILD=null;
+ if(t&&t.token){ADMIN=t;showFab();api('adminCheckToken',t.token).then(c=>{if(!c.ok){ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();const n=getNav();if(n&&n.v==='admin')goHome()}else pollThread()}).catch(()=>{})}
+ restoreNav()}
+function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children.find(c=>c.id===n.id);
+ if(kid&&kid.introDone===false&&n.v==='talk')n.v='child';
+ if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true)}
+ if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
+ goHome()}
+function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN);if(ADMIN)updateDot()}
+function setNav(o){try{localStorage.setItem('ydNav',JSON.stringify(o))}catch(e){}}
+function getNav(){try{return JSON.parse(localStorage.getItem('ydNav')||'null')}catch(e){return null}}
+function goHome(){setNav({v:'home'});PENDINGVIEW=()=>goHome();Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}CHILD=null;
  const colors={yuvaan:['#DCE6FB','#2A5FD6'],ditya:['#FBE1EE','#C2367C']};
  render(`<h1 style="margin:4px 0;font-size:28px">Who's learning today?</h1>`+
  BOOT.children.map(c=>{const col=colors[c.id]||['#eee','#333'];
@@ -104,7 +114,7 @@ function goHome(){PENDINGVIEW=()=>goHome();Voice.stop();if(RT){clearInterval(RT.
  `<div class="row" style="justify-content:flex-end"><button class="ghost" onclick="adminLoginScreen()">&#128274; Parents</button></div>`)}
 
 /* ---------- child today ---------- */
-async function openChild(id){PENDINGVIEW=()=>openChild(id);CHILD=BOOT.children.find(c=>c.id===id);
+async function openChild(id){setNav({v:'child',id:id});PENDINGVIEW=()=>openChild(id);CHILD=BOOT.children.find(c=>c.id===id);
  const t=await api('getToday',id);{const n=new Date();t.now=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')}
  const nowIdx=t.slots.findIndex((s,i)=>s.time<=t.now&&(!t.slots[i+1]||t.slots[i+1].time>t.now));
  render(`<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:24px;font-weight:800">Hi ${esc(CHILD.name)}!</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">${t.starsApproved} stars today</span></div>
@@ -118,7 +128,7 @@ async function openChild(id){PENDINGVIEW=()=>openChild(id);CHILD=BOOT.children.f
 function defaultMode(t){const n=t.now;if(n>=BOOT.morningEnd&&n<'14:00')return 'chat';if(n<BOOT.morningEnd)return 'morning';if(n>='14:00'&&n<'15:00')return 'fact';if(n>='15:00'&&n<'16:00')return 'homework';return 'chat'}
 
 /* ---------- talk (hands-free voice) ---------- */
-function openTalk(mode){MODE=mode;
+function openTalk(mode,restored){MODE=mode;if(mode!=='intro')setNav({v:'talk',id:CHILD.id,mode:mode});
  render(`<div class="muted" style="font-weight:800">${mode==='intro'?'Hello! Let\'s meet':'Talking with '+esc(CHILD.helperName)} <span class="tag" style="background:#EEF1F7">computer helper</span></div>
  <div id="clock" class="card hidden"></div>
  <div id="screenShow"></div>
@@ -127,6 +137,7 @@ function openTalk(mode){MODE=mode;
  <div class="muted" id="micHint" style="text-align:center">Say "Hey ${esc(CHILD.helperName)}" or tap the mic</div>
  <div class="row"><input id="typeBox" placeholder="Or type here" style="flex:1"><button class="primary" onclick="sendTyped()">Send</button></div>`,true);
  if(mode==='morning')clockTick();
+ if(restored){$('#micHint').textContent='Tap the mic to start talking';return}
  Voice.begin(mode==='intro');
  if(mode==='intro')send('(child opened the app for the first time)')}
 function clockTick(){const el=$('#clock');if(!el)return;const now=new Date(),[h,m]=BOOT.morningEnd.split(':');const end=new Date();end.setHours(+h,+m,0,0);const left=Math.max(0,Math.round((end-now)/60000));el.classList.remove('hidden');el.innerHTML=`<b>Minutes left: ${left}</b> <span class="muted">· ends ${BOOT.morningEnd}</span>`;setTimeout(clockTick,30000)}
@@ -202,7 +213,7 @@ const PICS={ // simple stick-figure pictures, drawn here (no copyright issues)
  ready:'<path d="M40 30l20-10 20 10 14 18-12 8v52H38V56l-12-8z"/>'};
 function picSvg(k){return `<svg viewBox="0 0 120 130" width="100%" height="200" fill="none" stroke="#2A5FD6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="${esc(k)}">${PICS[k]||PICS.rest}</svg>`}
 let RT=null;
-async function openRoutine(name){Voice.stop();const r=await api('getRoutine',CHILD.id,name);RT={name:name,steps:r.steps,music:r.music,i:0,timer:null};
+async function openRoutine(name){setNav({v:'child',id:CHILD.id});Voice.stop();const r=await api('getRoutine',CHILD.id,name);RT={name:name,steps:r.steps,music:r.music,i:0,timer:null};
  render(`<div style="font-size:22px;font-weight:800;text-transform:capitalize">${esc(name)}</div>
  <div class="card" style="text-align:center"><div id="rtPic"></div><div id="rtTitle" style="font-size:24px;font-weight:800"></div><div id="rtText" class="muted" style="font-size:17px"></div>
  <div id="rtCount" style="font-size:52px;font-weight:800;color:#2A5FD6;margin-top:6px">0:00</div><div id="rtStep" class="muted"></div></div>
@@ -223,19 +234,19 @@ function rtEnd(){clearInterval(RT.timer);if(RT.audio)RT.audio.pause();$('#rtMusi
  api('claimStar',CHILD.id,'Routine: '+RT.name,'');api('logTimer',CHILD.id,'routine',RT.name,RT.steps.reduce((a,s)=>a+s.seconds,0));Voice.speak('సూపర్! చాలా బాగా చేశావు!','te')}
 
 /* ---------- homework / stars / videos ---------- */
-async function openHomework(){PENDINGVIEW=()=>openHomework();const hw=await api('getHomework',CHILD.id);
+async function openHomework(){setNav({v:'hw',id:CHILD.id});PENDINGVIEW=()=>openHomework();const hw=await api('getHomework',CHILD.id);
  render(`<div style="font-size:22px;font-weight:800">Homework race</div><div class="muted">One hour for everything. Pick one to start.</div>`+
  (hw.length?hw.map(h=>`<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><div><span class="tag" style="background:#EFEAFB;color:#5B3FB0">${esc(h.kind)}</span> <b>${esc(h.subject)}</b><div class="muted">${esc(h.details)}</div></div><span class="muted">${esc(h.status)}</span></div>
  <div class="row" style="margin-top:10px">${h.status==='done'?`<span class="chip">Done ${h.minutes?h.minutes+' min':''}</span>`:`<button class="primary" onclick="hwStart('${h.id}','${esc(h.kind)}')">Start</button><button class="green" onclick="hwDone('${h.id}')">Done</button><button class="danger" onclick="hwPending('${h.id}')">Later</button>`}</div></div>`).join(''):'<div class="card muted">No homework added yet. Amma adds it from the diary.</div>'),true)}
 async function hwStart(id,kind){await api('homeworkUpdate',id,'started','');openTalk(/learn|read/i.test(kind)?'check':'homework')}
 async function hwDone(id){await api('homeworkUpdate',id,'done','');await api('claimStar',CHILD.id,'Homework item done','');toast('Great! Amma will check your star.');openHomework()}
 async function hwPending(id){await api('homeworkUpdate',id,'pending','Moved to later');openHomework()}
-async function openStars(){PENDINGVIEW=()=>openStars();const s=await api('getStars',CHILD.id);
+async function openStars(){setNav({v:'stars',id:CHILD.id});PENDINGVIEW=()=>openStars();const s=await api('getStars',CHILD.id);
  render(`<div style="font-size:22px;font-weight:800">My stars</div><div class="card"><b>This week: ${s.week} stars</b><div class="muted">Bronze 20 · Silver 25 · Gold 30</div></div>`+
  (s.today.map(x=>`<div class="slot"><span>${x.status==='approved'?'&#11088;':'&#9734;'}</span><span>${esc(x.item)}</span><span class="muted" style="margin-left:auto">${x.status==='waiting'?'Amma checks':esc(x.status)}</span></div>`).join('')||'<div class="card muted">No stars yet today.</div>'),true)}
 function videoEmbed(v){if(v.source==='facebook')return `<iframe src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(v.link)}&show_text=false" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
  const m=String(v.link).match(/\/d\/([^/]+)/);if(v.source==='drive'&&m)return `<iframe src="https://drive.google.com/file/d/${m[1]}/preview" allow="autoplay"></iframe>`;return `<a href="${esc(v.link)}" target="_blank">Open video</a>`}
-async function openVideos(){PENDINGVIEW=()=>openVideos();const vs=await api('getVideos',CHILD.id);
+async function openVideos(){setNav({v:'videos',id:CHILD.id});PENDINGVIEW=()=>openVideos();const vs=await api('getVideos',CHILD.id);
  render(`<div style="font-size:22px;font-weight:800">Video corner</div>`+(vs.map(v=>`<div class="card"><b>${esc(v.title)}</b> <span class="tag" style="background:#EEF1F7">${esc(v.status)}</span><div style="margin-top:10px">${videoEmbed(v)}</div><button class="ghost" style="margin-top:8px" onclick="api('markVideoShown','${v.id}');toast('Saved')">I watched it</button></div>`).join('')||'<div class="card muted">No videos yet.</div>'),true)}
 
 /* ---------- admin ---------- */
@@ -243,9 +254,9 @@ function adminLoginScreen(){render(`<div style="font-size:22px;font-weight:800">
  <label>Who?<select id="aRole"><option value="gowthami">Gowthami (admin)</option><option value="karthik">Karthik</option></select></label>
  <label>PIN<input id="aPin" type="password" inputmode="numeric"></label><div class="muted">First time: the PIN you type now becomes your PIN.</div>
  <button class="green" onclick="doLogin()">Open</button>`,true)}
-async function doLogin(){const r=await api('adminLogin',$('#aRole').value,$('#aPin').value);if(!r.ok)return toast('Wrong PIN');ADMIN=r;try{localStorage.setItem('ydAdmin',JSON.stringify(r))}catch(e){}showFab();adminHome('today')}
+async function doLogin(){const r=await api('adminLogin',$('#aRole').value,$('#aPin').value);if(!r.ok)return toast('Wrong PIN');ADMIN=r;try{localStorage.setItem('ydAdmin',JSON.stringify(r))}catch(e){}showFab();pollThread();adminHome('today')}
 const ATABS=[['today','Today'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','Ask Claude'],['use','Usage']];
-async function adminHome(tab){PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
+async function adminHome(tab){setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
  const d=await api('adminToday',ADMIN.token);let body='';
  const kidOpts=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
  if(tab==='today'){body=['yuvaan','ditya'].map(k=>{const t=d[k];const n=d.children.find(c=>c.id===k);return `<div class="card"><b>${esc(n.name)}</b> <span class="muted">helper: ${esc(n.helperName)}${n.nameChosenOn?' (chosen '+esc(n.nameChosenOn)+')':''}</span><div class="muted">Stars today: ${t.starsApproved} approved, ${t.starsWaiting} waiting</div></div>`}).join('')+
@@ -258,8 +269,7 @@ async function adminHome(tab){PENDINGVIEW=()=>adminHome(tab);const tabs=`<div cl
   <div class="card"><b>Add a slot</b><label>Child<select id="tKid">${kidOpts}</select></label><label>Days<input id="tDays" value="Mon,Tue,Wed,Thu,Fri"></label><label>Time<input id="tTime" type="time"></label><label>Activity<input id="tAct"></label><button class="green" style="margin-top:8px" onclick="addSlot()">Save slot</button></div>`}
  if(tab==='vid'){body=`<div class="card"><label>Child<select id="vKid">${kidOpts}</select></label><label>Title<input id="vTitle"></label><label>Facebook link or Google Drive link<input id="vLink" placeholder="Paste link"></label><button class="green" style="margin-top:8px" onclick="addVid()">Save video</button><div class="muted" style="margin-top:8px">Facebook links play inside the app. To make questions from a reel, upload the saved video to Drive – Karthik's Claude chat processes it.</div></div>`}
  if(tab==='music'){body=`<div class="card"><b>Add music for a routine</b><label>Routine<select id="mRt"><option value="brushing">Brushing</option><option value="washroom">Washroom</option><option value="ready">Get ready</option><option value="exercise">Exercise / yoga</option><option value="bath">After bath (devotional)</option><option value="breakfast">Breakfast (devotional)</option></select></label><label>Title<input id="mTitle" placeholder="e.g. Flute – morning raga"></label><label>YouTube link or Google Drive link<input id="mLink"></label><button class="green" style="margin-top:8px" onclick="addMusic()">Add (approved)</button><div class="muted" style="margin-top:8px">Brushing and washroom work best with Drive files of the right length. Devotional plays from official YouTube channels.</div></div>`}
- if(tab==='ask'){const reqs=await api('adminRequests',ADMIN.token);body=`<div class="card"><b>&#10022; Ask Claude for a change</b><div class="muted">Tip: the &#10022; Claude button at the top works on every screen. Say or type the change in Telugu or English – it gets built automatically.</div><button class="green" style="margin-top:8px" onclick="askOpen()">&#127908; Ask now</button></div>`+
-  reqs.map(r=>`<div class="card"><span class="tag" style="background:${r.status==='done'?'#E2F5EC':(r.status==='needs OK'?'#FDECEC':'#FFF1C9')}">${r.status==='done'?'Done &#10003;':esc(r.status)}</span> <span class="muted">${esc(r.by)}${r.screen?' · '+esc(r.screen):''}</span><div style="margin-top:6px;white-space:pre-line">${esc(r.teSummary||r.request)}</div>${r.note?`<div class="muted" style="margin-top:4px">${esc(r.note)}</div>`:''}${r.status==='needs OK'?`<div class="muted" style="margin-top:6px">This touches money, safety rules or access – needs a parent's OK.</div><button class="green" style="margin-top:6px" onclick="api('adminApproveRequest',ADMIN.token,'${r.id}').then(()=>adminHome('ask'))">OK, build it</button>`:''}</div>`).join('')}
+ if(tab==='ask'){body=`<div class="card"><b>&#10022; Claude chat</b><div class="muted" style="margin-top:4px">Ask anything about the app or say what you want changed – in Telugu or English. Claude answers here; a change is made only after you tap <b>Yes, make it</b>, and you see Saved → Being built → Done &#10003; in the same chat. The &#10022; Claude button at the top opens the same chat on every screen.</div><button class="green" style="margin-top:10px;width:100%" onclick="askOpen()">Open Claude chat</button></div>`}
  if(tab==='use'){const b=d.budget;body=`<div class="card"><b>This month: ₹${b.spentMonth} of ₹${b.cap}</b><div class="muted">Today: ₹${b.spentToday} (daily share ₹${b.dailyAllowance})</div>${b.warn?'<div class="danger" style="padding:8px;border-radius:10px;margin-top:8px">80% of the monthly cap used</div>':''}</div>`}
  render(`<div style="font-size:22px;font-weight:800">Admin · ${esc(ADMIN.role)}</div>`+tabs+body,true)}
 async function decide(id,ok){await api('adminDecideStar',ADMIN.token,id,ok);adminHome('stars')}
@@ -270,17 +280,42 @@ async function addSlot(){await api('adminSaveSlot',ADMIN.token,null,$('#tKid').v
 async function addVid(){await api('adminAddVideo',ADMIN.token,$('#vKid').value,$('#vTitle').value,$('#vLink').value);toast('Video saved');adminHome('vid')}
 async function addMusic(){await api('adminAddMusic',ADMIN.token,$('#mRt').value,$('#mTitle').value,$('#mLink').value,'');toast('Music added');adminHome('music')}
 /* ---------- parents' Claude panel (works on every screen) ---------- */
-let ASKREC=null;
+let ASKREC=null,THREAD=null;
 function screenName(){const app=$('#app');const first=(app.innerText||'').split('\n').map(x=>x.trim()).filter(Boolean)[0]||'';return ((CHILD&&!ADMIN_VIEW())?CHILD.name+' – ':'')+first.slice(0,60)}
 function ADMIN_VIEW(){return /^Admin/.test(($('#app').innerText||'').trim())}
 function askOpen(){if(!ADMIN)return;const p=$('#askPanel');p.classList.remove('hidden');
- p.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center"><b>&#10022; Ask Claude</b><button class="ghost" aria-label="Close" onclick="askClose()">&#10005;</button></div>
- <div class="muted">Screen: <span id="askScreen">${esc(screenName())}</span></div>
- <textarea id="askBox" rows="4" placeholder="తెలుగులో చెప్పండి లేదా టైప్ చేయండి" style="margin-top:8px"></textarea>
+ p.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center"><b>&#10022; Claude</b><span class="muted" style="flex:1;margin-left:8px;font-size:12px">on: <span id="askScreen">${esc(screenName())}</span></span><button class="ghost" aria-label="Close" onclick="askClose()">&#10005;</button></div>
+ <div id="thread" style="display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto;margin:8px 0;padding:2px"><div class="muted">Loading…</div></div>
+ <textarea id="askBox" rows="2" placeholder="Ask or say what to change – తెలుగులో చెప్పండి"></textarea>
  <div class="grid2" style="margin-top:8px"><button class="ghost" id="askMic" onclick="askMic()">&#127908; Speak</button><button class="green" onclick="askSend()">Send</button></div>
- <div id="askOut" class="muted" style="margin-top:8px"></div>
- <div class="row" style="justify-content:space-between;margin-top:8px"><button class="ghost" style="min-height:36px;font-size:13px" onclick="askClose();adminHome('ask')">My requests</button><button class="ghost" style="min-height:36px;font-size:13px" onclick="adminLock()">Lock</button></div>`}
-function askClose(){askStopMic();$('#askPanel').classList.add('hidden')}
+ <div class="row" style="justify-content:flex-end;margin-top:6px"><button class="ghost" style="min-height:34px;font-size:13px" onclick="adminLock()">Lock (hide this button)</button></div>`;
+ api('adminThread',ADMIN.token).then(drawThread).catch(()=>{})}
+const RQ={'new':['#FFF1C9','Saved – will be built at the next check (within an hour)'],'building':['#E8F0FE','Being built…'],'done':['#E2F5EC','Done &#10003;'],'needs OK':['#FDECEC','Needs a parent&#39;s OK']};
+function drawThread(list){THREAD=list;const box=$('#thread');if(!box)return;
+ box.innerHTML=list.length?list.map(m=>{
+  if(m.role==='parent')return `<div class="pmsg">${esc(m.text)}<div class="mt">${esc(m.by)} · ${esc(m.time)}</div></div>`;
+  if(m.role==='status'&&m.request){const s=RQ[m.request.status]||['#EEF1F7',esc(m.request.status)];
+   return `<div class="smsg"><span class="tag" style="background:${s[0]}">${s[1]}</span><div style="margin-top:4px">${esc(m.text)}</div>${m.request.note?`<div class="muted" style="margin-top:4px">${esc(m.request.note)}</div>`:''}${m.request.status==='done'?'<div class="mt">Close the app fully and open it again to see it.</div>':''}${m.request.status==='needs OK'?`<button class="green" style="margin-top:6px;min-height:38px" onclick="okReq('${m.request.id}')">OK, build it</button>`:''}</div>`}
+  let x=`<div class="cmsg">${esc(m.text)}`;
+  if(m.proposal){x+=`<div style="margin-top:8px;padding:8px;border-radius:10px;background:#fff"><b>Change:</b> ${esc(m.proposal.te)}${m.proposal.needsOk?'<div class="muted">This one needs a parent&#39;s OK after saving.</div>':''}`;
+   if(m.proposal.state==='pending')x+=`<div class="grid2" style="margin-top:8px"><button class="green" style="min-height:40px" onclick="confirmP('${m.id}',true)">&#9989; Yes, make it</button><button class="ghost" style="min-height:40px;border:2px solid #DDE3EE" onclick="confirmP('${m.id}',false)">&#9999;&#65039; Change it</button></div>`;
+   else x+=`<div class="mt">${m.proposal.state==='confirmed'?'&#10003; Confirmed':'Changed'}</div>`;x+='</div>'}
+  return x+`<div class="mt">${esc(m.time)}</div></div>`}).join(''):'<div class="muted">Ask a question or say what you want changed. Example: "హోమ్‌వర్క్ బటన్ పెద్దదిగా చేయండి" or "How do I add homework?"</div>';
+ box.scrollTop=box.scrollHeight;markSeen()}
+function threadSig(list){return (list||[]).filter(m=>m.role!=='parent').map(m=>m.id+(m.request?m.request.status:'')).join('|')}
+function markSeen(){try{localStorage.setItem('ydSeen',threadSig(THREAD))}catch(e){}updateDot()}
+function updateDot(){const f=$('#askFab');if(!f)return;let seen='';try{seen=localStorage.getItem('ydSeen')||''}catch(e){}
+ const t=THREAD||memGet(ckey('adminThread',[ADMIN&&ADMIN.token]));const show=!!(t&&t.length&&threadSig(t)!==seen&&$('#askPanel').classList.contains('hidden'));
+ let d=f.querySelector('.dot');if(show&&!d){d=document.createElement('span');d.className='dot';f.appendChild(d)}if(!show&&d)d.remove()}
+function pollThread(){if(!ADMIN)return;net('adminThread',[ADMIN.token]).then(t=>{memPut(ckey('adminThread',[ADMIN.token]),t);THREAD=t;if(!$('#askPanel').classList.contains('hidden')&&$('#thread'))drawThread(t);else updateDot()}).catch(()=>{})}
+setInterval(()=>{if(document.visibilityState==='visible'&&ADMIN)pollThread()},60000);
+async function askSend(){askStopMic();const t=$('#askBox').value.trim();if(!t)return;$('#askBox').value='';
+ const box=$('#thread');if(box){box.insertAdjacentHTML('beforeend',`<div class="pmsg">${esc(t)}</div><div class="cmsg" id="thinkC">• • •</div>`);box.scrollTop=box.scrollHeight}
+ try{const list=await api('adminChat',ADMIN.token,t,$('#askScreen').textContent);memPut(ckey('adminThread',[ADMIN.token]),list);drawThread(list)}catch(e){const c=$('#thinkC');c&&c.remove()}}
+async function confirmP(id,yes){const box=$('#thread');if(box){box.insertAdjacentHTML('beforeend',`<div class="cmsg" id="thinkC">• • •</div>`);box.scrollTop=box.scrollHeight}
+ try{const list=await api('adminConfirm',ADMIN.token,id,yes);memPut(ckey('adminThread',[ADMIN.token]),list);drawThread(list)}catch(e){const c=$('#thinkC');c&&c.remove()}}
+async function okReq(id){await api('adminApproveRequest',ADMIN.token,id);pollThread()}
+function askClose(){askStopMic();$('#askPanel').classList.add('hidden');updateDot()}
 function askStopMic(){if(ASKREC){ASKREC.keep=false;try{ASKREC.r.stop()}catch(e){}ASKREC=null;const b=$('#askMic');if(b)b.innerHTML='&#127908; Speak'}}
 function askMic(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('Voice not supported here – please type');
  if(ASKREC)return askStopMic();Voice.stop();
