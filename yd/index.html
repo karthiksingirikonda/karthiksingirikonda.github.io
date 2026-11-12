@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v30 · Thu 12/11 19:00';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v31 · Thu 12/11 19:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -121,7 +121,7 @@ let MICOBS=null;function micStateOf(t){t=String(t||'');if(/Speaking/.test(t))ret
 function paintMic(){const h=$('#micHint');if(!h)return;const st=micStateOf(h.textContent);h.className='st-'+st;const m=$('#micBtn');if(m){m.classList.toggle('speak',st==='speak');m.classList.toggle('think',st==='think');if(st==='listen'){m.classList.add('listen');m.classList.remove('sleep')}else if(st==='off'){m.classList.remove('listen');m.classList.add('sleep')}else{m.classList.remove('listen','sleep')}}}
 function watchMic(){try{MICOBS&&MICOBS.disconnect()}catch(e){}const h=$('#micHint');if(!h)return;MICOBS=new MutationObserver(paintMic);MICOBS.observe(h,{childList:true,characterData:true,subtree:true});paintMic()}
 // Back: from any of a child's screens → that child's page; from the child's page (or Admin) → main screen.
-function goBack(){const n=getNav()||{};if(CHILD&&['chess','word','typing','quiz','colour','ckid'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
+function goBack(){const n=getNav()||{};if(CHILD&&['chess','word','typing','quiz','colour','ckid','sudoku'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
 // phone/browser back button follows the same rule
 try{history.pushState({yd:1},'')}catch(e){}
 window.addEventListener('popstate',()=>{const n=getNav()||{};if(n.v&&n.v!=='home'){goBack();try{history.pushState({yd:1},'')}catch(e){}}});
@@ -435,12 +435,19 @@ let CG=null;
 function chKey(){return 'ydChess_'+(CHILD?CHILD.id:'x')}
 function chStats(){try{return JSON.parse(localStorage.getItem(chKey())||'{}')}catch(e){return{}}}
 function chBump(k){const s=chStats();s[k]=(s[k]||0)+1;try{localStorage.setItem(chKey(),JSON.stringify(s))}catch(e){}}
-function openChess(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'chess',id:CHILD.id});const s=chStats();
- render(`<b style="font-size:20px">♟️ Chess</b>
+function openChess(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'chess',id:CHILD.id});const s=chStats();CHT=null;
+ if(!s.rec){render(`<b style="font-size:20px">♟️ Chess</b><div class="card" style="background:#FFF6D6"><b>📝 First, a quick test</b><div class="muted">5 checkmate puzzles show how good you are. Then you start at the right level.</div></div><button class="primary" style="width:100%;min-height:70px;font-size:20px" onclick="chTest()">📝 Start the test</button><button style="width:100%;margin-top:8px" onclick="chSetRec(1)">Skip – start at Easy</button>`,true);sayFree('Chess! First a quick test with five puzzles, to find your level.','en');return}
+ render(`<b style="font-size:20px">♟️ Chess</b><div class="muted" style="font-weight:700">Your level: ${['','Easy','Medium','Hard'][s.rec]} ⭐</div>
  <div class="kgrid" style="grid-template-columns:repeat(3,1fr)"><button class="kt" style="background:#EAF8EE" onclick="chNew(1)"><span>🙂</span>Easy</button><button class="kt" style="background:#FFF6D6" onclick="chNew(2)"><span>🤔</span>Medium</button><button class="kt" style="background:#FFE8EE" onclick="chNew(3)"><span>🔥</span>Hard</button></div>
  <button class="kt" style="background:#EEF3FF;width:100%;margin-top:10px;min-height:80px" onclick="chPuzzle(0)"><span>🧩</span>Puzzles (${CH_PUZ.length})</button>
  <div class="card"><b>My wins</b><div class="muted">Easy ${s.w1||0} · Medium ${s.w2||0} · Hard ${s.w3||0} · Puzzles solved ${s.pz||0}</div></div>`,true)}
 function chNew(lv){CG={s:CH.parse(CH_START),lv,sel:-1,dests:[],last:null,hint:null,over:false,puz:null,msg:'Your move! You are White.'};chDraw();sayFree('New game. You are white. Your move!','en')}
+let CHT=null;
+function chSetRec(n){const s=chStats();s.rec=n;try{localStorage.setItem(chKey(),JSON.stringify(s))}catch(e){}openChess()}
+function chTest(){CHT={i:0,right:0};chPuzzle(0);CG.test=true;CG.miss=0}
+function chTestNext(){CHT.i++;if(CHT.i<5){chPuzzle(CHT.i);CG.test=true;CG.miss=0;CG.msg='Test '+(CHT.i+1)+' of 5. '+CG.msg;chDraw();return}
+ const lv=CHT.right>=4?3:CHT.right>=2?2:1,s=chStats();s.rec=lv;try{localStorage.setItem(chKey(),JSON.stringify(s))}catch(e){}const r=CHT.right;CHT=null;
+ render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:56px">📝</div><div style="font-size:22px;font-weight:800">Test done: ${r} of 5</div><div class="muted">Your level: ${['','Easy','Medium','Hard'][lv]}</div><button class="primary" style="width:100%;margin-top:12px" onclick="chNew(${lv})">▶ Play at ${['','Easy','Medium','Hard'][lv]}</button><button style="width:100%;margin-top:8px" onclick="openChess()">Chess menu</button></div>`,true);sayFree('Test done! You got '+r+' of five. Your level is '+['','easy','medium','hard'][lv]+'.','en')}
 function chPuzzle(i){i=(i+CH_PUZ.length)%CH_PUZ.length;const[f,title]=CH_PUZ[i];CG={s:CH.parse(f),lv:0,sel:-1,dests:[],last:null,hint:null,over:false,puz:i,msg:title+'. Find the checkmate!'};chDraw();sayFree(title+'. Find the checkmate in one move!','en')}
 function chDraw(){setNav({v:'chess',id:CHILD.id});const{s}=CG;let h='';
  for(let sq=0;sq<64;sq++){const r=sq>>3,c=sq&7,dark=(r+c)%2===1,p=s.b[sq],isSel=sq===CG.sel,isDest=CG.dests.includes(sq),isLast=CG.last&&(CG.last.f===sq||CG.last.t===sq),isHint=CG.hint&&(CG.hint.f===sq||CG.hint.t===sq);
@@ -454,8 +461,8 @@ function chTap(sq){if(!CG||CG.over||CG.s.turn!=='w'||CG.busy)return;const p=CG.s
  if(p!=='.'&&CH.white(p)){CG.sel=sq;CG.dests=CH.legal(CG.s).filter(x=>x.f===sq).map(x=>x.t)}else{CG.sel=-1;CG.dests=[]}CG.hint=null;chDraw()}
 function chPlay(m){CG.prev=CG.prev||[];CG.prev.push(CG.s);CG.s=CH.make(CG.s,m);CG.last=m;CG.sel=-1;CG.dests=[];CG.hint=null;
  const opp=CH.legal(CG.s);
- if(CG.puz!=null){if(CH.inCheck(CG.s)&&!opp.length){CG.over=true;CG.msg='Checkmate! Puzzle solved ⭐';chBump('pz');chDraw();sayFree('Checkmate! Brilliant, you solved it!','en')}
-  else{CG.msg='Not mate yet – try another move.';CG.s=CG.prev.pop();CG.last=null;chDraw();sayFree('Good try! That is not checkmate. Look again for a check the king cannot escape.','en')}return}
+ if(CG.puz!=null){if(CH.inCheck(CG.s)&&!opp.length){CG.over=true;CG.msg='Checkmate! Puzzle solved ⭐';chBump('pz');chDraw();sayFree('Checkmate! Brilliant, you solved it!','en');if(CG.test&&CHT){if(!CG.miss)CHT.right++;setTimeout(chTestNext,1600)}}
+  else{CG.msg='Not mate yet – try another move.';CG.s=CG.prev.pop();CG.last=null;if(CG.test&&CHT){CG.miss=(CG.miss||0)+1;if(CG.miss>=2){CG.over=true;CG.msg='Next test puzzle…';chDraw();setTimeout(chTestNext,1200);return}}chDraw();sayFree('Good try! That is not checkmate. Look again for a check the king cannot escape.','en')}return}
  if(!opp.length){CG.over=true;const mate=CH.inCheck(CG.s);CG.msg=mate?'Checkmate – you win! 🏆':'Stalemate – draw.';if(mate){chBump('w'+CG.lv);try{api('claimStar',CHILD.id,'Chess win ('+['','Easy','Medium','Hard'][CG.lv]+')','')}catch(e){}}chDraw();sayFree(mate?'Checkmate! You won the game. Super!':'Stalemate. It is a draw.','en');return}
  CG.msg=CH.inCheck(CG.s)?'Check! Thinking…':'Thinking…';CG.busy=true;chDraw();
  setTimeout(()=>{const d=CG.lv===1?1:CG.lv===2?2:3,r=CH.best(CG.s,d,CG.lv===1?120:CG.lv===2?25:0);if(!r){CG.busy=false;return}CG.s=CH.make(CG.s,r);CG.last=r;CG.busy=false;
@@ -483,7 +490,7 @@ function wgPick(n){const list=(CHILD.id==='ditya'?WG_D:WG_Y)[n],k=srPick('w'+n,l
 function wgPlayed(){const st=wgStats(),d=new Date().toDateString();if(st.day!==d){st.day=d;st.played=0}st.played=(st.played||0)+1;wgSet(st)}
 function wgNew(n){const lim=WG_DAY[CHILD.id]||8;if(wgToday()>=lim){render(`<div class="card" style="text-align:center;padding:26px"><div style="font-size:56px">🌟</div><div style="font-size:22px;font-weight:800">Great playing today!</div><div class="muted" style="margin-top:6px">You finished today's ${lim} words. Come back tomorrow for new words.</div><button class="primary" style="width:100%;margin-top:14px" onclick="goBack()">Back</button></div>`,true);sayFree('Great playing! You finished today\'s words. Come back tomorrow for new words.','en');return}
  const pick=wgPick(n);{const kd=CHILD.id==='ditya',list=(kd?WG_D:WG_Y)[n],sv=srGet('w'+n);if(list.filter(x=>!sv[x[0]]).length<4)gmMore((kd?'wd':'w')+n,list.map(x=>x[0]))}
- const told=srTold('w'+n,pick[0]);WG={n,word:pick[0].toUpperCase(),clue:pick[1],pic:CHILD.id==='ditya',rows:[],cur:pick[0].slice(0,told?2:1).toUpperCase(),told,tries:CHILD.id==='ditya'?6:5,pts:500,over:false,msg:told?TOLD+' (2 letters given)':''};wgDraw();
+ const told=srTold('w'+n,pick[0]);WG={n,word:pick[0].toUpperCase(),clue:pick[1],pic:CHILD.id==='ditya',rows:[],cur:pick[0].slice(0,told?2:1).toUpperCase(),told,tries:CHILD.id==='ditya'?6:5,pts:500,over:false,msg:told?TOLD+' (2 letters given)':''};WG.teach=WG.pic&&tmGet('w'+n).mode==='teach';if(WG.teach){const L=WG.word.split('').join(' ');return tmCard(WG.clue,L,'This is a '+WG.word.toLowerCase()+'.','This is a '+WG.word.toLowerCase()+'. '+WG.word.split('').join(', ')+'. Now you try!',()=>{wgDraw();sayFree('Type '+WG.word.toLowerCase()+'. It starts with '+WG.word[0]+'.','en')})}wgDraw();
  sayFree((WG.told?'I told you this word before. Try to remember! ':'')+(WG.pic?'What is this? Find the word. It starts with '+WG.word[0]+'.':'Hint: '+WG.clue+'. It starts with '+WG.word[0]+'.'),'en')}
 function wgScore(g,w){const res=Array(w.length).fill('x'),left={};for(let i=0;i<w.length;i++){if(g[i]===w[i])res[i]='g';else left[w[i]]=(left[w[i]]||0)+1}
  for(let i=0;i<w.length;i++)if(res[i]!=='g'&&left[g[i]]){res[i]='y';left[g[i]]--}return res}
@@ -500,11 +507,11 @@ function wgDraw(){setNav({v:'word',id:CHILD.id});const n=WG.n,cell=(ch,st)=>`<di
 function wgKey(k){if(!WG||WG.over)return;const n=WG.n;
  if(k==='DEL'){if(WG.cur.length>1)WG.cur=WG.cur.slice(0,-1)}
  else if(k==='ENTER'){if(WG.cur.length<n){WG.msg='Type all '+n+' letters';return wgDraw()}const g=WG.cur,s=wgScore(g,WG.word);WG.rows.push({g,s:s.join('')});
-  if(g===WG.word){WG.over=true;wgPlayed();srMark('w'+n,WG.word.toLowerCase(),true);const st=wgStats();st['w'+n]=(st['w'+n]||0)+1;wgSet(st);const star=st['w'+n]%3===0;WG.msg='You got it! '+WG.word+(star?' ⭐':'');
+  if(g===WG.word){WG.over=true;wgPlayed();srMark('w'+n,WG.word.toLowerCase(),true);if(WG.pic){const tm=tmMsg(tmNote('w'+n,WG.rows.length<=3));if(tm)setTimeout(()=>toast(tm),1500)}const st=wgStats();st['w'+n]=(st['w'+n]||0)+1;wgSet(st);const star=st['w'+n]%3===0;WG.msg='You got it! '+WG.word+(star?' ⭐':'');
    if(star){try{api('claimStar',CHILD.id,'Word game: 3 words ('+n+' letters)','')}catch(e){}}
    wgDraw();sayFree((WG.pic?'Yes! It is a '+WG.word.toLowerCase()+'. ':'Super! The word is '+WG.word.toLowerCase()+'. ')+(star?'You earned a star!':''),'en');return}
   WG.pts=Math.max(0,WG.pts-(WG.pic?50:100));
-  if(WG.rows.length>=WG.tries){WG.over=true;wgPlayed();srMark('w'+n,WG.word.toLowerCase(),false);WG.msg='The word was '+WG.word;wgDraw();sayFree('Good try! The word was '+WG.word.toLowerCase()+'. Let\'s try another one.','en');return}
+  if(WG.rows.length>=WG.tries){WG.over=true;wgPlayed();srMark('w'+n,WG.word.toLowerCase(),false);if(WG.pic){const tm=tmMsg(tmNote('w'+n,false));if(tm)setTimeout(()=>toast(tm),1500)}WG.msg='The word was '+WG.word;wgDraw();sayFree('Good try! The word was '+WG.word.toLowerCase()+'. Let\'s try another one.','en');return}
   WG.cur=WG.word.slice(0,WG.told?2:1);if(WG.pic&&WG.rows.length>=2)WG.cur=WG.word.slice(0,2);WG.msg=WG.pic&&WG.rows.length===2?'Helper gave you one more letter!':'Try again!';
   wgDraw();return}
  else if(/^[A-Z]$/.test(k)&&WG.cur.length<n)WG.cur+=k;
@@ -515,8 +522,8 @@ document.addEventListener('keydown',e=>{const n=getNav()||{};if(n.v!=='word'||!W
 function openGames(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'games',id:CHILD.id});const y=CHILD.id!=='ditya';gmSync();
  const T=(bg,ic,label,fn)=>`<button class="kt" style="background:${bg}" onclick="${fn}"><span>${ic}</span>${label}</button>`;
  render(`<b style="font-size:22px">🎮 Games</b><div class="kgrid">`+(y?
-  T('#F1EDE6','♟️','Chess','openChess()')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#E6F4FF','🦉','Animal groups','openQuiz(\'groups\')')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#FDEBF3','🧩','Name the part','openQuiz(\'parts\')')+T('#E8F4FF','🔍','Look-alikes','openQuiz(\'alike\')')+T('#EEF3FF','⌨️','Typing','openTyping()')
-  :T('#E9F7E2','🔤','Word game','openWordGame()')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#E6F4FF','🐣','Animal babies','openQuiz(\'babies\')')+T('#FDEBF3','👃','My body','openQuiz(\'partsKid\')')+T('#F1EDE6','♟️','Chess school','openChessKid()')+T('#FFF6D6','🎨','Colouring','openColour(0)'))+`</div>`,true)}
+  T('#F1EDE6','♟️','Chess','openChess()')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#E6F4FF','🦉','Animal groups','openQuiz(\'groups\')')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#FDEBF3','🧩','Name the part','openQuiz(\'parts\')')+T('#E8F4FF','🔍','Look-alikes','openQuiz(\'alike\')')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#EEF3FF','⌨️','Typing','openTyping()')
+  :T('#E9F7E2','🔤','Word game','openWordGame()')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#E6F4FF','🐣','Animal babies','openQuiz(\'babies\')')+T('#FDEBF3','👃','My body','openQuiz(\'partsKid\')')+T('#F1EDE6','♟️','Chess school','openChessKid()')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#FFF6D6','🎨','Colouring','openColour(0)'))+`</div>`,true)}
 const QZ_SETS={
  groups:{title:'Animal groups',ask:'What do we call a group of these?',n:4,day:15,segs:true,items:[
   ['a pride of lions','🦁','A pride of lions rested under the tree.'],['a herd of elephants','🐘','A herd of elephants walked to the river.'],['a school of fish','🐟','A school of fish swam past the boat.'],['a flock of sheep','🐑','The shepherd looked after a flock of sheep.'],
@@ -655,7 +662,7 @@ const QZ_SETS={
   ['row','🚣','We row the boat across the lake.'],['skate','⛸️','She can skate on the ice.'],['surf','🏄','People surf on big waves.'],['lift','🏋️','He can lift heavy weights.'],
   ['wave','👋','Wave goodbye to your friends.'],['clap','👏','Clap your hands for the winner.'],['yawn','🥱','I yawn when I am sleepy.'],['sneeze','🤧','Cover your nose when you sneeze.'],
   ['shiver','🥶','We shiver when it is very cold.'],['whisper','🤫','Whisper so you do not wake the baby.'],['pray','🙏','We pray every morning.'],['bow','🙇','The actors bow at the end of the show.'],['knead','👐🫓','Knead the dough to make chapati.'],['boil','♨️🥚','Boil the water before drinking.']]},
- actionsKid:{title:'Guess the action',ask:'What is this?',n:3,day:10,items:[
+ actionsKid:{title:'Guess the action',ask:'What is this?',n:3,day:10,kid:true,items:[
   ['eat','😋🍔','I eat my lunch.'],['drink','🥤','I drink water.'],['sleep','😴','I sleep at night.'],['run','🏃','I run fast.'],['swim','🏊','Fish swim in water.'],['cry','😢','The baby is crying.'],
   ['laugh','😂','We laugh at a funny joke.'],['wave','👋','Wave bye-bye!'],['clap','👏','Clap your hands!'],['read','📖','I read a book.'],['write','✍️','I write my name.'],['sing','🎤','I sing a song.'],
   ['dance','💃','We dance to music.'],['cook','🧑‍🍳','Amma can cook rice.'],['wash','🧼','Wash your hands.'],['brush','🪥','Brush your teeth.'],['ride','🚴','I ride my cycle.'],['kick','⚽','Kick the ball!'],
@@ -672,7 +679,7 @@ function srGet(g){try{return JSON.parse(localStorage.getItem(srKey(g))||'{}')}ca
 const GMQ={};let GMT=null;const GMSYNC={};
 function srPut(g,s){try{localStorage.setItem(srKey(g),JSON.stringify(s))}catch(e){}GMQ[g]=1;clearTimeout(GMT);GMT=setTimeout(gmFlush,2500)}
 function gmFlush(){if(!CHILD)return;const kid=CHILD.id;Object.keys(GMQ).forEach(g=>{delete GMQ[g];try{api('gameSave',kid,g,JSON.stringify(srGet(g)))}catch(e){}})}
-function srMerge(a,b){const o=Object.assign({},a||{});for(const k in (b||{})){const y=b[k];if(k[0]==='_'){o[k]=Math.max(o[k]||0,y||0);continue}const x=o[k];if(!x){o[k]=y;continue}
+function srMerge(a,b){const o=Object.assign({},a||{});for(const k in (b||{})){const y=b[k];if(k[0]==='_'){o[k]=typeof y==='number'?Math.max(o[k]||0,y||0):(y||o[k]);continue}const x=o[k];if(!x){o[k]=y;continue}
  const keep=((y.l||0)>(x.l||0)||((y.l||0)===(x.l||0)&&(y.q||0)>(x.q||0)))?y:x;o[k]=Object.assign({},keep,{r:[...new Set([...(x.r||[]),...(y.r||[])])].sort().slice(-5),t:!!(x.t||y.t)})}return o}
 /* games never run out: when a game is nearly out of new questions, the server makes a fresh topic and keeps it for good */
 const GMMORE={};
@@ -706,52 +713,144 @@ const GALSO={giraffes:['herd'],zebras:['herd'],rhinos:['herd'],camels:['herd','t
 const QSEG=x=>x[3]||'animals',SEGNAME={animals:'Animal groups',people:'People groups',things:'Groups of things',food:'Food parts',plant:'Plant parts',body:'Body parts',vehicle:'Vehicle parts',home:'Parts of a home'};
 function gParts(x){const m=x.match(/^an? (\w+) of (.+)$/);return{w:m[1],a:m[2]}}
 function gPhrase(w,a){return (/^[aeiou]/.test(w)?'an ':'a ')+w+' of '+a}
+/* Yuvaan: first 5 questions of each game are a test that sets Easy / Medium / Hard; the level then moves up or down by itself.
+   Easy = 3 options, Medium = 4 options, Hard = type the answer. Ditya: teaching mode first, game mode once she has learned it. */
+const LVN={easy:'Easy',medium:'Medium',hard:'Hard'};
 function openQuiz(kind){if(CHILD&&RESTING[CHILD.id])return showRest();if(kind==='actions'&&CHILD.id==='ditya')kind='actionsKid';++NAVSEQ;Voice.stop();setNav({v:'quiz',id:CHILD.id,kind});
- const set=QZ_SETS[kind],st=qzSt(),d=new Date().toDateString(),k=kind;if(!st[k]||st[k].day!==d)st[k]=Object.assign(st[k]||{},{day:d,played:0});qzSave(st);
+ const set=QZ_SETS[kind],st=qzSt(),d=new Date().toDateString(),k=kind;if(!st[k]||st[k].day!==d)st[k]=Object.assign(st[k]||{},{day:d,played:0});
+ if(k==='groups'&&!st[k].lv&&st[k].lvl)st[k].lv=st[k].lvl===2?'hard':'medium';qzSave(st);
  if(st[k].played>=set.day){render(`<div class="card" style="text-align:center;padding:26px"><div style="font-size:56px">🌟</div><div style="font-size:22px;font-weight:800">Great playing today!</div><div class="muted" style="margin-top:6px">You finished today's ${set.day} questions. Come back tomorrow!</div><button class="primary" style="width:100%;margin-top:14px" onclick="openGames()">🎮 Games</button></div>`,true);sayFree('Great playing! Come back tomorrow for more.','en');return}
- const lvl=kind==='groups'?(st[k].lvl||1):1,srg=kind+(lvl===2?'2':''),byKey={};set.items.forEach(x=>byKey[x[0]]=x);
- const key=srPick(srg,set.items.map(x=>x[0]),x=>QSEG(byKey[x])),it=byKey[key],told=srTold(srg,key),seg=QSEG(it);
- let opts=[],g=null;
- if(kind==='groups'){g=gParts(it[0]);const bad=[g.w].concat(GALSO[g.a]||[]);const same=[...new Set(set.items.filter(x=>QSEG(x)===seg).map(x=>gParts(x[0]).w))].filter(w=>bad.indexOf(w)<0);
-  const rest=GW.concat(set.items.map(x=>gParts(x[0]).w)).filter((w,i,a)=>a.indexOf(w)===i&&bad.indexOf(w)<0&&same.indexOf(w)<0);
-  const pool=same.sort(()=>Math.random()-0.5).concat(rest.sort(()=>Math.random()-0.5)).slice(0,set.n-1);opts=pool.map(w=>gPhrase(w,g.a)).concat([it[0]])}
- else if(kind==='alike'){opts=[it[0],it[5]]}
- else{const same=[...new Set(set.items.filter(x=>x[0]!==it[0]&&QSEG(x)===seg).map(x=>x[0]))],other=set.items.filter(x=>x[0]!==it[0]&&QSEG(x)!==seg).map(x=>x[0]);
-  opts=same.sort(()=>Math.random()-0.5).concat(other.sort(()=>Math.random()-0.5)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,set.n-1).concat([it[0]])}
- opts=opts.sort(()=>Math.random()-0.5);
- if(told&&opts.length>2){const w=opts.findIndex(o=>o!==it[0]);opts.splice(w,1)}   // remembered-before: one wrong option removed as a hint
- QZ={kind,set,it,opts,g,lvl,srg,seg,told,done:false,tries:0};qzDraw();
- const q=kind==='groups'?(lvl===2?'Type the missing word. A blank of '+g.a+'.':'What do we call a group of '+g.a+'?'):(it[4]||set.ask);
- sayFree((told?'I told you this one before. Try to remember! ':'')+q+(set.kid?' Is it '+opts.join(', or ')+'?':''),'en');
+ const kid=!!set.kid,test=!kid&&!st[k].lv,fmt=kid?'kid':test?'medium':st[k].lv,srg=kind+(fmt==='hard'?'2':''),byKey={};set.items.forEach(x=>byKey[x[0]]=x);
+ const key=srPick(srg,set.items.map(x=>x[0]),x=>QSEG(byKey[x])),it=byKey[key],told=srTold(srg,key),seg=QSEG(it),n=kind==='alike'?2:kid?set.n:fmt==='easy'?3:4;
+ let opts=[],g=null;if(kind==='groups')g=gParts(it[0]);
+ if(fmt!=='hard'){
+  if(kind==='groups'){const bad=[g.w].concat(GALSO[g.a]||[]);const same=[...new Set(set.items.filter(x=>QSEG(x)===seg).map(x=>gParts(x[0]).w))].filter(w=>bad.indexOf(w)<0);
+   const rest=GW.concat(set.items.map(x=>gParts(x[0]).w)).filter((w,i,a)=>a.indexOf(w)===i&&bad.indexOf(w)<0&&same.indexOf(w)<0);
+   opts=sdShuffle(same).concat(sdShuffle(rest)).slice(0,n-1).map(w=>gPhrase(w,g.a)).concat([it[0]])}
+  else if(kind==='alike')opts=[it[0],it[5]];
+  else{const same=[...new Set(set.items.filter(x=>x[0]!==it[0]&&QSEG(x)===seg).map(x=>x[0]))],other=set.items.filter(x=>x[0]!==it[0]&&QSEG(x)!==seg).map(x=>x[0]);
+   opts=sdShuffle(same).concat(sdShuffle(other)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,n-1).concat([it[0]])}
+  opts=sdShuffle(opts);if(told&&opts.length>2){const w=opts.findIndex(o=>o!==it[0]);opts.splice(w,1)}}
+ const teach=kid&&tmGet(srg).mode==='teach';
+ QZ={kind,set,it,opts,g,fmt,test,srg,seg,told,teach,done:false,tries:0};
+ const q=kind==='groups'?(fmt==='hard'?'Type the missing word. A blank of '+g.a+'.':'What do we call a group of '+g.a+'?'):(it[4]||set.ask);
+ const go=()=>{qzDraw();sayFree((told?'I told you this one before. Try to remember! ':'')+q+(kid?' Is it '+opts.join(', or ')+'?':''),'en')};
+ if(teach){const name=kind==='actionsKid'?it[0]:it[0];tmCard(it[1],name,it[2],it[2]+' Now you try!',go)}else go();
  {const sv=srGet(srg),freshN=set.items.filter(x=>!sv[x[0]]).length;if(freshN<4)gmMore(kind,set.items.map(x=>x[0]))}}
-function qzLvl(n){const st=qzSt();st.groups=st.groups||{};st.groups.lvl=n;st.groups.manual=true;qzSave(st);openQuiz('groups')}
-function qzDraw(){const{set,it,opts,kind,g,lvl,seg,told}=QZ,st=qzSt()[kind]||{},pic=kind==='groups'?`<div style="font-size:64px">${it[1]}</div><div style="font-size:40px;letter-spacing:4px;margin-top:4px">${it[1].repeat(6)}</div>`:`<div style="font-size:96px;line-height:1.1">${it[1]}</div>`;
- const lv=kind==='groups'?`<div class="row" style="gap:8px;margin-top:6px"><button style="flex:1;min-height:40px;${lvl===1?'background:#1C4AAE;color:#fff':''}" onclick="qzLvl(1)">Level 1 · choose</button><button style="flex:1;min-height:40px;${lvl===2?'background:#1C4AAE;color:#fff':''}" onclick="qzLvl(2)">Level 2 · type</button></div>`:'';
- const ask=kind==='groups'?(lvl===2?`Fill in the missing word:<div style="font-size:24px;margin-top:6px">${/^[aeiou]/.test(g.w)?'an':'a'} ____ of ${esc(g.a)}</div>`:`What do we call a group of ${esc(g.a)}?`):esc(it[4]||set.ask);
- const hint2=kind==='groups'&&lvl===2&&told?'Clue: it starts with <b>'+g.w[0].toUpperCase()+'</b> · '+g.w.length+' letters':'';
- const body=kind==='groups'&&lvl===2?`<div class="row" style="gap:8px;margin-top:6px"><input id="qzIn" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;font-size:22px;min-height:54px;padding:0 12px" placeholder="type the word" onkeydown="if(event.key==='Enter')qzType()"><button class="primary" style="min-height:54px" onclick="qzType()">Check</button></div><div id="qzHint" class="muted" style="text-align:center;margin-top:6px;font-size:18px">${hint2}</div>`
-  :`<div style="display:grid;gap:10px;margin-top:6px">${opts.map((o,i)=>`<button id="qo${i}" style="min-height:58px;font-size:${kind==='actionsKid'?24:19}px;font-weight:800;background:#fff;border:2px solid #DDE3EE" onclick="qzPick(${i})">${esc(o)}</button>`).join('')}</div>`;
+function qzLv(lv){const st=qzSt(),k=QZ.kind;st[k]=st[k]||{};st[k].lv=lv;st[k].win=[];qzSave(st);openQuiz(k)}
+function qzDraw(){const{set,it,opts,kind,g,fmt,test,seg,told,teach}=QZ,st=qzSt()[kind]||{},pic=kind==='groups'?`<div style="font-size:64px">${it[1]}</div><div style="font-size:40px;letter-spacing:4px;margin-top:4px">${it[1].repeat(6)}</div>`:`<div style="font-size:96px;line-height:1.1">${it[1]}</div>`;
+ const lvBar=set.kid?'':test?`<div class="card" style="background:#FFF6D6;margin-top:6px"><b>📝 Test – question ${((st.tst||{}).n||0)+1} of 5</b><div class="muted">This finds your level: Easy, Medium or Hard.</div></div>`
+  :`<div class="row" style="gap:6px;margin-top:6px">${['easy','medium','hard'].map(l=>`<button style="flex:1;min-height:40px;${l===fmt?'background:#1C4AAE;color:#fff':''}" onclick="qzLv('${l}')">${LVN[l]}</button>`).join('')}</div>`;
+ const ask=kind==='groups'?(fmt==='hard'?`Fill in the missing word:<div style="font-size:24px;margin-top:6px">${/^[aeiou]/.test(g.w)?'an':'a'} ____ of ${esc(g.a)}</div>`:`What do we call a group of ${esc(g.a)}?`):esc(it[4]||set.ask);
+ const tgt=kind==='groups'?g.w:it[0];
+ const hint2=fmt==='hard'&&told?'Clue: it starts with <b>'+tgt[0].toUpperCase()+'</b> · '+tgt.length+' letters':'';
+ const body=fmt==='hard'?`<div class="row" style="gap:8px;margin-top:6px"><input id="qzIn" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;font-size:22px;min-height:54px;padding:0 12px" placeholder="type the answer" onkeydown="if(event.key==='Enter')qzType()"><button class="primary" style="min-height:54px" onclick="qzType()">Check</button></div><div id="qzHint" class="muted" style="text-align:center;margin-top:6px;font-size:18px">${hint2}</div>`
+  :`<div style="display:grid;gap:10px;margin-top:6px">${opts.map((o,i)=>`<button id="qo${i}" style="min-height:58px;font-size:${set.kid?24:19}px;font-weight:800;background:#fff;border:2px solid #DDE3EE" onclick="qzPick(${i})">${esc(o)}</button>`).join('')}</div>`;
  const icon={groups:'🦉',parts:'🧩',alike:'🔍',babies:'🐣',partsKid:'👃'}[kind]||'🎬';
- render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">${icon} ${set.title}</b><span class="tag" style="background:#E8F1FF;color:#1C4AAE">${st.played||0}/${set.day} today</span></div>${lv}
+ render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">${icon} ${set.title}</b>${set.kid?tmChip(teach?'teach':'play'):''}<span class="tag" style="background:#E8F1FF;color:#1C4AAE">${st.played||0}/${set.day} today</span></div>${lvBar}
  ${set.segs?`<div class="muted" style="margin-top:4px;font-weight:700">Topic: ${esc(SEGNAME[seg]||seg)}</div>`:''}
  ${told?`<div class="card" style="background:#FFF6D6;font-weight:800">${TOLD}</div>`:''}
  <div class="card" style="text-align:center;padding:18px"><div style="font-weight:800;margin-bottom:8px">${ask}</div>${pic}</div>${body}
  <div id="qzRes" style="margin-top:8px"></div>`,true);const inp=$('#qzIn');if(inp)setTimeout(()=>inp.focus(),50)}
 function qzPick(i){if(!QZ||QZ.done)return;const o=QZ.opts[i],b=$('#qo'+i),ok=o===QZ.it[0];QZ.tries++;
- if(!ok){b.style.background='#FFD9D9';b.style.borderColor='#E57373';b.disabled=true;sayFree(QZ.tries===1?'Not this one. Think again!':'Look carefully. One more try!','en');if(QZ.tries<2&&QZ.opts.length>2)return}
+ if(!ok){b.style.background='#FFD9D9';b.style.borderColor='#E57373';b.disabled=true;sayFree(QZ.tries===1?'Not this one. Think again!':'Look carefully. One more try!','en');if(QZ.tries<2&&QZ.opts.length>2&&!QZ.test)return}
  qzFinish(ok)}
-function qzType(){if(!QZ||QZ.done)return;const inp=$('#qzIn'),v=(inp.value||'').trim().toLowerCase().replace(/^an? /,'').split(' ')[0],w=QZ.g.w;if(!v)return;QZ.tries++;const ok=v===w;
- if(!ok&&QZ.tries===1){$('#qzHint').innerHTML='Clue: it starts with <b>'+w[0].toUpperCase()+'</b> · '+w.length+' letters';inp.value='';inp.focus();sayFree('Not quite. Clue: it starts with '+w[0].toUpperCase()+'.','en');return}
+function qzType(){if(!QZ||QZ.done)return;const inp=$('#qzIn'),raw=(inp.value||'').trim().toLowerCase().replace(/\s+/g,' ');if(!raw)return;
+ const tgt=QZ.kind==='groups'?QZ.g.w:QZ.it[0].toLowerCase(),v=QZ.kind==='groups'?raw.replace(/^an? /,'').split(' ')[0]:raw.replace(/^(a|an|the) /,'');QZ.tries++;const ok=v===tgt;
+ if(!ok&&QZ.tries===1){$('#qzHint').innerHTML='Clue: it starts with <b>'+tgt[0].toUpperCase()+'</b> · '+tgt.length+' letters';inp.value='';inp.focus();sayFree('Not quite. Clue: it starts with '+tgt[0].toUpperCase()+'.','en');return}
  inp.disabled=true;qzFinish(ok)}
 function qzFinish(ok){QZ.done=true;(QZ.opts||[]).forEach((x,j)=>{const c=$('#qo'+j);if(c&&x===QZ.it[0]){c.style.background='#DDF5E3';c.style.borderColor='#2E9E4F'}});
  const first=ok&&QZ.tries===1;srMark(QZ.srg,QZ.it[0],first);
  const st=qzSt(),k=QZ.kind;st[k].played=(st[k].played||0)+1;if(first){st[k].right=(st[k].right||0)+1}
- let up=false;if(k==='groups'&&QZ.lvl===1&&first){st[k].r1=(st[k].r1||0)+1;if(st[k].r1>=10&&!st[k].manual&&!st[k].lvl){st[k].lvl=2;up=true}}
+ let note='';
+ if(QZ.set.kid)note=tmMsg(tmNote(QZ.srg,first));
+ else if(QZ.test){const t=st[k].tst||{n:0,right:0};t.n++;if(first)t.right++;st[k].tst=t;if(t.n>=5){st[k].lv=t.right>=5?'hard':t.right>=3?'medium':'easy';st[k].win=[];note='📝 Test done: '+t.right+' of 5 right – your level is '+LVN[st[k].lv]+'!'}}
+ else{const w=(st[k].win||[]).concat([first?1:0]).slice(-10),order=['easy','medium','hard'],i=order.indexOf(st[k].lv);st[k].win=w;
+  if(w.length>=10&&w.reduce((a,b)=>a+b,0)>=9&&i<2){st[k].lv=order[i+1];st[k].win=[];note='⬆️ Great work – moving you up to '+LVN[order[i+1]]+'!'}
+  else if(w.length>=6&&w.slice(-6).reduce((a,b)=>a+b,0)<=2&&i>0){st[k].lv=order[i-1];st[k].win=[];note='Let us practise at '+LVN[order[i-1]]+' for a while.'}}
  qzSave(st);
  const star=first&&st[k].right%5===0;if(star){try{api('claimStar',CHILD.id,QZ.set.title+': 5 right','')}catch(e){}}
  const later=!first?'<div class="muted" style="margin-top:4px">🔁 This one will come back later – remember it!</div>':'';
- $('#qzRes').innerHTML=`<div class="card" style="background:${ok?'#DDF5E3':'#FFF6D6'}"><b>${ok?'Correct!':'The answer is: '+esc(QZ.it[0])}</b>${star?' ⭐':''}${up?'<div style="font-weight:800;margin-top:4px">🎉 Level 2 unlocked – now you type the word!</div>':''}<div class="muted" style="margin-top:4px">${esc(QZ.it[2])}</div>${later}<button class="primary" style="width:100%;margin-top:10px" onclick="openQuiz('${k==='actionsKid'?'actions':k}')">▶ Next</button></div>`;
- sayFree((ok?'Correct! ':'The answer is '+QZ.it[0]+'. ')+QZ.it[2]+(first?'':' Remember it, it will come back later.')+(up?' Level two unlocked!':''),'en')}
+ $('#qzRes').innerHTML=`<div class="card" style="background:${ok?'#DDF5E3':'#FFF6D6'}"><b>${ok?'Correct!':'The answer is: '+esc(QZ.it[0])}</b>${star?' ⭐':''}${note?`<div style="font-weight:800;margin-top:4px">${esc(note)}</div>`:''}<div class="muted" style="margin-top:4px">${esc(QZ.it[2])}</div>${later}<button class="primary" style="width:100%;margin-top:10px" onclick="openQuiz('${k==='actionsKid'?'actions':k}')">▶ Next</button></div>`;
+ sayFree((ok?'Correct! ':'The answer is '+QZ.it[0]+'. ')+QZ.it[2]+(first?'':' Remember it, it will come back later.')+(note?' '+note.replace(/[^\w\s.,!'–-]/g,''):''),'en')}
+/* ---------- teaching mode (Ditya): every game teaches first; after she gets it right on her own several times it becomes a game ---------- */
+function tmGet(g){const s=srGet(g);return s._tm||{mode:'teach',ok:0,bad:0}}
+function tmNote(g,ok,need){const s=srGet(g),t=s._tm||{mode:'teach',ok:0,bad:0};let msg='';if(ok){t.ok++;t.bad=0;if(t.mode==='teach'&&t.ok>=(need||5)){t.mode='play';t.ok=0;msg='up'}}else{t.bad++;t.ok=0;if(t.mode==='play'&&t.bad>=3){t.mode='teach';t.bad=0;msg='down'}}s._tm=t;srPut(g,s);return msg}
+function tmChip(m){return m==='teach'?'<span class="tag" style="background:#E9F7E2;color:#1E7A3C">📘 Learning</span>':'<span class="tag" style="background:#FFF0E0;color:#B5541B">🎮 Playing</span>'}
+function tmMsg(m){return m==='up'?'🎉 You learned it! Now it is game time – no more help.':m==='down'?'📘 Let us learn a little more together.':''}
+let TMNEXT=null;
+function tmCard(pic,title,text,speak,next){TMNEXT=next;render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">📘 Let's learn</b>${tmChip('teach')}</div>
+ <div class="card" style="text-align:center;padding:22px"><div style="font-size:96px;line-height:1.1">${pic}</div><div style="font-size:30px;font-weight:800;margin-top:8px;letter-spacing:2px">${esc(title)}</div><div class="muted" style="font-size:18px;margin-top:6px">${esc(text)}</div></div>
+ <button class="primary" style="width:100%;min-height:64px;font-size:22px" onclick="TMNEXT&&TMNEXT()">I'm ready ▶</button>`,true);sayFree(speak,'en')}
+/* ---------- 🔢 Sudoku: made on the device, always exactly one answer ---------- */
+const SD_BOX={2:[0,0],3:[0,0],4:[2,2],5:[0,0],6:[2,3],9:[3,3]};
+const SD_KID=[[2,1],[2,2],[3,3],[3,5],[4,6],[4,9],[5,10],[5,14],[6,14],[6,20]];   // [size, empty boxes]
+const SD_Y={easy:38,medium:46,hard:52},SD_SYM=['🍎','🍌','🍇','🍊','🍓','🥝'];
+let SD=null;
+function sdShuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function sdSolution(N){const[br,bc]=SD_BOX[N];let g=[];for(let r=0;r<N;r++){g.push([]);for(let c=0;c<N;c++)g[r].push(br?(bc*(r%br)+Math.floor(r/br)+c)%N:(r+c)%N)}
+ const sym=sdShuffle([...Array(N).keys()]);g=g.map(row=>row.map(v=>sym[v]+1));
+ let rows=[],cols=[];if(br){const bands=sdShuffle([...Array(N/br).keys()]);bands.forEach(b=>sdShuffle([...Array(br).keys()]).forEach(i=>rows.push(b*br+i)));const st=sdShuffle([...Array(N/bc).keys()]);st.forEach(s=>sdShuffle([...Array(bc).keys()]).forEach(i=>cols.push(s*bc+i)))}
+ else{rows=sdShuffle([...Array(N).keys()]);cols=sdShuffle([...Array(N).keys()])}
+ return rows.map(r=>cols.map(c=>g[r][c]))}
+function sdCands(g,N,r,c){const[br,bc]=SD_BOX[N],used=new Set();for(let i=0;i<N;i++){used.add(g[r][i]);used.add(g[i][c])}
+ if(br){const r0=r-r%br,c0=c-c%bc;for(let i=0;i<br;i++)for(let j=0;j<bc;j++)used.add(g[r0+i][c0+j])}const out=[];for(let v=1;v<=N;v++)if(!used.has(v))out.push(v);return out}
+function sdCount(g,N,lim){let best=null,bc=null;for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(!g[r][c]){const cs=sdCands(g,N,r,c);if(!cs.length)return 0;if(!best||cs.length<bc.length){best=[r,c];bc=cs}}
+ if(!best)return 1;let n=0;for(const v of bc){g[best[0]][best[1]]=v;n+=sdCount(g,N,lim-n);if(n>=lim)break}g[best[0]][best[1]]=0;return n}
+function sdMake(N,blanks){const sol=sdSolution(N),puz=sol.map(r=>r.slice());let removed=0;
+ for(const k of sdShuffle([...Array(N*N).keys()])){if(removed>=blanks)break;const r=Math.floor(k/N),c=k%N,v=puz[r][c];puz[r][c]=0;if(sdCount(puz.map(x=>x.slice()),N,2)!==1)puz[r][c]=v;else removed++}
+ return{sol,puz}}
+function sdState(){const s=srGet('sudoku');return s._sd||{}}
+function sdSaveState(o){const s=srGet('sudoku');s._sd=Object.assign(s._sd||{},o);srPut('sudoku',s)}
+function openSudoku(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'sudoku',id:CHILD.id});const kid=CHILD.id==='ditya',st=sdState();
+ if(kid){const stage=st.stage||0,[N,b]=SD_KID[Math.min(stage,SD_KID.length-1)],tm=tmGet('sudoku');
+  render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:22px">🔢 Sudoku</b>${tmChip(tm.mode)}</div>
+  <div class="card" style="text-align:center"><div style="font-size:20px;font-weight:800">Level ${stage+1}: ${N} × ${N}</div><div class="muted">Fill every row and every column so each picture comes only once.</div></div>
+  <button class="primary" style="width:100%;min-height:70px;font-size:22px" onclick="sdNew()">▶ Play</button>
+  <div class="row" style="margin-top:10px;gap:8px"><button style="flex:1" onclick="sdSaveState({nums:!sdState().nums});openSudoku()">${st.nums?'Use pictures 🍎':'Use numbers 123'}</button></div>`,true);
+  sayFree('Sudoku! Fill every row and every column so each picture comes only once.','en');return}
+ const lv=st.lv;
+ render(`<b style="font-size:22px">🔢 Sudoku 9 × 9</b>
+ ${lv?`<div class="muted" style="font-weight:700">Your level: ${lv[0].toUpperCase()+lv.slice(1)}</div>`:'<div class="card" style="background:#FFF6D6"><b>📝 First, a test puzzle</b><div class="muted">It shows how good you already are, then you start at the right level.</div></div>'}
+ ${lv?`<div class="kgrid" style="grid-template-columns:repeat(3,1fr)">${['easy','medium','hard'].map((l,i)=>`<button class="kt" style="background:${['#EAF8EE','#FFF6D6','#FFE8EE'][i]};${l===lv?'outline:3px solid #1C4AAE':''}" onclick="sdNew('${l}')"><span>${['🙂','🤔','🔥'][i]}</span>${l[0].toUpperCase()+l.slice(1)}</button>`).join('')}</div>`:`<button class="primary" style="width:100%;min-height:70px;font-size:20px" onclick="sdNew('test')">📝 Start the test puzzle</button>`}
+ <div class="card"><b>Solved</b><div class="muted">Easy ${st.easy||0} · Medium ${st.medium||0} · Hard ${st.hard||0}</div></div>`,true);
+ sayFree(lv?'Sudoku! Choose a level.':'Sudoku! First a test puzzle, to find your level.','en')}
+function sdNew(lv){const kid=CHILD.id==='ditya',st=sdState();let N=9,b;
+ if(kid){[N,b]=SD_KID[Math.min(st.stage||0,SD_KID.length-1)];lv='kid'}else b=lv==='test'?42:SD_Y[lv];
+ const{sol,puz}=sdMake(N,b);SD={N,sol,puz,cur:puz.map(r=>r.slice()),sel:null,kid,lv,miss:0,t0:Date.now(),teach:kid&&tmGet('sudoku').mode==='teach',nums:!kid||st.nums,done:false,msg:''};
+ if(SD.teach)sdTeachPick();sdDraw();
+ sayFree(kid?(SD.teach?'Look at the yellow box. Which picture is missing in its row and column?':'Tap an empty box, then tap the right picture.'):(lv==='test'?'Test puzzle. Do your best!':'Tap an empty box, then tap a number.'),'en')}
+function sdTeachPick(){const{N,cur}=SD;for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(!cur[r][c]&&sdCands(cur,N,r,c).length===1){SD.sel=[r,c];return}
+ for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(!cur[r][c]){SD.sel=[r,c];return}}
+function sdSym(v){return SD.nums?String(v):SD_SYM[v-1]}
+function sdDraw(){const{N,cur,puz,sel}=SD,[br,bc]=SD_BOX[N],sz=SD.kid?`min(70px,calc((100vw - 40px)/${N}))`:'min(40px,calc((100vw - 36px)/9))';let h='';
+ for(let r=0;r<N;r++)for(let c=0;c<N;c++){const v=cur[r][c],given=puz[r][c],isSel=sel&&sel[0]===r&&sel[1]===c,wrong=v&&v!==SD.sol[r][c];
+  const bt=br&&r%br===0&&r?'3px':'1px',bl=bc&&c%bc===0&&c?'3px':'1px';
+  h+=`<div onclick="sdTap(${r},${c})" style="width:${sz};height:${sz};display:flex;align-items:center;justify-content:center;font-size:${SD.kid?34:20}px;font-weight:${given?800:600};color:${given?'#1F2A44':wrong?'#C62828':'#1C4AAE'};background:${isSel?'#FFE27A':wrong?'#FFD9D9':given?'#EEF1F7':'#fff'};border-top:${bt} solid #555;border-left:${bl} solid #555;cursor:pointer">${v?sdSym(v):''}</div>`}
+ const right=SD.teach&&sel?SD.sol[sel[0]][sel[1]]:0;
+ const pad=[...Array(N).keys()].map(i=>`<button onclick="sdPut(${i+1})" style="min-height:${SD.kid?64:48}px;font-size:${SD.kid?32:20}px;flex:1;${right===i+1?'box-shadow:0 0 0 4px #2E9E4F;background:#E9F7E2':''}">${sdSym(i+1)}</button>`).join('');
+ const title=SD.kid?`Level ${(sdState().stage||0)+1}: ${N} × ${N}`:SD.lv==='test'?'📝 Test puzzle':SD.lv[0].toUpperCase()+SD.lv.slice(1);
+ render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:18px">🔢 ${title}</b>${SD.kid?tmChip(SD.teach?'teach':'play'):`<span class="tag" style="background:#FFE8EE;color:#C62828">Mistakes ${SD.miss}</span>`}</div>
+ ${SD.teach?'<div class="muted" style="font-weight:700">Look at the yellow box – which picture is missing in its row and column?</div>':''}
+ <div style="display:grid;grid-template-columns:repeat(${N},${sz});width:max-content;margin:8px auto;border:3px solid #333;border-radius:4px;overflow:hidden">${h}</div>
+ ${SD.done?'':`<div style="display:flex;gap:6px;flex-wrap:wrap">${pad}<button onclick="sdPut(0)" style="min-height:${SD.kid?64:48}px;flex:1">⌫</button></div>`}
+ <div id="sdMsg" style="text-align:center;font-weight:800;margin-top:8px;min-height:24px">${esc(SD.msg)}</div>
+ ${SD.done?`<div class="grid2"><button class="primary" onclick="${SD.kid?'sdNew()':`sdNew('${sdState().lv||'easy'}')`}">▶ Next puzzle</button><button onclick="openSudoku()">Levels</button></div>`:(!SD.kid&&SD.lv==='test'?'<button style="width:100%;margin-top:8px" onclick="sdGiveUp()">I give up – find my level</button>':'')}`,true)}
+function sdTap(r,c){if(!SD||SD.done||SD.puz[r][c])return;SD.sel=[r,c];SD.msg='';sdDraw()}
+function sdPut(v){if(!SD||SD.done||!SD.sel)return;const[r,c]=SD.sel;if(SD.puz[r][c])return;
+ if(!v){SD.cur[r][c]=0;return sdDraw()}
+ SD.cur[r][c]=v;if(v!==SD.sol[r][c]){SD.miss++;SD.msg=SD.kid?'Not that one – that picture is already in this row or column.':'That number does not fit here.';sdDraw();if(SD.kid)sayFree('Not that one. Look at the row and the column again.','en');setTimeout(()=>{if(SD&&SD.cur[r][c]===v&&v!==SD.sol[r][c]){SD.cur[r][c]=0;sdDraw()}},1200);return}
+ if(SD.kid)sayFree(['Yes!','Good!','Super!'][SD.miss%3],'en');
+ if(SD.cur.every((row,i)=>row.every((x,j)=>x===SD.sol[i][j])))return sdWin();
+ if(SD.teach)sdTeachPick();else SD.sel=null;sdDraw()}
+function sdWin(){SD.done=true;const mins=Math.round((Date.now()-SD.t0)/60000),st=sdState();let extra='';
+ if(SD.kid){const tm=tmNote('sudoku',SD.miss<=1,3);extra=tmMsg(tm);let good=(st.good||0)+(SD.miss<=1?1:0),stage=st.stage||0;if(good>=3&&stage<SD_KID.length-1){stage++;good=0;extra+=(extra?' ':'')+'⬆️ Next level unlocked!'}sdSaveState({good,stage});srMark('sudoku','k'+SD.N,SD.miss<=1)}
+ else if(SD.lv==='test'){const lv=SD.miss===0&&mins<=7?'hard':SD.miss<=2&&mins<=12?'medium':'easy';sdSaveState({lv});extra='Test done! Your level: '+lv[0].toUpperCase()+lv.slice(1)}
+ else{const o={};o[SD.lv]=(st[SD.lv]||0)+1;let clean=(st.clean||0)+(SD.miss===0?1:0);if(SD.miss>5)clean=-1;const order=['easy','medium','hard'],i=order.indexOf(SD.lv);
+  if(clean>=2&&i<2){o.lv=order[i+1];clean=0;extra='⬆️ Two clean puzzles – moving you up to '+order[i+1]+'!'}else if(clean<0&&i>0){o.lv=order[i-1];clean=0;extra='Let us practise a little easier first.'}o.clean=Math.max(0,clean);sdSaveState(o);srMark('sudoku','y'+SD.lv,SD.miss===0)}
+ try{api('claimStar',CHILD.id,'Sudoku solved'+(SD.kid?' ('+SD.N+'×'+SD.N+')':' ('+SD.lv+')'),'')}catch(e){}
+ SD.msg='🏆 Solved'+(SD.kid?'!':' in '+mins+' min with '+SD.miss+' mistakes.')+(extra?' '+extra:'');SD.sel=null;sdDraw();sayFree('You solved it! '+extra,'en')}
+function sdGiveUp(){sdSaveState({lv:'easy'});SD.done=true;SD.cur=SD.sol.map(r=>r.slice());SD.msg='No problem! You will start at Easy and move up.';sdDraw();sayFree('No problem. You will start at easy and move up step by step.','en')}
 /* ---------- ♟️ Chess school for Ditya: learn one piece at a time, then practise (free, on the device) ---------- */
 const CK_P=[['rook','♜','The rook moves in straight lines – up, down, left and right – as far as it likes.'],['bishop','♝','The bishop moves on the slants, like the letter X.'],['queen','♛','The queen is the strongest! She moves straight AND on the slants.'],['king','♚','The king moves just one step, any way.'],['knight','♞','The knight jumps like the letter L – two steps, then one step to the side. It can jump over others!'],['pawn','♟','The pawn walks one step forward. On its very first move it can walk two steps.']];
 let CK=null;
@@ -776,11 +875,11 @@ function ckLesson(i){++NAVSEQ;setNav({v:'ckid',id:CHILD.id});const [p,icon,txt]=
 function ckPractice(i){CK={i,round:0,right:0,miss:0};ckRound()}
 function ckRound(){const [p,icon]=CK_P[CK.i];let r,c,mv;do{r=p==='pawn'?(Math.random()<0.5?6:1+Math.floor(Math.random()*5)):Math.floor(Math.random()*8);c=Math.floor(Math.random()*8);mv=ckMoves(p,r,c)}while(!mv.length);
  const good=mv[Math.floor(Math.random()*mv.length)],bad=[];let guard=0;while(bad.length<2&&guard++<200){const a=Math.floor(Math.random()*8),b=Math.floor(Math.random()*8);const near=Math.abs(a-r)<=3&&Math.abs(b-c)<=3;if((a!==r||b!==c)&&near&&!mv.some(x=>x[0]===a&&x[1]===b)&&!bad.some(x=>x[0]===a&&x[1]===b))bad.push([a,b])}
- Object.assign(CK,{r,c,good,stars:[good].concat(bad).sort(()=>Math.random()-0.5),busy:false});ckDraw([]);sayFree(CK.round?'Which star can the '+p+' reach?':'Star game! Tap the star the '+p+' can reach in one move.','en')}
-function ckDraw(dots){const [p,icon]=CK_P[CK.i];render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">${icon} Star game</b><span class="tag" style="background:#E8F1FF;color:#1C4AAE">${CK.round+1} of 5</span></div><div class="muted" style="font-weight:700">Tap the ⭐ the ${p} can reach in ONE move.</div>${ckBoard(CK.r,CK.c,icon,dots,CK.stars,true)}<div id="ckMsg" style="text-align:center;font-weight:800;min-height:24px"></div>`,true)}
+ Object.assign(CK,{r,c,good,stars:[good].concat(bad).sort(()=>Math.random()-0.5),busy:false,rmiss:false,teach:tmGet('chesskid').mode==='teach'});ckDraw([]);sayFree(CK.round?'Which star can the '+p+' reach?':'Star game! Tap the star the '+p+' can reach in one move.','en')}
+function ckDraw(dots){const [p,icon]=CK_P[CK.i];if(CK.teach&&!dots.length)dots=ckMoves(p,CK.r,CK.c);render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">${icon} Star game</b>${tmChip(CK.teach?'teach':'play')}<span class="tag" style="background:#E8F1FF;color:#1C4AAE">${CK.round+1} of 5</span></div><div class="muted" style="font-weight:700">Tap the ⭐ the ${p} can reach in ONE move.</div>${ckBoard(CK.r,CK.c,icon,dots,CK.stars,true)}<div id="ckMsg" style="text-align:center;font-weight:800;min-height:24px"></div>`,true)}
 function ckTap(a,b){if(!CK||CK.busy)return;const [p]=CK_P[CK.i],ok=a===CK.good[0]&&b===CK.good[1];
- if(!ok){CK.miss++;ckDraw(ckMoves(p,CK.r,CK.c));$('#ckMsg').textContent='Not that one! Look at the green dots.';sayFree('Not that one. Look at the green dots, they show where the '+p+' can go.','en');setTimeout(()=>{if(CK)ckDraw([])},2200);return}
- CK.busy=true;CK.right++;$('#ckMsg').textContent='Yes! ⭐';sayFree(['Yes!','Super!','Well done!','Correct!'][CK.round%4],'en');
+ if(!ok){CK.miss++;CK.rmiss=true;ckDraw(ckMoves(p,CK.r,CK.c));$('#ckMsg').textContent='Not that one! Look at the green dots.';sayFree('Not that one. Look at the green dots, they show where the '+p+' can go.','en');setTimeout(()=>{if(CK)ckDraw([])},2200);return}
+ CK.busy=true;CK.right++;const tmm=tmMsg(tmNote('chesskid',!CK.rmiss));$('#ckMsg').textContent='Yes! ⭐ '+tmm;sayFree(['Yes!','Super!','Well done!','Correct!'][CK.round%4],'en');
  setTimeout(()=>{CK.round++;if(CK.round<5)return ckRound();const st=ckSt();st[p]=(st[p]||0)+1;ckSave(st);srMark('chesskid',p,CK.miss===0);try{api('claimStar',CHILD.id,'Chess school: '+p,'')}catch(e){}
   render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:56px">🏆</div><div style="font-size:22px;font-weight:800">You know the ${p}!</div><div class="muted">${CK.miss?'Practise once more to be a star.':'Perfect – no mistakes!'}</div><div class="grid2" style="margin-top:12px"><button class="primary" onclick="ckPractice(${CK.i})">Play again</button><button onclick="openChessKid()">Next piece</button></div></div>`,true);sayFree('Great! You know how the '+p+' moves. A star for you!','en')},900)}
 /* ---------- wake by name (laptop/desktop Chrome): free listening only for the helper's name ---------- */
