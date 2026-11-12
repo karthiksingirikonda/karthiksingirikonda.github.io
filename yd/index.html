@@ -28,6 +28,7 @@ button,.btn{min-height:48px;border-radius:14px;border:none;font:inherit;font-wei
 .tag{font-size:12px;font-weight:800;border-radius:8px;padding:3px 8px}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.live{display:block;margin:14px auto 4px;background:#6B3FD9;color:#fff;border:0;border-radius:26px;padding:13px 26px;font-size:19px;font-weight:800;box-shadow:0 4px 14px #6B3FD955}.live.on{background:#C62828}
 .mic{width:110px;height:110px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 0 0 12px #D5E2FB}
 .mic.listen{animation:pulse 1.2s infinite}.mic.sleep{background:#9AA3B5;box-shadow:0 0 0 12px #E6E9EF}
 @keyframes pulse{50%{box-shadow:0 0 0 20px #C6D7FA}}
@@ -68,7 +69,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v10 · Thu 12/11 11:30';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v11 · Thu 12/11 12:00';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -93,7 +94,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
 function render(html,showBack){LASTVIEW=PENDINGVIEW;PENDINGVIEW=null;$('#app').innerHTML=html;$('#backBtn').classList.toggle('hidden',!showBack);if(!QUIET)window.scrollTo(0,0)}
 
 /* ---------- home ---------- */
-async function start(){if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini)});if(!window.WARM)WARM=setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)net('voiceReady',[]).catch(()=>{})},240000).catch(()=>{});BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
+async function start(){if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini);const lb=$('#liveBtn');if(lb&&GEM)lb.style.display=''});if(!window.WARM)WARM=setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)net('voiceReady',[]).catch(()=>{})},240000).catch(()=>{});BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
  let t=null;try{t=JSON.parse(localStorage.getItem('ydAdmin')||'null')}catch(e){}
  if(t&&t.token){ADMIN=t;showFab();api('adminCheckToken',t.token).then(c=>{if(!c.ok){ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();const n=getNav();if(n&&n.v==='admin')goHome()}else pollThread()}).catch(()=>{})}
  restoreNav()}
@@ -134,6 +135,7 @@ function openTalk(mode,restored){++NAVSEQ;MODE=mode;if(mode!=='intro')setNav({v:
  <div id="screenShow"></div>
  <div id="chat" style="display:flex;flex-direction:column;gap:8px"></div>
  <div id="micBtn" class="mic sleep" role="button" aria-label="Start talking" onclick="Voice.toggle()"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
+ <button id="liveBtn" class="live" onclick="Live.toggle()" style="${GEM?'':'display:none'}">⚡ Live talk</button>
  <div id="liveText" style="text-align:center;min-height:24px;font-size:17px;color:#2A5FD6"></div>
  <div class="muted" id="micHint" style="text-align:center">Say "Hey ${esc(CHILD.helperName)}" or tap the mic</div>
  <div class="row"><input id="typeBox" placeholder="Or type here" style="flex:1"><button class="primary" onclick="sendTyped()">Send</button></div>`,true);
@@ -240,14 +242,62 @@ async function onKidSpeech(blob){const m=$('#micBtn');if(m){m.classList.remove('
    await speakReply(r.say||r.text,r.lang||'te',r)}
  }catch(e){const th=$('#thinking');th&&th.remove();if(h)h.textContent='Network problem – say it again'}
  if(Ears.on){Ears.resume();m&&m.classList.add('listen')}}
+// ⚡ Live talk: Alexa-style. The phone talks straight to Google's live voice with a one-time pass from our script.
+const LIVE_WORKLET=`class P extends AudioWorkletProcessor{constructor(){super();this.r=sampleRate/16000;this.a=0;this.s=0;this.n=0;this.o=[]}
+process(i){const c=i[0]&&i[0][0];if(c){for(let k=0;k<c.length;k++){this.s+=c[k];this.n++;this.a+=1;if(this.a>=this.r){this.a-=this.r;this.o.push(this.s/this.n);this.s=0;this.n=0}}
+if(this.o.length>=1600){const b=new Int16Array(this.o.length);for(let k=0;k<b.length;k++){const v=Math.max(-1,Math.min(1,this.o[k]));b[k]=v<0?v*32768:v*32767}this.port.postMessage(b.buffer,[b.buffer]);this.o=[]}}return true}}
+registerProcessor('pcm16',P)`;
+const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[],on=false,busy=false,turns=[],cur={child:'',helper:''},use={inText:0,inAudio:0,outText:0,outAudio:0},lastAct=0,idle=null,endAt=0,lock=null,sending=false;
+ const b64=buf=>{let s='';const u=new Uint8Array(buf);for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)};
+ function ui(st){const b=$('#liveBtn');if(b){b.classList.toggle('on',st==='on');b.textContent=st==='on'?'■ Stop live talk':st==='wait'?'Connecting…':'⚡ Live talk'}
+  const h=$('#micHint');if(h)h.textContent=st==='on'?'Live – just talk. You can stop me any time.':st==='wait'?'Getting ready…':'Tap ⚡ Live talk or the mic';const m=$('#micBtn');if(m){m.classList.toggle('listen',st==='on');m.classList.toggle('sleep',st!=='on')}}
+ function playChunk(d){const bin=atob(d),n=bin.length>>1,f=new Float32Array(n);for(let i=0;i<n;i++){let v=bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8);if(v>=32768)v-=65536;f[i]=v/32768}
+  const buf=play.createBuffer(1,n,24000);buf.copyToChannel(f,0);const s=play.createBufferSource();s.buffer=buf;s.connect(play.destination);const t=Math.max(next,play.currentTime+0.04);s.start(t);next=t+buf.duration;srcs.push(s);s.onended=()=>{srcs=srcs.filter(x=>x!==s)}}
+ function hush(){srcs.forEach(s=>{try{s.stop()}catch(e){}});srcs=[];next=0}
+ function addUse(u){(u.promptTokensDetails||[]).forEach(d=>{if(d.modality==='AUDIO')use.inAudio+=d.tokenCount||0;else use.inText+=d.tokenCount||0});
+  (u.responseTokensDetails||[]).forEach(d=>{if(d.modality==='AUDIO')use.outAudio+=d.tokenCount||0;else use.outText+=d.tokenCount||0});use.outText+=u.thoughtsTokenCount||0}
+ function endTurn(){const lt=$('#liveText');if(lt)lt.textContent='';if(cur.child.trim())addBubble('me',cur.child.trim());if(cur.helper.trim())addBubble('helper',cur.helper.trim());
+  if(cur.child.trim()||cur.helper.trim())turns.push({child:cur.child.trim(),helper:cur.helper.trim()});cur={child:'',helper:''};save()}
+ async function save(){if(sending||(!turns.length&&!use.inText&&!use.outAudio))return;sending=true;const t=turns.splice(0),u=use;use={inText:0,inAudio:0,outText:0,outAudio:0};
+  try{const r=await net('liveLog',[CHILD.id,MODE,t,u]);if(r&&r.budget===false&&on){stop();addBubble('helper','ఈరోజుకి నా సమయం అయిపోయింది. రేపు మళ్ళీ మాట్లాడుకుందాం!')}}catch(e){turns=t.concat(turns)}sending=false}
+ async function start(){if(on||busy)return;Voice.stop();busy=true;ui('wait');
+  try{const t=await net('liveToken',[CHILD.id,MODE]);
+   if(t.resting){addBubble('helper','ఈరోజుకి నా సమయం అయిపోయింది. రేపు మళ్ళీ మాట్లాడుకుందాం!');throw 0}
+   if(!t.token)throw new Error('off');
+   play=new AudioContext({sampleRate:24000});try{await play.resume()}catch(e){}
+   mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
+   ctx=new AudioContext();await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([LIVE_WORKLET],{type:'text/javascript'})));
+   node=new AudioWorkletNode(ctx,'pcm16');ctx.createMediaStreamSource(mic).connect(node);
+   ws=new WebSocket('wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(t.token));
+   ws.onopen=()=>ws.send(JSON.stringify({setup:{model:'models/'+t.model,generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:t.voice}}}},systemInstruction:{parts:[{text:t.system}]},inputAudioTranscription:{},outputAudioTranscription:{}}}));
+   ws.onmessage=async ev=>{let m;try{m=JSON.parse(typeof ev.data==='string'?ev.data:await ev.data.text())}catch(e){return}
+    if(m.setupComplete){on=true;busy=false;ui('on');lastAct=Date.now();endAt=Date.now()+(t.maxMin||15)*60000;
+     node.port.onmessage=e=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({realtimeInput:{audio:{data:b64(e.data),mimeType:'audio/pcm;rate=16000'}}}))};
+     ws.send(JSON.stringify({realtimeInput:{text:'(Live talk just started. Greet '+CHILD.name+' in one short, warm Telugu sentence and ask what they want to talk about.)'}}))}
+    const sc=m.serverContent;if(sc){lastAct=Date.now();
+     if(sc.interrupted){hush();if(cur.helper.trim())cur.helper+=' …'}
+     if(sc.inputTranscription&&sc.inputTranscription.text){if(cur.helper.trim()&&!cur.child)endTurn();cur.child+=sc.inputTranscription.text;const lt=$('#liveText');if(lt)lt.textContent=cur.child}
+     if(sc.outputTranscription&&sc.outputTranscription.text)cur.helper+=sc.outputTranscription.text;
+     ((sc.modelTurn||{}).parts||[]).forEach(p=>{const d=p.inlineData||p.inline_data;if(d&&d.data)playChunk(d.data)});
+     if(sc.turnComplete)endTurn()}
+    if(m.usageMetadata)addUse(m.usageMetadata);
+    if(m.goAway)stop()};
+   ws.onclose=ev=>{if(on||busy)stop(ev.code===1000?'':'Live talk stopped ('+ev.code+')')};
+   idle=setInterval(()=>{if(on&&(Date.now()-lastAct>120000||Date.now()>endAt))stop()},5000);
+   try{lock=await navigator.wakeLock.request('screen')}catch(e){}
+  }catch(e){busy=false;cleanup();ui('off');if(e&&e.name==='NotAllowedError')micHelp();else if(e)toast('Live talk is not ready – use the mic button')}}
+ function cleanup(){clearInterval(idle);idle=null;try{ws&&ws.readyState<2&&ws.close()}catch(e){}ws=null;try{mic&&mic.getTracks().forEach(t=>t.stop())}catch(e){}mic=null;
+  try{ctx&&ctx.close()}catch(e){}ctx=null;node=null;hush();const p=play;play=null;setTimeout(()=>{try{p&&p.close()}catch(e){}},300);try{lock&&lock.release()}catch(e){}lock=null}
+ function stop(msg){const was=on;on=false;busy=false;cleanup();if(was){endTurn();save()}ui('off');if(msg)toast(msg)}
+ return{start,stop,toggle(){on||busy?stop():start()},get on(){return on||busy}}})();
 const Voice={
  begin(wake){if(GEM){if(wake)this.toggle();else{const h=$('#micHint');if(h)h.textContent='Tap the mic to talk'}}else VoiceOld.begin(wake)},
- async toggle(){if(!GEM)return VoiceOld.toggle();const m=$('#micBtn');
+ async toggle(){if(Live.on)return Live.stop();if(!GEM)return VoiceOld.toggle();const m=$('#micBtn');
   if(Ears.on){Ears.stop();m&&m.classList.remove('listen');m&&m.classList.add('sleep');const h=$('#micHint');if(h)h.textContent='Tap the mic to talk';return}
   const ok=await Ears.start(onKidSpeech,'#micHint');if(ok&&m){m.classList.remove('sleep');m.classList.add('listen')}},
  pause(){if(GEM)Ears.pause();else VoiceOld.pause()},
  resume(){if(GEM){if(Ears.on){Ears.resume()}else{const h=$('#micHint');if(h)h.textContent='Tap the mic to talk'}}else VoiceOld.resume()},
- stop(){SPKSEQ++;Ears.stop();VoiceOld.stop();if(PLAYING){try{PLAYING.pause()}catch(e){}PLAYING=null}},
+ stop(){SPKSEQ++;if(Live.on)Live.stop();Ears.stop();VoiceOld.stop();if(PLAYING){try{PLAYING.pause()}catch(e){}PLAYING=null}},
  speak(t,l){return VoiceOld.speak(t,l)}};
 
 
