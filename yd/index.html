@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v23 · Thu 12/11 16:00';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v24 · Thu 12/11 16:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -109,7 +109,7 @@ async function start(){const jm=(location.hash||'').match(/join=([a-f0-9]{20})/)
  restoreNav()}
 function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children.find(c=>c.id===n.id);
  if(kid&&kid.introDone===false&&n.v==='talk')n.v='child';
- if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='colour')return openColour(n.i||0)}
+ if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='games')return openGames();if(n.v==='quiz')return openQuiz(n.kind==='actionsKid'?'actions':n.kind||'groups');if(n.v==='colour')return openColour(n.i||0)}
  if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
  goHome()}
 function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN);if(ADMIN)updateDot()}
@@ -121,7 +121,7 @@ let MICOBS=null;function micStateOf(t){t=String(t||'');if(/Speaking/.test(t))ret
 function paintMic(){const h=$('#micHint');if(!h)return;const st=micStateOf(h.textContent);h.className='st-'+st;const m=$('#micBtn');if(m){m.classList.toggle('speak',st==='speak');m.classList.toggle('think',st==='think');if(st==='listen'){m.classList.add('listen');m.classList.remove('sleep')}else if(st==='off'){m.classList.remove('listen');m.classList.add('sleep')}else{m.classList.remove('listen','sleep')}}}
 function watchMic(){try{MICOBS&&MICOBS.disconnect()}catch(e){}const h=$('#micHint');if(!h)return;MICOBS=new MutationObserver(paintMic);MICOBS.observe(h,{childList:true,characterData:true,subtree:true});paintMic()}
 // Back: from any of a child's screens → that child's page; from the child's page (or Admin) → main screen.
-function goBack(){const n=getNav()||{};if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
+function goBack(){const n=getNav()||{};if(CHILD&&['chess','word','typing','quiz','colour'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
 // phone/browser back button follows the same rule
 try{history.pushState({yd:1},'')}catch(e){}
 window.addEventListener('popstate',()=>{const n=getNav()||{};if(n.v&&n.v!=='home'){goBack();try{history.pushState({yd:1},'')}catch(e){}}});
@@ -376,9 +376,7 @@ function yuvaanHome(t,nowIdx){return `<div class="row" style="align-items:center
  <button class="kt" style="background:#FFEFE3" onclick="openTrace('wen')"><span>✍️</span>English writing</button>
  <button class="kt" style="background:#F6ECFF" onclick="openTrace('whi')"><span>✍️</span>हिंदी writing</button>
  <button class="kt" style="background:#EAF8EE" onclick="openTrace('wte')"><span>✍️</span>తెలుగు writing</button>
- <button class="kt" style="background:#E6F4FF" onclick="openTyping()"><span>⌨️</span>Typing</button>
- <button class="kt" style="background:#F1EDE6" onclick="openChess()"><span>♟️</span>Chess</button>
- <button class="kt" style="background:#E9F7E2" onclick="openWordGame()"><span>🔤</span>Word game</button>
+ <button class="kt" style="background:#FFE8D6" onclick="openGames()"><span>🎮</span>Games</button>
  <button class="kt" style="background:#EFEFEF" onclick="openVideos()"><span>🎬</span>Videos</button>
  </div>
  <div class="kgrid" style="margin-top:10px"><button class="kt sm" onclick="openRoutine('brushing')"><span>🪥</span>Brushing</button><button class="kt sm" onclick="openRoutine('washroom')"><span>🚿</span>Washroom</button><button class="kt sm" onclick="openRoutine('ready')"><span>👕</span>Get ready</button><button class="kt sm" onclick="openRoutine('exercise')"><span>🧘</span>Exercise</button></div>
@@ -511,6 +509,55 @@ function wgKey(k){if(!WG||WG.over)return;const n=WG.n;
  wgDraw()}
 document.addEventListener('keydown',e=>{const n=getNav()||{};if(n.v!=='word'||!WG||WG.over)return;if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))return;
  if(e.key==='Enter')wgKey('ENTER');else if(e.key==='Backspace')wgKey('DEL');else if(/^[a-zA-Z]$/.test(e.key))wgKey(e.key.toUpperCase())});
+/* ---------- 🎮 Games hub + picture quizzes (Animal groups, Guess the action) – all free, on the device ---------- */
+function openGames(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'games',id:CHILD.id});const y=CHILD.id!=='ditya';
+ const T=(bg,ic,label,fn)=>`<button class="kt" style="background:${bg}" onclick="${fn}"><span>${ic}</span>${label}</button>`;
+ render(`<b style="font-size:22px">🎮 Games</b><div class="kgrid">`+(y?
+  T('#F1EDE6','♟️','Chess','openChess()')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#E6F4FF','🦉','Animal groups','openQuiz(\'groups\')')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#EEF3FF','⌨️','Typing','openTyping()')
+  :T('#E9F7E2','🔤','Word game','openWordGame()')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#FFF6D6','🎨','Colouring','openColour(0)'))+`</div>`,true)}
+const QZ_SETS={
+ groups:{title:'Animal groups',ask:'What do we call a group of these?',n:4,day:15,items:[
+  ['a pride of lions','🦁','A pride of lions rested under the tree.'],['a herd of elephants','🐘','A herd of elephants walked to the river.'],['a school of fish','🐟','A school of fish swam past the boat.'],['a flock of sheep','🐑','The shepherd looked after a flock of sheep.'],
+  ['a pack of wolves','🐺','A pack of wolves howled at night.'],['a swarm of bees','🐝','A swarm of bees flew around the hive.'],['a colony of ants','🐜','A colony of ants carried food home.'],['a parliament of owls','🦉','A parliament of owls sat in the old tree.'],
+  ['a troop of monkeys','🐒','A troop of monkeys jumped on the roof.'],['a tower of giraffes','🦒','A tower of giraffes ate leaves from tall trees.'],['a bale of turtles','🐢','A bale of turtles rested on the beach.'],['a pod of dolphins','🐬','A pod of dolphins played in the sea.'],
+  ['a murder of crows','🐦‍⬛','A murder of crows sat on the wire.'],['a gaggle of geese','🪿','A gaggle of geese walked to the pond.'],['a litter of puppies','🐶','Our dog had a litter of puppies.'],['an army of frogs','🐸','An army of frogs croaked after the rain.'],
+  ['a caravan of camels','🐫','A caravan of camels crossed the desert.'],['a dazzle of zebras','🦓','A dazzle of zebras ran across the grass.'],['a crash of rhinos','🦏','A crash of rhinos came to drink water.'],['a band of gorillas','🦍','A band of gorillas lived in the forest.'],
+  ['a colony of penguins','🐧','A colony of penguins slid on the ice.'],['a cast of crabs','🦀','A cast of crabs walked sideways on the sand.'],['a smack of jellyfish','🪼','A smack of jellyfish floated in the sea.'],['a team of horses','🐴','A team of horses pulled the cart.'],['a flock of birds','🐦','A flock of birds flew south.']]},
+ actions:{title:'Guess the action',ask:'What is this action called?',n:4,day:15,items:[
+  ['slice','🔪🍞','Mom will slice the bread for breakfast.'],['peel','🍌✋','Peel the banana before you eat it.'],['stir','🥄🍲','Stir the soup slowly with a spoon.'],['whisk','🥚🥣','Whisk the eggs to make an omelette.'],
+  ['pour','🫗🥛','Pour the milk into the glass.'],['chop','🔪🥕','Chop the carrots into small pieces.'],['grate','🧀⬇️','Grate the cheese over the pizza.'],['fry','🍳🔥','We fry the egg in a pan.'],
+  ['squeeze','🍋✊','Squeeze the lemon into the water.'],['spread','🧈🍞','Spread the butter on the toast.'],['sweep','🧹','Sweep the floor with a broom.'],['sew','🪡🧵','Grandma can sew a button on my shirt.'],
+  ['dig','⛏️🕳️','We dig a hole to plant a tree.'],['climb','🧗','Monkeys can climb trees very fast.'],['dive','🤿🌊','He likes to dive into the pool.'],['juggle','🤹','The clown can juggle three balls.'],
+  ['row','🚣','We row the boat across the lake.'],['skate','⛸️','She can skate on the ice.'],['surf','🏄','People surf on big waves.'],['lift','🏋️','He can lift heavy weights.'],
+  ['wave','👋','Wave goodbye to your friends.'],['clap','👏','Clap your hands for the winner.'],['yawn','🥱','I yawn when I am sleepy.'],['sneeze','🤧','Cover your nose when you sneeze.'],
+  ['shiver','🥶','We shiver when it is very cold.'],['whisper','🤫','Whisper so you do not wake the baby.'],['pray','🙏','We pray every morning.'],['bow','🙇','The actors bow at the end of the show.'],['knead','👐🫓','Knead the dough to make chapati.'],['boil','♨️🥚','Boil the water before drinking.']]},
+ actionsKid:{title:'Guess the action',ask:'What is this?',n:3,day:10,items:[
+  ['eat','😋🍔','I eat my lunch.'],['drink','🥤','I drink water.'],['sleep','😴','I sleep at night.'],['run','🏃','I run fast.'],['swim','🏊','Fish swim in water.'],['cry','😢','The baby is crying.'],
+  ['laugh','😂','We laugh at a funny joke.'],['wave','👋','Wave bye-bye!'],['clap','👏','Clap your hands!'],['read','📖','I read a book.'],['write','✍️','I write my name.'],['sing','🎤','I sing a song.'],
+  ['dance','💃','We dance to music.'],['cook','🧑‍🍳','Amma can cook rice.'],['wash','🧼','Wash your hands.'],['brush','🪥','Brush your teeth.'],['ride','🚴','I ride my cycle.'],['kick','⚽','Kick the ball!'],
+  ['climb','🧗','Climb up slowly.'],['paint','🎨','I paint a flower.'],['walk','🚶','We walk to the park.'],['sit','🪑','Sit on the chair.'],['jump','🤸','Jump up high!'],['pray','🙏','We pray together.']]}};
+let QZ=null;
+function qzKey(){return 'ydQuiz_'+(CHILD?CHILD.id:'x')}
+function qzSt(){try{return JSON.parse(localStorage.getItem(qzKey())||'{}')}catch(e){return{}}}
+function qzSave(s){try{localStorage.setItem(qzKey(),JSON.stringify(s))}catch(e){}}
+function openQuiz(kind){if(CHILD&&RESTING[CHILD.id])return showRest();if(kind==='actions'&&CHILD.id==='ditya')kind='actionsKid';++NAVSEQ;Voice.stop();setNav({v:'quiz',id:CHILD.id,kind});
+ const set=QZ_SETS[kind],st=qzSt(),d=new Date().toDateString(),k=kind;if(!st[k]||st[k].day!==d)st[k]=Object.assign(st[k]||{},{day:d,played:0});qzSave(st);
+ if(st[k].played>=set.day){render(`<div class="card" style="text-align:center;padding:26px"><div style="font-size:56px">🌟</div><div style="font-size:22px;font-weight:800">Great playing today!</div><div class="muted" style="margin-top:6px">You finished today's ${set.day} questions. Come back tomorrow!</div><button class="primary" style="width:100%;margin-top:14px" onclick="openGames()">🎮 Games</button></div>`,true);sayFree('Great playing! Come back tomorrow for more.','en');return}
+ let used=st[k].used||[];if(used.length>=set.items.length)used=[];const free=set.items.filter(x=>used.indexOf(x[0])<0),it=free[Math.floor(Math.random()*free.length)];used.push(it[0]);st[k].used=used;qzSave(st);
+ const others=set.items.filter(x=>x[0]!==it[0]).sort(()=>Math.random()-0.5).slice(0,set.n-1).map(x=>x[0]),opts=others.concat([it[0]]).sort(()=>Math.random()-0.5);
+ QZ={kind,set,it,opts,done:false,tries:0};qzDraw();sayFree(set.ask,'en')}
+function qzDraw(){const{set,it,opts,kind}=QZ,st=qzSt()[kind]||{},pic=kind==='groups'?`<div style="font-size:64px">${it[1]}</div><div style="font-size:40px;letter-spacing:4px;margin-top:4px">${it[1].repeat(6)}</div>`:`<div style="font-size:96px;line-height:1.1">${it[1]}</div>`;
+ render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">${kind==='groups'?'🦉':'🎬'} ${set.title}</b><span class="tag" style="background:#E8F1FF;color:#1C4AAE">${st.played||0}/${set.day} today</span></div>
+ <div class="card" style="text-align:center;padding:18px"><div style="font-weight:800;margin-bottom:8px">${set.ask}</div>${pic}</div>
+ <div style="display:grid;gap:10px;margin-top:6px">${opts.map((o,i)=>`<button id="qo${i}" style="min-height:58px;font-size:${kind==='actionsKid'?24:19}px;font-weight:800;background:#fff;border:2px solid #DDE3EE" onclick="qzPick(${i})">${esc(o)}</button>`).join('')}</div>
+ <div id="qzRes" style="margin-top:8px"></div>`,true)}
+function qzPick(i){if(!QZ||QZ.done)return;const o=QZ.opts[i],b=$('#qo'+i),ok=o===QZ.it[0];QZ.tries++;
+ if(!ok){b.style.background='#FFD9D9';b.style.borderColor='#E57373';b.disabled=true;sayFree(QZ.tries===1?'Not this one. Try again!':'Look carefully. One more try!','en');if(QZ.tries<2||QZ.set.n>3)return}
+ QZ.done=true;QZ.opts.forEach((x,j)=>{if(x===QZ.it[0]){const c=$('#qo'+j);c.style.background='#DDF5E3';c.style.borderColor='#2E9E4F'}});
+ const st=qzSt(),k=QZ.kind;st[k].played=(st[k].played||0)+1;if(ok&&QZ.tries===1){st[k].right=(st[k].right||0)+1}qzSave(st);
+ const star=ok&&QZ.tries===1&&st[k].right%5===0;if(star){try{api('claimStar',CHILD.id,QZ.set.title+': 5 right','')}catch(e){}}
+ $('#qzRes').innerHTML=`<div class="card" style="background:${ok?'#DDF5E3':'#FFF6D6'}"><b>${ok?'Correct!':'The answer is: '+esc(QZ.it[0])}</b>${star?' ⭐':''}<div class="muted" style="margin-top:4px">${esc(QZ.it[2])}</div><button class="primary" style="width:100%;margin-top:10px" onclick="openQuiz('${k==='actionsKid'?'actions':k}')">▶ Next</button></div>`;
+ sayFree((ok?'Correct! ':'The answer is '+QZ.it[0]+'. ')+QZ.it[2],'en')}
 /* ---------- wake by name (laptop/desktop Chrome): free listening only for the helper's name ---------- */
 const Wake=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let r=null,on=false;
  const norm=x=>String(x||'').toLowerCase().replace(/[^a-z\u0c00-\u0c7f ]/g,' ').replace(/\s+/g,' ').trim();
@@ -589,9 +636,9 @@ function hwAdminList(list){if(!list.length)return '<div class="card muted">No ho
 
 /* ---------- homework: Yuvaan / Ditya side ---------- */
 let HWTIMER=null;
-function hwClock(min,label){clearInterval(HWTIMER);const el=$('#clock');if(!el||!min)return;const end=Date.now()+min*60000;let said=false;el.classList.remove('hidden');
- const t=()=>{const left=Math.max(0,end-Date.now()),m=Math.floor(left/60000),s=Math.floor(left/1000)%60;if(!$('#clock')){clearInterval(HWTIMER);return}
-  el.innerHTML=`<b>⏱ ${m}:${String(s).padStart(2,'0')}</b> <span class="muted">${esc(label||'')}</span>`;if(!left&&!said){said=true;clearInterval(HWTIMER);const msg='Time is up for this one! Let\'s see how much we finished.';addBubble('helper',msg);sayFree(msg,'en')}};t();HWTIMER=setInterval(t,1000)}
+function hwClock(min,label){clearInterval(HWTIMER);if(!$('#clock')||!min)return;const end=Date.now()+min*60000;let said=false;
+ const t=()=>{const el=$('#clock');const left=Math.max(0,end-Date.now()),m=Math.floor(left/60000),s=Math.floor(left/1000)%60;if(!el){clearInterval(HWTIMER);return}el.classList.remove('hidden');
+  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span class="muted" style="font-weight:700">${esc(label||'Homework')}</span><b style="font-size:30px;font-variant-numeric:tabular-nums;color:${left<120000?'#C62828':'#1F2A44'}">⏱ ${m}:${String(s).padStart(2,'0')}</b></div>`;if(!left&&!said){said=true;clearInterval(HWTIMER);const msg='Time is up for this one! Let\'s see how much we finished.';addBubble('helper',msg);sayFree(msg,'en')}};t();HWTIMER=setInterval(t,1000)}
 /* ---------- Ditya Sree (5): big picture tiles, letter tracing, colouring ---------- */
 function dityaHome(t){return `<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:26px;font-weight:800">Hi ${esc(CHILD.name)}! 🌸</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">⭐ ${t.starsApproved}</span></div>
  ${CHILD.introDone?'':`<button class="card big" style="background:#FFF1C9" onclick="openTalk('intro')"><span style="font-size:34px">&#128075;</span><div><div style="font-size:19px;font-weight:800">Meet your helper</div></div></button>`}
@@ -600,7 +647,7 @@ function dityaHome(t){return `<div class="row" style="align-items:center;justify
  <button class="kt" style="background:#FFEFE3" onclick="openTrace('en')"><span>✏️</span>ABC</button>
  <button class="kt" style="background:#EAF8EE" onclick="openTrace('te')"><span>✏️</span>అ ఆ</button>
  <button class="kt" style="background:#F6ECFF" onclick="openTrace('hi')"><span>✏️</span>अ आ</button>
- <button class="kt" style="background:#FFF6D6" onclick="openColour(0)"><span>🎨</span>Colouring</button>
+ <button class="kt" style="background:#FFE8D6" onclick="openGames()"><span>🎮</span>Games</button>
  <button class="kt" style="background:#E3F7F7" onclick="openTalk('story')"><span>📖</span>Story</button>
  <button class="kt" style="background:#FFE8EE" onclick="openTalk('tellstory')"><span>🎤</span>My story</button>
  <button class="kt" style="background:#EEF3FF" onclick="openTalk('speakEn')"><span>🗣️</span>English</button>
@@ -608,7 +655,6 @@ function dityaHome(t){return `<div class="row" style="align-items:center;justify
  <button class="kt" style="background:#EFEFEF" onclick="openVideos()"><span>🎬</span>Videos</button>
  <button class="kt" style="background:#FFF1C9" onclick="openStars()"><span>⭐</span>Stars</button>
  <button class="kt" style="background:#EFEAFB" onclick="openHomework()"><span>📚</span>Homework</button>
- <button class="kt" style="background:#E9F7E2" onclick="openWordGame()"><span>🔤</span>Word game</button>
  </div>
  <div class="kgrid" style="margin-top:10px"><button class="kt sm" onclick="openRoutine('brushing')"><span>🪥</span>Brush</button><button class="kt sm" onclick="openRoutine('washroom')"><span>🚽</span>Washroom</button><button class="kt sm" onclick="openRoutine('ready')"><span>👗</span>Get ready</button><button class="kt sm" onclick="openRoutine('exercise')"><span>🧘</span>Exercise</button></div>`}
 const LETTERS={en:[['A','A for Apple'],['B','B for Ball'],['C','C for Cat'],['D','D for Dog'],['E','E for Elephant'],['F','F for Fish'],['G','G for Goat'],['H','H for Hat'],['I','I for Ice cream'],['J','J for Jug'],['K','K for Kite'],['L','L for Lion'],['M','M for Mango'],['N','N for Nest'],['O','O for Orange'],['P','P for Parrot'],['Q','Q for Queen'],['R','R for Rabbit'],['S','S for Sun'],['T','T for Tiger'],['U','U for Umbrella'],['V','V for Van'],['W','W for Watch'],['X','X for Xylophone'],['Y','Y for Yak'],['Z','Z for Zebra']],
