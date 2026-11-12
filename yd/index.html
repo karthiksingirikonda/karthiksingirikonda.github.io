@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v25 · Thu 12/11 16:45';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v26 · Thu 12/11 17:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -162,6 +162,7 @@ function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();+
  if(mode==='morning')clockTick();
  if(restored){$('#micHint').textContent='Tap the mic to start talking';return}
  Voice.begin(mode==='intro');
+ {const my=NAVSEQ,m0=String(mode).split('|')[0];if(!restored&&mode!=='intro'&&!/^(homework|check|hwplan)$/.test(m0))setTimeout(()=>{if(my===NAVSEQ&&GEM&&!Live.on&&LIVE_FIRST.indexOf(m0)>=0)Live.start('start')},300)}
  if(mode==='intro')send('(child opened the app for the first time)')}
 function clockTick(){const el=$('#clock');if(!el)return;const now=new Date(),[h,m]=BOOT.morningEnd.split(':');const end=new Date();end.setHours(+h,+m,0,0);const left=Math.max(0,Math.round((end-now)/60000));el.classList.remove('hidden');el.innerHTML=`<b>Minutes left: ${left}</b> <span class="muted">· ends ${BOOT.morningEnd}</span>`;setTimeout(clockTick,30000)}
 function addBubble(who,text,cap){const c=$('#chat');if(!c)return;const d=document.createElement('div');d.className='bubble '+(who==='me'?'me':'helper');d.textContent=text;if(cap){const k=document.createElement('div');k.className='muted';k.style.marginTop='4px';k.textContent=cap;d.appendChild(k)}c.appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'})}
@@ -273,7 +274,7 @@ const LIVE_WORKLET=`class P extends AudioWorkletProcessor{constructor(){super();
 process(i){const c=i[0]&&i[0][0];if(c){for(let k=0;k<c.length;k++){this.s+=c[k];this.n++;this.a+=1;if(this.a>=this.r){this.a-=this.r;this.o.push(this.s/this.n);this.s=0;this.n=0}}
 if(this.o.length>=1600){const b=new Int16Array(this.o.length);for(let k=0;k<b.length;k++){const v=Math.max(-1,Math.min(1,this.o[k]));b[k]=v<0?v*32768:v*32767}this.port.postMessage(b.buffer,[b.buffer]);this.o=[]}}return true}}
 registerProcessor('pcm16',P)`;
-const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[],on=false,busy=false,turns=[],cur={child:'',helper:''},use={inText:0,inAudio:0,outText:0,outAudio:0},lastAct=0,lastKid=0,idle=null,endAt=0,lock=null,sending=false,why='start',segStart=0,totalStart=0,userStop=false,greeted={};
+const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[],on=false,busy=false,turns=[],cur={child:'',helper:''},use={inText:0,inAudio:0,outText:0,outAudio:0},lastAct=0,lastKid=0,idle=null,endAt=0,lock=null,sending=false,why='start',segStart=0,totalStart=0,userStop=false,greeted={},first='',longMin=75,doneHw={};
  const b64=buf=>{let s='';const u=new Uint8Array(buf);for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)};
  function ui(st){const h=$('#micHint');if(h&&st!=='off')h.textContent=st==='on'?'🎤 Listening… just talk':'🎤 One moment…';const m=$('#micBtn');if(m){m.classList.toggle('listen',st==='on');m.classList.toggle('sleep',st!=='on')}}
  function playChunk(d){const bin=atob(d),n=bin.length>>1,f=new Float32Array(n);for(let i=0;i<n;i++){let v=bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8);if(v>=32768)v-=65536;f[i]=v/32768}
@@ -282,12 +283,12 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
  function addUse(u){(u.promptTokensDetails||[]).forEach(d=>{if(d.modality==='AUDIO')use.inAudio+=d.tokenCount||0;else use.inText+=d.tokenCount||0});
   (u.responseTokensDetails||[]).forEach(d=>{if(d.modality==='AUDIO')use.outAudio+=d.tokenCount||0;else use.outText+=d.tokenCount||0});use.outText+=u.thoughtsTokenCount||0}
  function endTurn(){const lt=$('#liveText');if(lt)lt.textContent='';if(cur.child.trim())addBubble('me',cur.child.trim());if(cur.helper.trim())addBubble('helper',cur.helper.trim());
-  if(cur.child.trim()||cur.helper.trim())turns.push({child:cur.child.trim(),helper:cur.helper.trim()});cur={child:'',helper:''};save()}
+  if(cur.child.trim()||cur.helper.trim())turns.push({child:cur.child.trim(),helper:cur.helper.trim()});const hid=String(MODE).split('|')[1];if(hid&&HWMODE()&&/homework\s+finished/i.test(cur.helper)&&!doneHw[hid]){doneHw[hid]=1;hwAutoDone(hid)}cur={child:'',helper:''};save()}
  async function save(){if(sending||(!turns.length&&!use.inText&&!use.outAudio))return;sending=true;const t=turns.splice(0),u=use;use={inText:0,inAudio:0,outText:0,outAudio:0};
   const secs=segStart?Math.round((Date.now()-segStart)/1000):0;segStart=on?Date.now():0;
   try{const r=await net('liveLog',[CHILD.id,MODE,t,u,secs,why]);if(r&&r.budget===false&&on)toMic()}catch(e){turns=t.concat(turns)}sending=false}
- async function start(reason){if(on||busy)return;Wake.stop();why=reason||'start';userStop=false;if(why!=='reconnect'){Ears.stop();SPKSEQ++;if(PLAYING){try{PLAYING.pause()}catch(e){}}totalStart=Date.now()}busy=true;ui('wait');
-  try{const t=await net('liveToken',[CHILD.id,MODE]);
+ async function start(reason,firstMsg){if(on||busy)return;Wake.stop();why=reason||'start';first=firstMsg||'';userStop=false;if(why!=='reconnect'){Ears.stop();SPKSEQ++;if(PLAYING){try{PLAYING.pause()}catch(e){}}totalStart=Date.now()}busy=true;ui('wait');
+  try{const t=await net('liveToken',[CHILD.id,MODE,why]);longMin=t.longMin||75;
    if(t.resting){busy=false;ui('off');if(CHILD)showRest();return}
    if(t.micOnly||!t.token){busy=false;ui('off');return micStart()}
    play=new AudioContext({sampleRate:24000});try{await play.resume()}catch(e){}
@@ -299,7 +300,7 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
    ws.onmessage=async ev=>{let m;try{m=JSON.parse(typeof ev.data==='string'?ev.data:await ev.data.text())}catch(e){return}
     if(m.setupComplete){on=true;busy=false;ui('on');lastAct=lastKid=Date.now();segStart=Date.now();endAt=Date.now()+(t.maxMin||12)*60000;
      node.port.onmessage=e=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({realtimeInput:{audio:{data:b64(e.data),mimeType:'audio/pcm;rate=16000'}}}))};
-     const gk=CHILD.id+'|'+MODE;if(why==='start'&&!greeted[gk]){greeted[gk]=1;ws.send(JSON.stringify({realtimeInput:{text:'(The child just opened this screen. Start it in one short, warm English sentence, as your own idea, following the mode above. Use the right part of day from the clock – never "good morning" after 12 noon.)'}}))}}
+     const gk=CHILD.id+'|'+MODE;if(first){greeted[gk]=1;ws.send(JSON.stringify({realtimeInput:{text:first}}));first=''}else if(why==='start'&&!greeted[gk]){greeted[gk]=1;ws.send(JSON.stringify({realtimeInput:{text:'(The child just opened this screen. Start it in one short, warm English sentence, as your own idea, following the mode above. Use the right part of day from the clock – never "good morning" after 12 noon.)'}}))}}
     const sc=m.serverContent;if(sc){lastAct=Date.now();
      if(sc.interrupted){hush();if(cur.helper.trim())cur.helper+=' …'}
      if(sc.inputTranscription&&sc.inputTranscription.text){if(cur.helper.trim()&&!cur.child)endTurn();lastKid=Date.now();cur.child+=sc.inputTranscription.text;const lt=$('#liveText');if(lt)lt.textContent=cur.child}
@@ -309,7 +310,7 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
     if(m.usageMetadata)addUse(m.usageMetadata);
     if(m.goAway)reconnect()};
    ws.onclose=ev=>{if((on||busy)&&!userStop)reconnect()};
-   idle=setInterval(()=>{if(!on)return;const n=Date.now();if(!srcs.length&&n-lastKid>60000&&n-lastAct>8000)return toMic();if(n>endAt&&!srcs.length&&n-lastAct>1500)reconnect()},4000);
+   idle=setInterval(()=>{if(!on)return;const n=Date.now();if(!srcs.length&&n-lastKid>(HWMODE()?300000:60000)&&n-lastAct>8000)return toMic();if(n>endAt&&!srcs.length&&n-lastAct>1500)reconnect()},4000);
    try{lock=await navigator.wakeLock.request('screen')}catch(e){}
   }catch(e){busy=false;cleanup();ui('off');if(e&&e.name==='NotAllowedError')micHelp();else micStart()}}
  function cleanup(){clearInterval(idle);idle=null;try{ws&&ws.readyState<2&&ws.close()}catch(e){}ws=null;try{mic&&mic.getTracks().forEach(t=>t.stop())}catch(e){}mic=null;
@@ -318,9 +319,9 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
  // quiet hand-over to the normal mic (child never sees a difference)
  function toMic(){if(!on)return;userStop=true;on=false;cleanup();endTurn();save();micStart()}
  // a fresh session carries on where the last one stopped – no goodbye, no greeting
- function reconnect(){if(userStop)return;const was=on;on=false;busy=false;cleanup();if(was){endTurn();save()}
-  if(!onKidView()||(getNav()||{}).v!=='talk')return;if(Date.now()-totalStart>30*60000){const t='We talked a lot! Let\'s take a short break.';addBubble('helper',t);sayFree(t,'en');return}
-  start('reconnect')}
+ function reconnect(){if(userStop)return;const was=on;on=false;busy=false;cleanup();let p=Promise.resolve();if(was){endTurn();p=save()}
+  if(!onKidView()||(getNav()||{}).v!=='talk')return;if(Date.now()-totalStart>(HWMODE()?longMin:30)*60000){const t='We talked a lot! Let\'s take a short break.';addBubble('helper',t);sayFree(t,'en');return}
+  p.then(()=>start('reconnect'),()=>start('reconnect'))}
  function say(t){if(on&&ws&&ws.readyState===1)ws.send(JSON.stringify({realtimeInput:{text:'(Say this to the child now, warmly, in your own words, in one or two short sentences: '+t+')'}}))}
  return{start,stop,say,toMic,toggle(){on||busy?stop():start('start')},get on(){return on||busy}}})();
 /* ---------- chess: small offline engine (Yuvaan) ---------- */
@@ -673,7 +674,7 @@ function hwAdminList(list){if(!list.length)return '<div class="card muted">No ho
 let HWTIMER=null;
 function hwClock(min,label){clearInterval(HWTIMER);if(!$('#clock')||!min)return;const end=Date.now()+min*60000;let said=false;
  const t=()=>{const el=$('#clock');const left=Math.max(0,end-Date.now()),m=Math.floor(left/60000),s=Math.floor(left/1000)%60;if(!el){clearInterval(HWTIMER);return}el.classList.remove('hidden');
-  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span class="muted" style="font-weight:700">${esc(label||'Homework')}</span><b style="font-size:30px;font-variant-numeric:tabular-nums;color:${left<120000?'#C62828':'#1F2A44'}">⏱ ${m}:${String(s).padStart(2,'0')}</b></div>`;if(!left&&!said){said=true;clearInterval(HWTIMER);const msg='Time is up for this one! Let\'s see how much we finished.';addBubble('helper',msg);sayFree(msg,'en')}};t();HWTIMER=setInterval(t,1000)}
+  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span class="muted" style="font-weight:700">${esc(label||'Homework')}</span><b style="font-size:30px;font-variant-numeric:tabular-nums;color:${left<120000?'#C62828':'#1F2A44'}">⏱ ${m}:${String(s).padStart(2,'0')}</b></div>`;if(!left&&!said){said=true;clearInterval(HWTIMER);const msg='Time is up for this one! Let\'s see how much we finished.';if(Live.on){Live.say('Time is up for this homework. Wrap up now: tell him his score and end with the words Homework finished.')}else{addBubble('helper',msg);sayFree(msg,'en')}}};t();HWTIMER=setInterval(t,1000)}
 /* ---------- Ditya Sree (5): big picture tiles, letter tracing, colouring ---------- */
 function dityaHome(t){return `<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:26px;font-weight:800">Hi ${esc(CHILD.name)}! 🌸</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">⭐ ${t.starsApproved}</span></div>
  ${CHILD.introDone?'':`<button class="card big" style="background:#FFF1C9" onclick="openTalk('intro')"><span style="font-size:34px">&#128075;</span><div><div style="font-size:19px;font-weight:800">Meet your helper</div></div></button>`}
@@ -739,7 +740,7 @@ function openColour(i){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Vo
  sayFree(CPICS[i][0]==='Sun'?'Shall we colour the sun?':'Now colour it with your favourite colours!','en')}
 function colourDone(i){const t='What beautiful colouring! Super!';toast('⭐ '+t);sayFree(t,'en').then(()=>openColour(i+1))}
 /* ---------- Smart mode: one mic button; Live where talk flows, normal mic for one-off questions ---------- */
-const LIVE_FIRST=['story','tellstory','speakEn','speakHi','morning','fact'];let QUICK=0,LASTREPLY=0;
+const LIVE_FIRST=['story','tellstory','speakEn','speakHi','morning','fact','chat','homework','check','hwplan'];let QUICK=0,LASTREPLY=0;
 async function micStart(){Wake.stop();const m=$('#micBtn');QUICK=0;const ok=await Ears.start(onKidSpeech,'#micHint');if(ok&&m){m.classList.remove('sleep');m.classList.add('listen')}}
 function noteKidTurn(){const quick=LASTREPLY&&Date.now()-LASTREPLY<25000;QUICK=quick?QUICK+1:0;
  if(QUICK>=3&&GEM&&!Live.on&&String(MODE).split('|')[0]!=='check'){QUICK=0;return true}return false}
@@ -827,7 +828,8 @@ async function openHomework(){const SEQ=++NAVSEQ;setNav({v:'hw',id:CHILD.id});PE
  <div class="row" style="margin-top:10px">${h.status==='done'?`<span class="chip">Done ${h.minutes?h.minutes+' min':''}</span>`:`<button class="primary" onclick="hwStart('${h.id}','${esc(h.kind)}',${h.plannedMin||0},'${esc(h.subject)}')">Start</button><button class="green" onclick="hwDone('${h.id}')">Done</button><button class="danger" onclick="hwPending('${h.id}')">Later</button>`}</div></div>`).join(''):'<div class="card muted">No homework today. 🎉 Want to read your book?</div>'),true)}
 async function hwStart(id,kind,min,sub){api('homeworkUpdate',id,'started','');openTalk((/learn|read/i.test(kind)?'check':'homework')+'|'+id);if(min)hwClock(min,sub);hwKick('(The child just pressed Start on this homework. Start now in one or two short sentences: say what we will do, then ask the FIRST question or give the first step.)')}
 // Homework: the helper speaks first, then the mic opens by itself.
-async function hwKick(msg){const my=NAVSEQ;await new Promise(r=>setTimeout(r,250));if(my!==NAVSEQ)return;await send(msg);if(my!==NAVSEQ)return;if(GEM&&!Ears.on&&!Live.on)micStart()}
+async function hwKick(msg){const my=NAVSEQ;await new Promise(r=>setTimeout(r,250));if(my!==NAVSEQ)return;if(GEM){Live.start('start',msg);return}await send(msg);if(my!==NAVSEQ)return;if(GEM&&!Ears.on&&!Live.on)micStart()}
+async function hwAutoDone(id){try{await api('homeworkUpdate',id,'done','');await api('claimStar',CHILD.id,'Homework item done','');toast('Homework done ✅ – star sent to Amma')}catch(e){}}
 async function hwDone(id){await api('homeworkUpdate',id,'done','');await api('claimStar',CHILD.id,'Homework item done','');toast('Great! Amma will check your star.');openHomework()}
 async function hwPending(id){await api('homeworkUpdate',id,'pending','Moved to later');openHomework()}
 async function openStars(){const SEQ=++NAVSEQ;setNav({v:'stars',id:CHILD.id});PENDINGVIEW=()=>openStars();const s=await api('getStars',CHILD.id);
@@ -951,6 +953,9 @@ function dictate(id){const SR=window.SpeechRecognition||window.webkitSpeechRecog
 
 if(window.speechSynthesis)speechSynthesis.onvoiceschanged=()=>{};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+/* auto-update: a screen left open for hours picks up the newest version when nobody is talking */
+async function checkUpdate(){try{if(Live.on||Ears.on||PLAYING||(getNav()||{}).v==='talk')return;const t=await (await fetch('index.html?u='+Date.now(),{cache:'no-store'})).text();const m=/APPVER='([^']+)'/.exec(t);if(m&&m[1]!==APPVER)location.reload()}catch(e){}}
+setInterval(checkUpdate,3*60000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdate()});
 start();
 </script>
 </body>
