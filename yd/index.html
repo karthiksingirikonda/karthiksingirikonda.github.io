@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v34 · Thu 12/11 21:00';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v35 · Thu 12/11 21:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -917,21 +917,22 @@ const QSTORIES=[
   {name:'Forest of Zombies',world:'forest',game:'shooter',foe:'🧟',text:'The Crystal Queen has been taken by the Dragon King! Zombies guard the forest path. Clear them to find the first key.'},
   {name:'Sky Battle',world:'sky',game:'jet',foe:'🦅',text:'You found the first key! Now fly your jet over the mountains – giant eagles attack from above.'},
   {name:'Dinosaur Jungle',world:'jungle',game:'jumper',foe:'🦖',text:'The second key is hidden deep in the jungle. Run and jump over the dinosaurs!'},
-  {name:'Alien Moon',world:'space',game:'jet',foe:'👽',text:'The Dragon King has friends on the moon. Blast through the alien ships to get the third key.'},
-  {name:'Ghost Castle',world:'castle',game:'shooter',foe:'👻',text:'You reach the dark castle. Ghosts float in every hall. Light them up to open the gates.'},
+  {name:'Alien Moon Maze',world:'space',game:'maze',foe:'👽',text:'The Dragon King has friends on the moon. Blast through the alien ships to get the third key.'},
+  {name:'Ghost Castle Bricks',world:'castle',game:'brick',foe:'👻',text:'You reach the dark castle. Ghosts float in every hall. Light them up to open the gates.'},
   {name:'Dragon Volcano',world:'volcano',game:'jumper',foe:'🐉',text:'The Dragon King waits on the volcano with the Queen. This is the hardest fight – jump the fireballs!'}]},
  {title:'The Lost Space Station',levels:[
-  {name:'Robot City',world:'city',game:'shooter',foe:'🤖',text:'A message comes from space: the space station is lost and robots have taken over the city. Stop them!'},
-  {name:'Meteor Storm',world:'space',game:'jet',foe:'☄️',text:'Fly up through a meteor storm to reach the station.'},
+  {name:'Robot City Race',world:'city',game:'race',foe:'🤖',text:'A message comes from space: the space station is lost and robots have taken over the city. Stop them!'},
+  {name:'Meteor Bubbles',world:'space',game:'bubble',foe:'☄️',text:'Fly up through a meteor storm to reach the station.'},
   {name:'Desert Scorpions',world:'desert',game:'jumper',foe:'🦂',text:'The station fell into a desert! Run past the scorpions to the crash site.'},
-  {name:'Deep Sea Rescue',world:'ocean',game:'shooter',foe:'🐙',text:'One part sank into the ocean. Clear the sea monsters to bring it back.'},
+  {name:'Deep Sea Sweets',world:'ocean',game:'match',foe:'🐙',text:'One part sank into the ocean. Clear the sea monsters to bring it back.'},
   {name:'Alien Mothership',world:'space',game:'jet',foe:'🛸',text:'The aliens want the station too. Beat their mothership!'},
   {name:'Final Launch',world:'volcano',game:'jumper',foe:'🔥',text:'Fix the station and launch it home – jump over the flames to the rocket!'}]}];
 let QV=null,QG=null,QTICK=null,QUSED=0;
+function qHud(t){const h=$('#qHud');if(!h){if(QG){QG.over=true;clearInterval(QTICK)}return false}h.textContent=t;return true}
 async function qLoad(op,arg){QV=await api('questKid',CHILD.id,op||'get',arg||{});return QV}
 function qLeft(){return Math.max(0,(QV?QV.leftSec:0)-QUSED)}
 function qLives(){return QV&&QV.unlim?'♾️':'❤️'.repeat(QV?QV.lives:0)||'0'}
-async function openQuest(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'quest',id:CHILD.id});const kid=CHILD.id==='ditya';
+async function openQuest(){if(QG)qStop();if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'quest',id:CHILD.id});const kid=CHILD.id==='ditya';
  render(`<div class="card">Loading…</div>`,true);try{await qLoad('get')}catch(e){return render('<div class="card">Could not open right now. Try again.</div>',true)}QUSED=0;
  const v=QV,mm=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0'),p=v.prog||{};
  const title=kid?'🍓 Fruit Garden':'🗺️ Quest',st=kid?null:QSTORIES[(p.story||0)%QSTORIES.length],lv=st?st.levels[(p.level||0)%6]:null;
@@ -960,7 +961,7 @@ function qRun(lv){const d=qDiff(),p=QV.prog||{},tough=d>(2+(p.level||0)*0.8+((p.
  render(`<div class="row" style="justify-content:space-between;align-items:center;gap:6px"><b>${lv.foe} ${esc(lv.name)} · round ${(p.round||0)+1}/5${tough?' · 🔥 tough':''}</b><span class="tag" style="background:#FFE8EE;color:#B91C1C">${qLives()}</span><span class="tag" style="background:#E8F1FF;color:#1C4AAE">⏱ <span id="qTime"></span></span></div>
  <div id="qHud" style="font-weight:800;margin:4px 0"></div><canvas id="qCv" width="900" height="480" style="width:100%;max-width:900px;border-radius:14px;touch-action:none;display:block;margin:0 auto"></canvas>
  <div class="row" style="gap:8px;margin-top:8px" id="qPad"></div>`,true);
- QG={lv,d,over:false,paused:false,keys:{},touch:{}};qTimerStart();({shooter:gShooter,jet:gJet,jumper:gJumper})[lv.game](QG);
+ QG={lv,d,over:false,paused:false,keys:{},touch:{}};qTimerStart();({shooter:gShooter,jet:gJet,jumper:gJumper,maze:gMaze,bubble:gBubble,match:gMatch,brick:gBrick,race:gRace})[lv.game](QG);
  sayFree(tough?'This round is tough! Do your best.':'Round '+((p.round||0)+1)+'. Go!','en')}
 function qPadBtns(list){$('#qPad').innerHTML=list.map(([k,l])=>`<button style="flex:1;min-height:64px;font-size:26px" onpointerdown="QG.touch['${k}']=1" onpointerup="QG.touch['${k}']=0" onpointerleave="QG.touch['${k}']=0">${l}</button>`).join('')}
 document.addEventListener('keydown',e=>{if(!QG||QG.over)return;const n=getNav()||{};if(n.v!=='quest')return;QG.keys[e.key]=1;if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault()});
@@ -998,7 +999,7 @@ function gShooter(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowU
   if(boss&&kills>=need){bossY=240+Math.sin(t/25)*170;x.font='110px serif';x.fillText(g.lv.foe,760,bossY+40);bs.forEach(b=>{if(b.x>740&&Math.abs(b.y-bossY)<60){b.x=2000;bossHp--}});if(t%45===0)es.push({x:740,y:bossY,v:sp*1.5,shot:1})}
   x.font='44px serif';es.forEach(e=>x.fillText(e.shot?'🔥':g.lv.foe,e.x-22,e.y+16));fx.forEach(p=>{p.l--;x.font='16px serif';if(p.l>0)x.fillText('⭐',p.x+Math.cos(p.a)*(22-p.l)*3,p.y+Math.sin(p.a)*(22-p.l)*3)});fx=fx.filter(p=>p.l>0);
   x.fillStyle='#FDE047';bs.forEach(b=>{x.beginPath();x.arc(b.x,b.y,5,0,7);x.fill()});x.font='50px serif';x.fillText('🧑‍🚀',30,py+18);
-  $('#qHud').textContent=(boss&&kills>=need?'BOSS ❤️ '+Math.max(0,bossHp)+' · ':'')+'Defeated '+Math.min(kills,need)+' / '+need+' · Hits '+hits+' / 3';
+  if(!qHud((boss&&kills>=need?'BOSS ❤️ '+Math.max(0,bossHp)+' · ':'')+'Defeated '+Math.min(kills,need)+' / '+need+' · Hits '+hits+' / 3'))return;
   if(hits>=3)return qEnd(false);if(kills>=need&&(!boss||bossHp<=0))return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
 /* ----- game 2: jet fighter (enemies come from the top) ----- */
 function gJet(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft','◀'],['ArrowRight','▶']]);let px=450,t=0,es=[],bs=[],fx=[],kills=0,hits=0;const need=Math.round(8+g.d*1.3),sp=1.2+g.d*0.3;
@@ -1009,7 +1010,7 @@ function gJet(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft'
   es=es.filter(e=>!e.dead&&!e.hit);bs=bs.filter(b=>b.y>-20);
   x.font='44px serif';es.forEach(e=>x.fillText(g.lv.foe,e.x-22,e.y+16));fx.forEach(p=>{p.l--;x.font='16px serif';if(p.l>0)x.fillText('⭐',p.x+Math.cos(p.a)*(22-p.l)*3,p.y+Math.sin(p.a)*(22-p.l)*3)});fx=fx.filter(p=>p.l>0);
   x.fillStyle='#FDE047';bs.forEach(b=>{x.fillRect(b.x-2,b.y,4,12)});x.font='54px serif';x.fillText('🛩️',px-27,460);
-  $('#qHud').textContent='Shot down '+Math.min(kills,need)+' / '+need+' · Hits '+hits+' / 3';if(hits>=3)return qEnd(false);if(kills>=need)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
+  if(!qHud('Shot down '+Math.min(kills,need)+' / '+need+' · Hits '+hits+' / 3'))return;if(hits>=3)return qEnd(false);if(kills>=need)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
 /* ----- game 3: jumper (run and jump over enemies, collect stars) ----- */
 function gJumper(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([[' ','⤒ Jump']]);let y=380,vy=0,t=0,obs=[],stars=0,hits=0,dist=0,inv=0;const goal=Math.round(900+g.d*160),sp=4+g.d*0.45;
  cv.onpointerdown=()=>{g.touch[' ']=1;setTimeout(()=>g.touch[' ']=0,120)};
@@ -1019,7 +1020,71 @@ function gJumper(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([[' ','⤒
   obs.forEach(o=>{o.x-=sp;if(!o.done&&Math.abs(o.x-120)<34&&Math.abs(o.y-y)<40){o.done=1;if(o.s)stars++;else if(!inv){hits++;inv=40}}});obs=obs.filter(o=>o.x>-40&&!(o.done&&o.s));
   x.font='46px serif';obs.forEach(o=>x.fillText(o.s?'⭐':g.lv.foe,o.x-23,o.y+18));x.globalAlpha=inv%10<5?1:0.4;x.font='54px serif';x.fillText('🏃',95,y+20);x.globalAlpha=1;
   x.fillStyle='#fff';x.fillRect(20,20,860,10);x.fillStyle='#22C55E';x.fillRect(20,20,860*Math.min(1,dist/goal),10);
-  $('#qHud').textContent='Run to the flag 🚩 · Stars '+stars+' · Hits '+hits+' / 3';if(hits>=3)return qEnd(false);if(dist>=goal)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
+  if(!qHud('Run to the flag 🚩 · Stars '+stars+' · Hits '+hits+' / 3'))return;if(hits>=3)return qEnd(false);if(dist>=goal)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
+/* ----- game 4: maze (eat all the dots, keep away from the enemies) ----- */
+function gMaze(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft','◀'],['ArrowUp','▲'],['ArrowDown','▼'],['ArrowRight','▶']]);
+ const W=15,H=8,S=60,wall=[...Array(H)].map(()=>Array(W).fill(1));const carve=(c,r)=>{wall[r][c]=0;sdShuffle([[2,0],[-2,0],[0,2],[0,-2]]).forEach(([dc,dr])=>{const nc=c+dc,nr=r+dr;if(nc>=0&&nc<W&&nr>=0&&nr<H&&wall[nr][nc]){wall[r+dr/2][c+dc/2]=0;carve(nc,nr)}})};carve(0,0);
+ for(let i=0;i<14;i++){const r=1+Math.floor(Math.random()*(H-2)),c=1+Math.floor(Math.random()*(W-2));wall[r][c]=0}
+ const dots=new Set();for(let r=0;r<H;r++)for(let c=0;c<W;c++)if(!wall[r][c]&&(r||c))dots.add(r*W+c);const need=Math.min(dots.size,Math.round(25+g.d*3));let eaten=0,hits=0,inv=0,t=0;
+ const P={c:0,r:0,fx:0,fy:0},nE=Math.min(5,1+Math.floor(g.d/2.5)),E=[];const free=[...dots];for(let i=0;i<nE;i++){const k=free[free.length-1-i*7]||free[free.length-1];E.push({c:k%W,r:Math.floor(k/W),d:[1,0]})}
+ const ok=(c,r)=>c>=0&&c<W&&r>=0&&r<H&&!wall[r][c];let mv=0;
+ function f(){if(g.over)return;t++;x.fillStyle='#0F172A';x.fillRect(0,0,900,480);
+  if(t%7===0){let d=null;if(qKey(g,'ArrowLeft','a'))d=[-1,0];else if(qKey(g,'ArrowRight','d'))d=[1,0];else if(qKey(g,'ArrowUp','w'))d=[0,-1];else if(qKey(g,'ArrowDown','s'))d=[0,1];if(d&&ok(P.c+d[0],P.r+d[1])){P.c+=d[0];P.r+=d[1]}
+   const k=P.r*W+P.c;if(dots.has(k)){dots.delete(k);eaten++}}
+  if(t%Math.max(9,Math.round(26-g.d*1.6))===0)E.forEach(e=>{const opts=[[1,0],[-1,0],[0,1],[0,-1]].filter(d=>ok(e.c+d[0],e.r+d[1]));let d=opts.find(o=>o[0]===e.d[0]&&o[1]===e.d[1]);
+   if(!d||Math.random()<0.3){const toward=opts.sort((a,b)=>(Math.abs(e.c+a[0]-P.c)+Math.abs(e.r+a[1]-P.r))-(Math.abs(e.c+b[0]-P.c)+Math.abs(e.r+b[1]-P.r)));d=Math.random()<0.5+g.d*0.03?toward[0]:opts[Math.floor(Math.random()*opts.length)]}if(d){e.c+=d[0];e.r+=d[1];e.d=d}});
+  if(inv>0)inv--;E.forEach(e=>{if(e.c===P.c&&e.r===P.r&&!inv){hits++;inv=60}});
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++){if(wall[r][c]){x.fillStyle='#2563EB';x.fillRect(c*S+2,r*S+2,S-4,S-4)}else if(dots.has(r*W+c)){x.fillStyle='#FDE047';x.beginPath();x.arc(c*S+30,r*S+30,6,0,7);x.fill()}}
+  x.font='44px serif';E.forEach(e=>x.fillText(g.lv.foe,e.c*S+8,e.r*S+46));x.globalAlpha=inv%10<5?1:0.4;x.fillText('😋',P.c*S+8,P.r*S+46);x.globalAlpha=1;
+  if(!qHud('Dots '+Math.min(eaten,need)+' / '+need+' · Caught '+hits+' / 3'))return;if(hits>=3)return qEnd(false);if(eaten>=need)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
+/* ----- game 5: bubble shooter (match 3 colours) ----- */
+function gBubble(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft','↺'],[' ','● Shoot'],['ArrowRight','↻']]);
+ const C=['🔴','🟡','🟢','🔵','🟣'].slice(0,Math.min(5,3+Math.floor(g.d/3))),COLS=15,R=56,grid=[];for(let r=0;r<5;r++){grid.push([...Array(COLS)].map(()=>C[Math.floor(Math.random()*C.length)]))}
+ let ang=-Math.PI/2,cur=C[Math.floor(Math.random()*C.length)],shot=null,popped=0,shots=0,t=0,cool=0;const need=Math.round(18+g.d*3),drop=Math.max(5,10-Math.floor(g.d/2));
+ const cell=(r,c)=>[30+c*R+(r%2?R/2:0),30+r*R*0.87];
+ function pop(r,c){const col=grid[r][c],seen=new Set([r+','+c]),st=[[r,c]];while(st.length){const[a,b]=st.pop();[[0,1],[0,-1],[1,0],[-1,0],[1,a%2?1:-1],[-1,a%2?1:-1]].forEach(([dr,dc])=>{const nr=a+dr,nc=b+dc,k=nr+','+nc;if(grid[nr]&&grid[nr][nc]===col&&!seen.has(k)){seen.add(k);st.push([nr,nc])}})}
+  if(seen.size>=3){seen.forEach(k=>{const[a,b]=k.split(',').map(Number);grid[a][b]=null});popped+=seen.size;sayFree('Pop!','en')}}
+ function f(){if(g.over)return;t++;qBg(x,g,t);if(cool>0)cool--;if(qKey(g,'ArrowLeft','a'))ang=Math.max(-Math.PI+0.2,ang-0.04);if(qKey(g,'ArrowRight','d'))ang=Math.min(-0.2,ang+0.04);
+  if(qKey(g,' ','ArrowUp')&&!shot&&!cool){shot={x:450,y:440,vx:Math.cos(ang)*12,vy:Math.sin(ang)*12,col:cur};cur=C[Math.floor(Math.random()*C.length)];cool=12}
+  if(shot){shot.x+=shot.vx;shot.y+=shot.vy;if(shot.x<20||shot.x>880)shot.vx*=-1;let hit=shot.y<30;
+   for(let r=0;r<grid.length&&!hit;r++)for(let c=0;c<COLS;c++)if(grid[r][c]){const[cx,cy]=cell(r,c);if(Math.hypot(cx-shot.x,cy-shot.y)<R*0.85){hit=true;break}}
+   if(hit){let best=null,bd=1e9;for(let r=0;r<=grid.length;r++){if(!grid[r])grid.push(Array(COLS).fill(null));for(let c=0;c<COLS;c++)if(!grid[r][c]){const[cx,cy]=cell(r,c),d=Math.hypot(cx-shot.x,cy-shot.y);if(d<bd){bd=d;best=[r,c]}}}
+    grid[best[0]][best[1]]=shot.col;pop(best[0],best[1]);shot=null;shots++;if(shots%drop===0){grid.unshift([...Array(COLS)].map(()=>C[Math.floor(Math.random()*C.length)]))}}}
+  while(grid.length&&grid[grid.length-1].every(v=>!v))grid.pop();
+  x.font='46px serif';grid.forEach((row,r)=>row.forEach((v,c)=>{if(v){const[cx,cy]=cell(r,c);x.fillText(v,cx-23,cy+16)}}));
+  x.strokeStyle='rgba(255,255,255,.7)';x.setLineDash([6,8]);x.beginPath();x.moveTo(450,440);x.lineTo(450+Math.cos(ang)*160,440+Math.sin(ang)*160);x.stroke();x.setLineDash([]);
+  x.fillText(cur,427,456);if(shot)x.fillText(shot.col,shot.x-23,shot.y+16);x.font='40px serif';x.fillText(g.lv.foe,30,465);
+  const low=grid.length*R*0.87+30;if(!qHud('Popped '+Math.min(popped,need)+' / '+need+' · Don\'t let the bubbles reach the bottom!'))return;if(low>400)return qEnd(false);if(popped>=need)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
+/* ----- game 6: match-3 sweets (swap two neighbours to make lines of 3) ----- */
+function gMatch(g){const cv=$('#qCv'),x=cv.getContext('2d');$('#qPad').innerHTML='<div class="muted" style="text-align:center;width:100%">Tap one sweet, then a sweet next to it to swap.</div>';
+ const SW=['🍬','🍭','🍩','🍪','🧁','🍫'].slice(0,Math.min(6,4+Math.floor(g.d/4))),W=10,H=6,S=78,ox=60,oy=8;let B=[...Array(H)].map(()=>[...Array(W)].map(()=>SW[Math.floor(Math.random()*SW.length)])),sel=null,score=0,moves=Math.max(10,22-Math.round(g.d)),busy=false;const need=Math.round(30+g.d*6);
+ const find=()=>{const m=new Set();for(let r=0;r<H;r++)for(let c=0;c<W-2;c++)if(B[r][c]&&B[r][c]===B[r][c+1]&&B[r][c]===B[r][c+2]){m.add(r*W+c);m.add(r*W+c+1);m.add(r*W+c+2)}for(let c=0;c<W;c++)for(let r=0;r<H-2;r++)if(B[r][c]&&B[r][c]===B[r+1][c]&&B[r][c]===B[r+2][c]){m.add(r*W+c);m.add((r+1)*W+c);m.add((r+2)*W+c)}return m};
+ const settle=()=>{let m=find(),loops=0;while(m.size&&loops++<10){m.forEach(k=>{B[Math.floor(k/W)][k%W]=null});for(let c=0;c<W;c++){const col=[];for(let r=H-1;r>=0;r--)if(B[r][c])col.push(B[r][c]);for(let r=H-1,i=0;r>=0;r--,i++)B[r][c]=col[i]||SW[Math.floor(Math.random()*SW.length)]}m=find()}};
+ let pre=find();while(pre.size){pre.forEach(k=>{B[Math.floor(k/W)][k%W]=SW[Math.floor(Math.random()*SW.length)]});pre=find()}
+ cv.onpointerdown=e=>{if(busy||g.over)return;const rc=cv.getBoundingClientRect(),px=(e.clientX-rc.left)*900/rc.width,py=(e.clientY-rc.top)*480/rc.height,c=Math.floor((px-ox)/S),r=Math.floor((py-oy)/S);if(c<0||c>=W||r<0||r>=H)return;
+  if(!sel){sel=[r,c];return}if(Math.abs(sel[0]-r)+Math.abs(sel[1]-c)!==1){sel=[r,c];return}const[a,b]=sel;[B[a][b],B[r][c]]=[B[r][c],B[a][b]];const m=find();
+  if(!m.size){[B[a][b],B[r][c]]=[B[r][c],B[a][b]];sel=null;return}moves--;let gained=0,loops=0,mm=m;while(mm.size&&loops++<10){gained+=mm.size;mm.forEach(k=>{B[Math.floor(k/W)][k%W]=null});for(let cc=0;cc<W;cc++){const col=[];for(let rr=H-1;rr>=0;rr--)if(B[rr][cc])col.push(B[rr][cc]);for(let rr=H-1,i=0;rr>=0;rr--,i++)B[rr][cc]=col[i]||SW[Math.floor(Math.random()*SW.length)]}mm=find()}score+=gained*(gained>3?2:1);sel=null};
+ function f(){if(g.over)return;qBg(x,g,0);x.fillStyle='rgba(255,255,255,.85)';x.fillRect(ox-6,oy-4,W*S+12,H*S+8);x.font='54px serif';for(let r=0;r<H;r++)for(let c=0;c<W;c++){if(sel&&sel[0]===r&&sel[1]===c){x.fillStyle='#FDE68A';x.fillRect(ox+c*S,oy+r*S,S,S)}x.fillText(B[r][c],ox+c*S+10,oy+r*S+58)}
+  if(!qHud('Score '+Math.min(score,need)+' / '+need+' · Moves left '+moves))return;if(score>=need)return qEnd(true);if(moves<=0)return qEnd(false);g.raf=requestAnimationFrame(f)}f()}
+/* ----- game 7: brick breaker ----- */
+function gBrick(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft','◀'],['ArrowRight','▶']]);let px=450,bx=450,by=400,vx=4,vy=-(5+g.d*0.35),hits=0,t=0;const rows=Math.min(5,3+Math.floor(g.d/3)),pw=Math.max(110,170-g.d*6),BR=[];
+ for(let r=0;r<rows;r++)for(let c=0;c<12;c++)BR.push({x:40+c*70,y:40+r*48,a:true,hp:r===0&&g.d>6?2:1});
+ function f(){if(g.over)return;t++;qBg(x,g,t);if(qKey(g,'ArrowLeft','a'))px-=10;if(qKey(g,'ArrowRight','d'))px+=10;px=Math.max(pw/2,Math.min(900-pw/2,px));
+  bx+=vx;by+=vy;if(bx<10||bx>890)vx*=-1;if(by<10)vy*=-1;if(by>440&&by<460&&Math.abs(bx-px)<pw/2+8&&vy>0){vy*=-1;vx=(bx-px)/(pw/2)*6}
+  if(by>490){hits++;bx=px;by=400;vy=-Math.abs(vy);vx=3}
+  BR.forEach(b=>{if(b.a&&bx>b.x-6&&bx<b.x+66&&by>b.y-6&&by<b.y+44){b.hp--;if(b.hp<=0)b.a=false;vy*=-1}});
+  x.font='38px serif';BR.forEach(b=>{if(b.a){x.fillStyle=b.hp>1?'rgba(239,68,68,.5)':'rgba(255,255,255,.55)';x.fillRect(b.x,b.y,64,42);x.fillText(g.lv.foe,b.x+12,b.y+34)}});
+  x.fillStyle='#F8FAFC';x.fillRect(px-pw/2,445,pw,14);x.fillStyle='#FDE047';x.beginPath();x.arc(bx,by,10,0,7);x.fill();
+  const left=BR.filter(b=>b.a).length;if(!qHud('Bricks left '+left+' · Balls lost '+hits+' / 3'))return;if(hits>=3)return qEnd(false);if(!left)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
+/* ----- game 8: racing – drive through the gate with the right answer ----- */
+function gRace(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft','◀'],['ArrowRight','▶']]);let lane=1,carX=1,t=0,gy=-200,right=0,hits=0,obs=[],Q=null,spd=4+g.d*0.4;const need=Math.round(4+g.d/2);
+ const newQ=()=>{let P=qPuzzleItem();let o=P.opts.slice();if(o.length>3){o=sdShuffle(o.filter(v=>v!==P.ans)).slice(0,2).concat([P.ans]);o=sdShuffle(o)}while(o.length<3)o.push('—');Q={q:P.q,ans:P.ans,opts:o};gy=-200;sayFree(P.q,'en')};newQ();let lk=0;
+ function f(){if(g.over)return;t++;x.fillStyle='#3F7D3A';x.fillRect(0,0,900,480);x.fillStyle='#4B5563';x.fillRect(150,0,600,480);x.fillStyle='#fff';for(let i=0;i<10;i++){const y=(i*60+t*spd*1.5)%520-40;x.fillRect(347,y,6,30);x.fillRect(547,y,6,30)}
+  if(lk>0)lk--;if(!lk&&qKey(g,'ArrowLeft','a')&&lane>0){lane--;lk=10}if(!lk&&qKey(g,'ArrowRight','d')&&lane<2){lane++;lk=10}carX+=(lane-carX)*0.25;
+  gy+=spd*0.55;x.font='bold 17px system-ui';x.textAlign='center';Q.opts.forEach((o,i)=>{x.fillStyle='#2563EB';x.fillRect(160+i*200,gy,180,52);x.fillStyle='#fff';x.fillText(String(o).slice(0,20),250+i*200,gy+32)});
+  if(gy>380&&gy<380+spd*0.6){if(Q.opts[lane]===Q.ans){right++;sayFree('Correct! Boost!','en')}else{hits++;sayFree('Wrong gate! The answer was '+Q.ans,'en')}setTimeout(()=>{if(!g.over)newQ()},300)}
+  x.fillStyle='rgba(15,23,42,.85)';x.fillRect(150,0,600,40);x.fillStyle='#FDE047';x.fillText(Q.q.slice(0,70),450,27);x.textAlign='left';x.font='64px serif';x.fillText('🏎️',218+carX*200,450);
+  if(!qHud('Right gates '+right+' / '+need+' · Wrong '+hits+' / 3'))return;if(hits>=3)return qEnd(false);if(right>=need)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
 /* ----- ❤️ earn lives: the app gives a quest and checks it itself ----- */
 const QREAD=[
  {t:'The Clever Crow',p:'A thirsty crow found a pot with a little water at the bottom. Its beak could not reach the water. The crow did not give up. It picked up small pebbles and dropped them into the pot one by one. Slowly the water rose to the top, and the crow drank happily.',q:[['Why could the crow not drink at first?',['The water was too low','The pot was empty','It was not thirsty'],0],['What did the crow drop into the pot?',['Pebbles','Leaves','Seeds'],0]]},
@@ -1074,7 +1139,7 @@ function fcRun(R,teach){const p=QV.prog||{};render(`<div class="row" style="just
   items.forEach(o=>{if(o.cut&&o.wrong){o.wrong--;x.font='54px serif';x.fillText('❌',o.x-27,o.y)}else if(!o.cut){if(teach&&R[2](o.it)){x.fillStyle='rgba(34,197,94,.35)';x.beginPath();x.arc(o.x,o.y-18,40,0,7);x.fill()}x.font='58px serif';x.fillText(o.it[0],o.x-29,o.y)}});
   halves.forEach(h=>{h.l--;h.y+=3;x.font='38px serif';if(h.l>0){x.fillText(h.e,h.x-40,h.y);x.fillText(h.e,h.x+5,h.y+8)}});halves=halves.filter(h=>h.l>0);
   if(trail.length>1){x.strokeStyle='rgba(255,255,255,.95)';x.lineWidth=8;x.beginPath();x.moveTo(...trail[0]);trail.forEach(p=>x.lineTo(...p));x.stroke()}
-  $('#qHud').textContent='Right '+good+' / '+need+' · Oops '+bad+' / 3';if(bad>=3){tmNote('fruitcut',false);return qEnd(false)}if(good>=need){tmNote('fruitcut',bad===0);return qEnd(true)}g.raf=requestAnimationFrame(f)}f()}
+  if(!qHud('Right '+good+' / '+need+' · Oops '+bad+' / 3'))return;if(bad>=3){tmNote('fruitcut',false);return qEnd(false)}if(good>=need){tmNote('fruitcut',bad===0);return qEnd(true)}g.raf=requestAnimationFrame(f)}f()}
 /* ---------- ♟️ Chess school for Ditya: learn one piece at a time, then practise (free, on the device) ---------- */
 const CK_P=[['rook','♜','The rook moves in straight lines – up, down, left and right – as far as it likes.'],['bishop','♝','The bishop moves on the slants, like the letter X.'],['queen','♛','The queen is the strongest! She moves straight AND on the slants.'],['king','♚','The king moves just one step, any way.'],['knight','♞','The knight jumps like the letter L – two steps, then one step to the side. It can jump over others!'],['pawn','♟','The pawn walks one step forward. On its very first move it can walk two steps.']];
 let CK=null;
