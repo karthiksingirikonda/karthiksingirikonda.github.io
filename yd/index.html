@@ -68,7 +68,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v8 · Thu 12/11 10:50';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v9 · Thu 12/11 11:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -93,7 +93,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
 function render(html,showBack){LASTVIEW=PENDINGVIEW;PENDINGVIEW=null;$('#app').innerHTML=html;$('#backBtn').classList.toggle('hidden',!showBack);if(!QUIET)window.scrollTo(0,0)}
 
 /* ---------- home ---------- */
-async function start(){if(!FTOK)return familyScreen();BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
+async function start(){if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini)}).catch(()=>{});BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
  let t=null;try{t=JSON.parse(localStorage.getItem('ydAdmin')||'null')}catch(e){}
  if(t&&t.token){ADMIN=t;showFab();api('adminCheckToken',t.token).then(c=>{if(!c.ok){ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();const n=getNav();if(n&&n.v==='admin')goHome()}else pollThread()}).catch(()=>{})}
  restoreNav()}
@@ -148,7 +148,7 @@ async function send(text){if(!text.startsWith('('))addBubble('me',text);Voice.pa
  addBubble('helper','• • •');const dots=$('#chat')&&$('#chat').lastElementChild;if(dots)dots.id='thinking';
  try{const r=await api('talk',CHILD.id,MODE,text);const th=$('#thinking');th&&th.remove();addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
   if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true;$('#micHint').textContent='Say "Hey '+r.helperName+'" any time'}
-  await Voice.speak(r.say||r.text,r.lang||'te');
+  await speakReply(r.say||r.text,r.lang||'te');
  }catch(e){const th=$('#thinking');th&&th.remove()}
  Voice.resume()}
 async function showOnScreen(show){const box=$('#screenShow');if(!box||!show)return;
@@ -157,7 +157,7 @@ async function showOnScreen(show){const box=$('#screenShow');if(!box||!show)retu
 
 const MIC_ERR={'no-speech':'Didn\'t hear anything – tap the mic and speak','network':'Voice needs internet – check the connection','language-not-supported':'This phone can\'t listen in this language – open Google app → Settings → Voice → Languages → add Telugu','audio-capture':'Microphone busy or not found – close other apps using the mic','service-not-allowed':'Voice typing is turned off on this phone','bad-grammar':'Voice error – try again'};
 function micReason(code){return MIC_ERR[code]||('Mic stopped ('+code+')')}
-const Voice=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const VoiceOld=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
  let rec=null,active=false,paused=false,running=false,got='',err='';
  const langFor=()=>({homework:'en-IN',check:'en-IN',olympiad:'en-IN',hindi:'hi-IN'}[MODE]||'te-IN');
  function status(t){const h=$('#micHint');if(h)h.textContent=t}
@@ -188,6 +188,58 @@ const Voice=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognit
   pause(){paused=true;abort();live('');status('💭 Thinking…')},
   resume(){paused=false;if(active)listenOnce();else status('Tap the mic to talk')},
   stop(){active=false;paused=false;abort();if(window.speechSynthesis)speechSynthesis.cancel()},speak}})();
+/* ---------- voice mode: the app's own ears (records, notices start/stop of speech) + natural voice ---------- */
+let GEM=null; // true when the Google voice key is set in the back office
+function pcmToWavUrl(b64,rate){const pcm=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));const buf=new ArrayBuffer(44+pcm.length),v=new DataView(buf);
+ const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};w(0,'RIFF');v.setUint32(4,36+pcm.length,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,pcm.length,true);new Uint8Array(buf,44).set(pcm);
+ return URL.createObjectURL(new Blob([buf],{type:'audio/wav'}))}
+let PLAYING=null;
+async function speakReply(text,lang){if(!text)return;const h=$('#micHint');if(h)h.textContent='🔊 Speaking…';
+ if(GEM){try{const r=await net('speakText',[text,lang||'te']);if(r&&r.pcm){const rate=+((String(r.mime).match(/rate=(\d+)/)||[])[1]||24000);const url=pcmToWavUrl(r.pcm,rate);
+  await new Promise(res=>{const a=new Audio(url);PLAYING=a;a.onended=a.onerror=()=>{PLAYING=null;URL.revokeObjectURL(url);res()};a.play().catch(()=>{PLAYING=null;res()})});return}}catch(e){}}
+ await VoiceOld.speak(text,lang)}
+function blobB64(b){return new Promise(res=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.readAsDataURL(b)})}
+const Ears=(()=>{let stream=null,ctx=null,an=null,data=null,timer=null,on=false,hold=false,rec=null,chunks=[],loudSince=0,lastLoud=0,recStart=0,thr=0.02,floor=[],lastAny=0,onDone=null,label='';
+ function rms(){an.getFloatTimeDomainData(data);let s=0;for(let i=0;i<data.length;i++)s+=data[i]*data[i];return Math.sqrt(s/data.length)}
+ function status(t){const h=$(label||'#micHint');if(h&&h.tagName!=='BUTTON')h.textContent=t}
+ function mime(){return ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'].find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))||''}
+ function startRec(){chunks=[];const m=mime();rec=new MediaRecorder(stream,m?{mimeType:m}:undefined);rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};rec.start(250);recStart=Date.now();status('🎤 Hearing you…')}
+ function stopRec(){if(!rec)return;const r=rec;rec=null;const dur=Date.now()-recStart;r.onstop=()=>{const b=new Blob(chunks,{type:r.mimeType||'audio/webm'});if(dur<600||b.size<2000){if(on&&!hold)status('🎤 Listening… speak any time');return}hold=true;onDone&&onDone(b)};try{r.stop()}catch(e){}}
+ function tick(){if(!on)return;const v=rms(),now=Date.now();
+  if(floor.length<10){floor.push(v);if(floor.length===10){const f=floor.reduce((a,b)=>a+b,0)/10;thr=Math.max(0.012,f*3)}return}
+  if(hold||PLAYING){loudSince=0;return}
+  const loud=v>thr;if(loud){lastLoud=now;lastAny=now}
+  if(!rec){if(loud){if(!loudSince)loudSince=now;if(now-loudSince>120)startRec()}else loudSince=0;
+   if(now-lastAny>120000){stop();status('Tap the mic to talk')}return}
+  if(now-lastLoud>1300&&now-recStart>500)stopRec();else if(now-recStart>30000)stopRec()}
+ async function start(done,lab){onDone=done;label=lab||'';if(on){hold=false;status('🎤 Listening… speak any time');return true}
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})}catch(e){status(e&&e.name==='NotAllowedError'?'Microphone not allowed':'Microphone not available');if(e&&e.name==='NotAllowedError')micHelp();return false}
+  ctx=new (window.AudioContext||window.webkitAudioContext)();const src=ctx.createMediaStreamSource(stream);an=ctx.createAnalyser();an.fftSize=1024;data=new Float32Array(an.fftSize);src.connect(an);
+  on=true;hold=false;floor=[];lastAny=Date.now();timer=setInterval(tick,50);status('🎤 Listening… speak any time');
+  try{if(navigator.wakeLock)Ears.lock=await navigator.wakeLock.request('screen')}catch(e){}return true}
+ function stop(){on=false;clearInterval(timer);try{rec&&rec.stop()}catch(e){}rec=null;try{stream&&stream.getTracks().forEach(t=>t.stop())}catch(e){}try{ctx&&ctx.close()}catch(e){}stream=null;ctx=null;try{Ears.lock&&Ears.lock.release()}catch(e){}}
+ return{start,stop,pause(){hold=true;if(rec)stopRec()},resume(){hold=false;if(on)status('🎤 Listening… speak any time')},get on(){return on},finish(){if(rec)stopRec()}}})();
+// Kids' Talk screen: one voice session; each sentence goes to the helper and the reply is spoken.
+async function onKidSpeech(blob){const m=$('#micBtn');if(m){m.classList.remove('listen')}
+ const h=$('#micHint');if(h)h.textContent='💭 Thinking…';addBubble('helper','• • •');const dots=$('#chat')&&$('#chat').lastElementChild;if(dots)dots.id='thinking';
+ try{const b64=await blobB64(blob);const r=await net('talkVoice',[CHILD.id,MODE,b64,blob.type]);const th=$('#thinking');th&&th.remove();
+  if(!r.heard){if(h)h.textContent="Didn't catch that – say it again";Ears.resume();m&&m.classList.add('listen');return}
+  if(r.local){addBubble('me',r.heard);if(/^(bye|బై)/i.test(r.heard)){Voice.stop();await speakReply('సరే, మళ్ళీ పిలువు!','te');return}localCommand(r.heard)}
+  else{addBubble('me',r.heard);addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
+   if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true}
+   await speakReply(r.say||r.text,r.lang||'te')}
+ }catch(e){const th=$('#thinking');th&&th.remove();if(h)h.textContent='Network problem – say it again'}
+ if(Ears.on){Ears.resume();m&&m.classList.add('listen')}}
+const Voice={
+ begin(wake){if(GEM){if(wake)this.toggle();else{const h=$('#micHint');if(h)h.textContent='Tap the mic to talk'}}else VoiceOld.begin(wake)},
+ async toggle(){if(!GEM)return VoiceOld.toggle();const m=$('#micBtn');
+  if(Ears.on){Ears.stop();m&&m.classList.remove('listen');m&&m.classList.add('sleep');const h=$('#micHint');if(h)h.textContent='Tap the mic to talk';return}
+  const ok=await Ears.start(onKidSpeech,'#micHint');if(ok&&m){m.classList.remove('sleep');m.classList.add('listen')}},
+ pause(){if(GEM)Ears.pause();else VoiceOld.pause()},
+ resume(){if(GEM){if(Ears.on){Ears.resume()}else{const h=$('#micHint');if(h)h.textContent='Tap the mic to talk'}}else VoiceOld.resume()},
+ stop(){Ears.stop();VoiceOld.stop();if(PLAYING){try{PLAYING.pause()}catch(e){}PLAYING=null}},
+ speak(t,l){return VoiceOld.speak(t,l)}};
+
 
 /* ---------- clock, timer, stopwatch (free, no AI) ---------- */
 const TE_NUM={'ఒక':1,'ఒకటి':1,'రెండు':2,'మూడు':3,'నాలుగు':4,'ఐదు':5,'అయిదు':5,'ఆరు':6,'ఏడు':7,'ఎనిమిది':8,'తొమ్మిది':9,'పది':10,'పదిహేను':15,'ఇరవై':20,'ముప్పై':30};
@@ -300,7 +352,7 @@ function askOpen(){if(!ADMIN)return;const p=$('#askPanel');p.classList.remove('h
  p.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center"><b>&#10022; Claude</b><span class="muted" style="flex:1;margin-left:8px;font-size:12px">on: <span id="askScreen">${esc(screenName())}</span></span><button class="ghost" aria-label="Close" onclick="askClose()">&#10005;</button></div>
  <div id="thread" style="display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto;margin:8px 0;padding:2px"><div class="muted">Loading…</div></div>
  <textarea id="askBox" rows="2" placeholder="Ask or say what to change – తెలుగులో చెప్పండి"></textarea>
- <div class="grid2" style="margin-top:8px"><button class="ghost" id="askMic" onclick="askMic()">&#127908; Speak</button><button class="green" onclick="askSend()">Send</button></div>
+ <div class="grid2" style="margin-top:8px"><button class="ghost" id="askMic" onclick="askMic()">&#127908; Speak</button><div id="askMicHint" class="muted" style="grid-column:1/-1;font-size:12px;text-align:center"></div><button class="green" onclick="askSend()">Send</button></div>
  <div class="row" style="justify-content:flex-end;margin-top:6px"><button class="ghost" style="min-height:34px;font-size:13px" onclick="adminLock()">Lock (hide this button)</button></div>`;
  api('adminThread',ADMIN.token).then(drawThread).catch(()=>{})}
 const RQ={'new':['#FFF1C9','Saved – will be built at the next check (within an hour)'],'building':['#E8F0FE','Being built…'],'done':['#E2F5EC','Done &#10003;'],'needs OK':['#FDECEC','Needs a parent&#39;s OK']};
@@ -330,7 +382,12 @@ async function confirmP(id,yes){const box=$('#thread');if(box){box.insertAdjacen
 async function okReq(id){await api('adminApproveRequest',ADMIN.token,id);pollThread()}
 function askClose(){askStopMic();$('#askPanel').classList.add('hidden');updateDot()}
 function askStopMic(){if(ASKREC){ASKREC.keep=false;try{ASKREC.r.stop()}catch(e){}ASKREC=null;const b=$('#askMic');if(b)b.innerHTML='&#127908; Speak'}}
-function askMic(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('This browser can\'t listen – open YD from Chrome');
+function askMic(){if(!GEM)return askMicOld();
+ if(Ears.on){Ears.finish();return}Voice.stop();const btn=$('#askMic');
+ Ears.start(async blob=>{Ears.stop();if(btn)btn.innerHTML='⏳ Writing…';
+  try{const b64=await blobB64(blob);const r=await net('adminTranscribe',[ADMIN.token,b64,blob.type]);const box=$('#askBox');if(box&&r.text)box.value=(box.value+' '+r.text).trim();if(!r.text)toast("Didn't catch that – try again")}catch(e){}
+  if(btn)btn.innerHTML='&#127908; Speak'},'#askMicHint').then(ok=>{if(ok&&btn)btn.innerHTML='&#9632; Done speaking'})}
+function askMicOld(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('This browser can\'t listen – open YD from Chrome');
  if(ASKREC)return askStopMic();Voice.stop();
  const box=$('#askBox');const base=box.value;const r=new SR();ASKREC={r:r,keep:false};r.lang='te-IN';r.continuous=true;r.interimResults=true;
  $('#askMic').innerHTML='&#9632; Stop';let fin='';
