@@ -68,8 +68,8 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false;const inflight={};
-function rerender(){const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v8 · Thu 12/11 10:50';const inflight={};
+function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
 function patchLocal(fn,a){
@@ -105,19 +105,19 @@ function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children
 function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN);if(ADMIN)updateDot()}
 function setNav(o){try{localStorage.setItem('ydNav',JSON.stringify(o))}catch(e){}}
 function getNav(){try{return JSON.parse(localStorage.getItem('ydNav')||'null')}catch(e){return null}}
-function goHome(){setNav({v:'home'});PENDINGVIEW=()=>goHome();Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}CHILD=null;
+function goHome(){++NAVSEQ;setNav({v:'home'});PENDINGVIEW=()=>goHome();Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}CHILD=null;
  const colors={yuvaan:['#DCE6FB','#2A5FD6'],ditya:['#FBE1EE','#C2367C']};
  render(`<h1 style="margin:4px 0;font-size:28px">Who's learning today?</h1>`+
  BOOT.children.map(c=>{const col=colors[c.id]||['#eee','#333'];
   return `<button class="card big" onclick="openChild('${c.id}')"><div class="avatar" style="background-color:${col[0]};color:${col[1]};border:5px solid ${col[1]};${c.photoUrl?`background-image:url('${esc(c.photoUrl)}')`:''}">${c.photoUrl?'':esc(c.name[0])}</div>
   <div><div style="font-size:24px;font-weight:800">${esc(c.name)}</div><div class="muted">Helper: ${esc(c.helperName)} <span class="tag" style="background:#EEF1F7">computer helper</span></div></div></button>`}).join('')+
- `<div class="row" style="justify-content:flex-end"><button class="ghost" onclick="adminLoginScreen()">&#128274; Parents</button></div>`)}
+ `<div class="row" style="justify-content:flex-end"><button class="ghost" onclick="adminLoginScreen()">&#128274; Parents</button></div><div class="muted" style="text-align:center;font-size:12px;margin-top:12px">YD ${APPVER}</div>`)}
 
 /* ---------- child today ---------- */
-async function openChild(id){setNav({v:'child',id:id});PENDINGVIEW=()=>openChild(id);CHILD=BOOT.children.find(c=>c.id===id);
+async function openChild(id){const SEQ=++NAVSEQ;setNav({v:'child',id:id});PENDINGVIEW=()=>openChild(id);CHILD=BOOT.children.find(c=>c.id===id);
  const t=await api('getToday',id);{const n=new Date();t.now=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')}
  const nowIdx=t.slots.findIndex((s,i)=>s.time<=t.now&&(!t.slots[i+1]||t.slots[i+1].time>t.now));
- render(`<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:24px;font-weight:800">Hi ${esc(CHILD.name)}!</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">${t.starsApproved} stars today</span></div>
+ if(SEQ!==NAVSEQ)return;render(`<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:24px;font-weight:800">Hi ${esc(CHILD.name)}!</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">${t.starsApproved} stars today</span></div>
  ${CHILD.introDone?'':`<button class="card big" style="background:#FFF1C9" onclick="openTalk('intro')"><span style="font-size:34px">&#128075;</span><div><div style="font-size:19px;font-weight:800">Meet your helper</div><div class="muted">Choose a name for your helper</div></div></button>`}
  <button class="primary" style="min-height:64px;font-size:19px" onclick="openTalk('${defaultMode(t)}')">Talk to ${esc(CHILD.helperName)}</button>
  <div class="grid2"><button class="ghost" onclick="openHomework()">Homework</button><button class="ghost" onclick="openStars()">My stars</button><button class="ghost" onclick="openVideos()">Videos</button><button class="ghost" onclick="openTalk('story')">Story</button></div>
@@ -128,7 +128,7 @@ async function openChild(id){setNav({v:'child',id:id});PENDINGVIEW=()=>openChild
 function defaultMode(t){const n=t.now;if(n>=BOOT.morningEnd&&n<'14:00')return 'chat';if(n<BOOT.morningEnd)return 'morning';if(n>='14:00'&&n<'15:00')return 'fact';if(n>='15:00'&&n<'16:00')return 'homework';return 'chat'}
 
 /* ---------- talk (hands-free voice) ---------- */
-function openTalk(mode,restored){MODE=mode;if(mode!=='intro')setNav({v:'talk',id:CHILD.id,mode:mode});
+function openTalk(mode,restored){++NAVSEQ;MODE=mode;if(mode!=='intro')setNav({v:'talk',id:CHILD.id,mode:mode});
  render(`<div class="muted" style="font-weight:800">${mode==='intro'?'Hello! Let\'s meet':'Talking with '+esc(CHILD.helperName)} <span class="tag" style="background:#EEF1F7">computer helper</span></div>
  <div id="clock" class="card hidden"></div>
  <div id="screenShow"></div>
@@ -155,46 +155,39 @@ async function showOnScreen(show){const box=$('#screenShow');if(!box||!show)retu
  if(show.startsWith('wiki:')){try{const t=encodeURIComponent(show.slice(5).trim());const j=await (await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+t)).json();if(j.thumbnail)box.innerHTML=`<img src="${esc((j.originalimage||j.thumbnail).source)}" alt="${esc(j.title)}">`}catch(e){}}
  if(show.startsWith('video:')){const vs=await api('getVideos',CHILD.id);const v=vs.find(x=>x.id===show.slice(6).trim());if(v){box.innerHTML=videoEmbed(v);api('markVideoShown',v.id)}}}
 
+const MIC_ERR={'no-speech':'Didn\'t hear anything – tap the mic and speak','network':'Voice needs internet – check the connection','language-not-supported':'This phone can\'t listen in this language – open Google app → Settings → Voice → Languages → add Telugu','audio-capture':'Microphone busy or not found – close other apps using the mic','service-not-allowed':'Voice typing is turned off on this phone','bad-grammar':'Voice error – try again'};
+function micReason(code){return MIC_ERR[code]||('Mic stopped ('+code+')')}
 const Voice=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
- let rec=null,active=false,awake=false,paused=false,running=false,buf='',silT=null,lastHeard=0,startedAt=0,delay=300;
+ let rec=null,active=false,paused=false,running=false,got='',err='';
  const langFor=()=>({homework:'en-IN',check:'en-IN',olympiad:'en-IN',hindi:'hi-IN'}[MODE]||'te-IN');
- const hname=()=>(CHILD&&CHILD.helperName)||'Buddy';
  function status(t){const h=$('#micHint');if(h)h.textContent=t}
  function live(t){const l=$('#liveText');if(l)l.textContent=t}
- function setMic(){const m=$('#micBtn');if(!m)return;m.classList.toggle('listen',active&&awake&&!paused);m.classList.toggle('sleep',!(active&&awake));
-  if(!active)status('Tap the mic to talk');else if(paused)return;else status(awake?'🎤 Listening… (tap the mic to stop)':'Say "Hey '+hname()+'" or tap the mic')}
- function flush(){clearTimeout(silT);const t=buf.trim();buf='';live('');if(!t||!awake||paused)return;process(t)}
+ function setMic(){const m=$('#micBtn');if(!m)return;m.classList.toggle('listen',running);m.classList.toggle('sleep',!running)}
+ function abort(){try{rec&&rec.abort()}catch(e){}running=false;setMic()}
+ // One listening turn: opens once, waits for the child, closes when they finish. Never loops.
+ function listenOnce(){if(!SR){status('This browser can\'t listen – open YD from Chrome');return}
+  if(running||paused)return;got='';err='';
+  rec=new SR();rec.lang=langFor();rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
+  rec.onstart=()=>{running=true;setMic();status('🎤 Listening… speak now')};
+  rec.onresult=e=>{let fin='',inter='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t;else inter+=t}got=fin||got;live((fin||inter).trim())};
+  rec.onerror=e=>{if(e.error==='aborted')return;err=e.error;if(e.error==='not-allowed'){active=false;micHelp();status('Microphone not allowed');return}status(micReason(e.error))};
+  rec.onend=()=>{running=false;setMic();const t=(got||'').trim();live('');
+   if(t){process(t)}else if(!paused&&!err)status('Tap the mic to talk')};
+  try{rec.start()}catch(e){running=false;status('Tap the mic again')}}
  function process(said){const low=said.toLowerCase();
-  if(/^(bye|బై)\b/i.test(low)){awake=false;active=false;abort();setMic();speak('సరే, మళ్ళీ పిలువు!','te');return}
-  if(localCommand(said))return;
+  if(/^(bye|బై)\b/i.test(low)){active=false;speak('సరే, మళ్ళీ పిలువు!','te');status('Tap the mic to talk');return}
+  if(localCommand(said)){status('Tap the mic to talk');return}
   send(said)}
- function abort(){try{rec&&rec.abort()}catch(e){}running=false}
- function listen(){if(!SR||!active||paused||running)return;
-  rec=new SR();rec.lang=langFor();rec.continuous=true;rec.interimResults=true;rec.maxAlternatives=1;
-  rec.onstart=()=>{running=true;startedAt=Date.now();setMic()};
-  rec.onresult=e=>{lastHeard=Date.now();let inter='';
-   for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;
-    if(e.results[i].isFinal){
-     if(!awake){const low=t.toLowerCase(),n=hname().toLowerCase();
-      if(low.includes(n)||low.includes('buddy')){awake=true;setMic();const rest=t.replace(new RegExp('(hey\\s*)?('+n+'|buddy)','i'),'').trim();if(rest.length>2){buf=rest;flush()}else{paused=true;speak('చెప్పు, నేను వింటున్నాను.','te').then(()=>{paused=false;setMic();listen()})}}
-      continue}
-     buf+=(buf?' ':'')+t.trim()}else inter+=t}
-   if(awake){live((buf+' '+inter).trim());clearTimeout(silT);silT=setTimeout(flush,1500)}};
-  rec.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed'){active=false;awake=false;setMic();micHelp()}};
-  rec.onend=()=>{running=false;if(buf.trim())flush();if(!active||paused)return;
-   if(awake&&Date.now()-lastHeard>60000){active=false;awake=false;setMic();return}
-   delay=(Date.now()-startedAt<1500)?Math.min(delay*2,3000):300;setTimeout(listen,delay)};
-  try{rec.start()}catch(e){running=false}}
  let warned={};
  function pickVoice(L){const vs=speechSynthesis.getVoices();const n=x=>String(x.lang).replace('_','-').toLowerCase();const want=L.toLowerCase(),base=want.slice(0,2);return vs.find(x=>n(x)===want&&/natural|online|google/i.test(x.name))||vs.find(x=>n(x)===want)||vs.find(x=>n(x).startsWith(base))}
  function speak(text,lang){return new Promise(res=>{if(!window.speechSynthesis||!text)return res();speechSynthesis.cancel();const L={te:'te-IN',en:'en-IN',hi:'hi-IN'}[lang]||'te-IN';const v=pickVoice(L);
   if(!v&&L!=='en-IN'){if(!warned[L]){warned[L]=1;toast((L==='te-IN'?'Telugu':'Hindi')+' voice is not installed on this device – reading on screen only')}return res()}
   const u=new SpeechSynthesisUtterance(text);u.lang=L;if(v)u.voice=v;u.rate=.95;u.onend=res;u.onerror=res;const h=$('#micHint');if(h&&paused)h.textContent='🔊 Speaking…';speechSynthesis.speak(u)})}
- return{begin(wake){active=true;awake=!!wake;paused=false;lastHeard=Date.now();delay=300;setMic();if(!SR){status('Voice not supported here – please type');return}listen()},
-  toggle(){if(active&&awake){active=false;awake=false;buf='';live('');abort();setMic();return}this.begin(true)},
-  pause(){paused=true;clearTimeout(silT);buf='';live('');abort();status('💭 Thinking…')},
-  resume(){if(!active)return;paused=false;lastHeard=Date.now();setMic();listen()},
-  stop(){active=false;awake=false;paused=false;buf='';clearTimeout(silT);abort();if(window.speechSynthesis)speechSynthesis.cancel()},speak}})();
+ return{begin(wake){active=true;paused=false;if(wake)listenOnce();else status('Tap the mic to talk')},
+  toggle(){if(running){abort();status('Tap the mic to talk');return}active=true;paused=false;listenOnce()},
+  pause(){paused=true;abort();live('');status('💭 Thinking…')},
+  resume(){paused=false;if(active)listenOnce();else status('Tap the mic to talk')},
+  stop(){active=false;paused=false;abort();if(window.speechSynthesis)speechSynthesis.cancel()},speak}})();
 
 /* ---------- clock, timer, stopwatch (free, no AI) ---------- */
 const TE_NUM={'ఒక':1,'ఒకటి':1,'రెండు':2,'మూడు':3,'నాలుగు':4,'ఐదు':5,'అయిదు':5,'ఆరు':6,'ఏడు':7,'ఎనిమిది':8,'తొమ్మిది':9,'పది':10,'పదిహేను':15,'ఇరవై':20,'ముప్పై':30};
@@ -233,8 +226,8 @@ const PICS={ // simple stick-figure pictures, drawn here (no copyright issues)
  ready:'<path d="M40 30l20-10 20 10 14 18-12 8v52H38V56l-12-8z"/>'};
 function picSvg(k){return `<svg viewBox="0 0 120 130" width="100%" height="200" fill="none" stroke="#2A5FD6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="${esc(k)}">${PICS[k]||PICS.rest}</svg>`}
 let RT=null;
-async function openRoutine(name){setNav({v:'child',id:CHILD.id});Voice.stop();const r=await api('getRoutine',CHILD.id,name);RT={name:name,steps:r.steps,music:r.music,i:0,timer:null};
- render(`<div style="font-size:22px;font-weight:800;text-transform:capitalize">${esc(name)}</div>
+async function openRoutine(name){const SEQ=++NAVSEQ;setNav({v:'child',id:CHILD.id});Voice.stop();const r=await api('getRoutine',CHILD.id,name);RT={name:name,steps:r.steps,music:r.music,i:0,timer:null};
+ if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800;text-transform:capitalize">${esc(name)}</div>
  <div class="card" style="text-align:center"><div id="rtPic"></div><div id="rtTitle" style="font-size:24px;font-weight:800"></div><div id="rtText" class="muted" style="font-size:17px"></div>
  <div id="rtCount" style="font-size:52px;font-weight:800;color:#2A5FD6;margin-top:6px">0:00</div><div id="rtStep" class="muted"></div></div>
  <div class="card"><b>Music</b> <span class="muted">${r.music?esc(r.music.title):'Not chosen yet – Amma adds the list'}</span>
@@ -254,20 +247,20 @@ function rtEnd(){clearInterval(RT.timer);if(RT.audio)RT.audio.pause();$('#rtMusi
  api('claimStar',CHILD.id,'Routine: '+RT.name,'');api('logTimer',CHILD.id,'routine',RT.name,RT.steps.reduce((a,s)=>a+s.seconds,0));Voice.speak('సూపర్! చాలా బాగా చేశావు!','te')}
 
 /* ---------- homework / stars / videos ---------- */
-async function openHomework(){setNav({v:'hw',id:CHILD.id});PENDINGVIEW=()=>openHomework();const hw=await api('getHomework',CHILD.id);
- render(`<div style="font-size:22px;font-weight:800">Homework race</div><div class="muted">One hour for everything. Pick one to start.</div>`+
+async function openHomework(){const SEQ=++NAVSEQ;setNav({v:'hw',id:CHILD.id});PENDINGVIEW=()=>openHomework();const hw=await api('getHomework',CHILD.id);
+ if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">Homework race</div><div class="muted">One hour for everything. Pick one to start.</div>`+
  (hw.length?hw.map(h=>`<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><div><span class="tag" style="background:#EFEAFB;color:#5B3FB0">${esc(h.kind)}</span> <b>${esc(h.subject)}</b><div class="muted">${esc(h.details)}</div></div><span class="muted">${esc(h.status)}</span></div>
  <div class="row" style="margin-top:10px">${h.status==='done'?`<span class="chip">Done ${h.minutes?h.minutes+' min':''}</span>`:`<button class="primary" onclick="hwStart('${h.id}','${esc(h.kind)}')">Start</button><button class="green" onclick="hwDone('${h.id}')">Done</button><button class="danger" onclick="hwPending('${h.id}')">Later</button>`}</div></div>`).join(''):'<div class="card muted">No homework added yet. Amma adds it from the diary.</div>'),true)}
 async function hwStart(id,kind){await api('homeworkUpdate',id,'started','');openTalk(/learn|read/i.test(kind)?'check':'homework')}
 async function hwDone(id){await api('homeworkUpdate',id,'done','');await api('claimStar',CHILD.id,'Homework item done','');toast('Great! Amma will check your star.');openHomework()}
 async function hwPending(id){await api('homeworkUpdate',id,'pending','Moved to later');openHomework()}
-async function openStars(){setNav({v:'stars',id:CHILD.id});PENDINGVIEW=()=>openStars();const s=await api('getStars',CHILD.id);
- render(`<div style="font-size:22px;font-weight:800">My stars</div><div class="card"><b>This week: ${s.week} stars</b><div class="muted">Bronze 20 · Silver 25 · Gold 30</div></div>`+
+async function openStars(){const SEQ=++NAVSEQ;setNav({v:'stars',id:CHILD.id});PENDINGVIEW=()=>openStars();const s=await api('getStars',CHILD.id);
+ if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">My stars</div><div class="card"><b>This week: ${s.week} stars</b><div class="muted">Bronze 20 · Silver 25 · Gold 30</div></div>`+
  (s.today.map(x=>`<div class="slot"><span>${x.status==='approved'?'&#11088;':'&#9734;'}</span><span>${esc(x.item)}</span><span class="muted" style="margin-left:auto">${x.status==='waiting'?'Amma checks':esc(x.status)}</span></div>`).join('')||'<div class="card muted">No stars yet today.</div>'),true)}
 function videoEmbed(v){if(v.source==='facebook')return `<iframe src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(v.link)}&show_text=false" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
  const m=String(v.link).match(/\/d\/([^/]+)/);if(v.source==='drive'&&m)return `<iframe src="https://drive.google.com/file/d/${m[1]}/preview" allow="autoplay"></iframe>`;return `<a href="${esc(v.link)}" target="_blank">Open video</a>`}
-async function openVideos(){setNav({v:'videos',id:CHILD.id});PENDINGVIEW=()=>openVideos();const vs=await api('getVideos',CHILD.id);
- render(`<div style="font-size:22px;font-weight:800">Video corner</div>`+(vs.map(v=>`<div class="card"><b>${esc(v.title)}</b> <span class="tag" style="background:#EEF1F7">${esc(v.status)}</span><div style="margin-top:10px">${videoEmbed(v)}</div><button class="ghost" style="margin-top:8px" onclick="api('markVideoShown','${v.id}');toast('Saved')">I watched it</button></div>`).join('')||'<div class="card muted">No videos yet.</div>'),true)}
+async function openVideos(){const SEQ=++NAVSEQ;setNav({v:'videos',id:CHILD.id});PENDINGVIEW=()=>openVideos();const vs=await api('getVideos',CHILD.id);
+ if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">Video corner</div>`+(vs.map(v=>`<div class="card"><b>${esc(v.title)}</b> <span class="tag" style="background:#EEF1F7">${esc(v.status)}</span><div style="margin-top:10px">${videoEmbed(v)}</div><button class="ghost" style="margin-top:8px" onclick="api('markVideoShown','${v.id}');toast('Saved')">I watched it</button></div>`).join('')||'<div class="card muted">No videos yet.</div>'),true)}
 
 /* ---------- admin ---------- */
 function adminLoginScreen(){render(`<div style="font-size:22px;font-weight:800">Parents</div>
@@ -276,7 +269,7 @@ function adminLoginScreen(){render(`<div style="font-size:22px;font-weight:800">
  <button class="green" onclick="doLogin()">Open</button>`,true)}
 async function doLogin(){const r=await api('adminLogin',$('#aRole').value,$('#aPin').value);if(!r.ok)return toast('Wrong PIN');ADMIN=r;try{localStorage.setItem('ydAdmin',JSON.stringify(r))}catch(e){}showFab();pollThread();adminHome('today')}
 const ATABS=[['today','Today'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','Ask Claude'],['use','Usage']];
-async function adminHome(tab){setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
+async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
  const d=await api('adminToday',ADMIN.token);let body='';
  const kidOpts=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
  if(tab==='today'){body=['yuvaan','ditya'].map(k=>{const t=d[k];const n=d.children.find(c=>c.id===k);return `<div class="card"><b>${esc(n.name)}</b> <span class="muted">helper: ${esc(n.helperName)}${n.nameChosenOn?' (chosen '+esc(n.nameChosenOn)+')':''}</span><div class="muted">Stars today: ${t.starsApproved} approved, ${t.starsWaiting} waiting</div></div>`}).join('')+
@@ -291,7 +284,7 @@ async function adminHome(tab){setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminH
  if(tab==='music'){body=`<div class="card"><b>Add music for a routine</b><label>Routine<select id="mRt"><option value="brushing">Brushing</option><option value="washroom">Washroom</option><option value="ready">Get ready</option><option value="exercise">Exercise / yoga</option><option value="bath">After bath (devotional)</option><option value="breakfast">Breakfast (devotional)</option></select></label><label>Title<input id="mTitle" placeholder="e.g. Flute – morning raga"></label><label>YouTube link or Google Drive link<input id="mLink"></label><button class="green" style="margin-top:8px" onclick="addMusic()">Add (approved)</button><div class="muted" style="margin-top:8px">Brushing and washroom work best with Drive files of the right length. Devotional plays from official YouTube channels.</div></div>`}
  if(tab==='ask'){body=`<div class="card"><b>&#10022; Claude chat</b><div class="muted" style="margin-top:4px">Ask anything about the app or say what you want changed – in Telugu or English. Claude answers here; a change is made only after you tap <b>Yes, make it</b>, and you see Saved → Being built → Done &#10003; in the same chat. The &#10022; Claude button at the top opens the same chat on every screen.</div><button class="green" style="margin-top:10px;width:100%" onclick="askOpen()">Open Claude chat</button></div>`}
  if(tab==='use'){const b=d.budget;body=`<div class="card"><b>This month: ₹${b.spentMonth} of ₹${b.cap}</b><div class="muted">Today: ₹${b.spentToday} (daily share ₹${b.dailyAllowance})</div>${b.warn?'<div class="danger" style="padding:8px;border-radius:10px;margin-top:8px">80% of the monthly cap used</div>':''}</div>`}
- render(`<div style="font-size:22px;font-weight:800">Admin · ${esc(ADMIN.role)}</div>`+tabs+body,true)}
+ if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">Admin · ${esc(ADMIN.role)}</div>`+tabs+body,true)}
 async function decide(id,ok){await api('adminDecideStar',ADMIN.token,id,ok);adminHome('stars')}
 async function giveStar(){await api('adminGiveStar',ADMIN.token,$('#gsKid').value,$('#gsItem').value);toast('Star given');adminHome('stars')}
 async function addInstr(){await api('adminAddInstruction',ADMIN.token,$('#iKid').value,$('#iDate').value,$('#iTime').value,$('#iKind').value,$('#iText').value);toast('Saved');adminHome('instr')}
@@ -337,17 +330,14 @@ async function confirmP(id,yes){const box=$('#thread');if(box){box.insertAdjacen
 async function okReq(id){await api('adminApproveRequest',ADMIN.token,id);pollThread()}
 function askClose(){askStopMic();$('#askPanel').classList.add('hidden');updateDot()}
 function askStopMic(){if(ASKREC){ASKREC.keep=false;try{ASKREC.r.stop()}catch(e){}ASKREC=null;const b=$('#askMic');if(b)b.innerHTML='&#127908; Speak'}}
-function askMic(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('Voice not supported here – please type');
+function askMic(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('This browser can\'t listen – open YD from Chrome');
  if(ASKREC)return askStopMic();Voice.stop();
- const box=$('#askBox');let base=box.value;const st={keep:true,r:null,last:Date.now()};ASKREC=st;$('#askMic').innerHTML='&#9632; Stop';
- const go=()=>{const r=new SR();st.r=r;r.lang='te-IN';r.continuous=true;r.interimResults=true;let fin='';
-  r.onresult=e=>{st.last=Date.now();let inter='';for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t+' ';else inter+=t}box.value=(base+' '+fin+inter).trim()};
-  r.onresult0=null;r.onend=()=>{base=(base+' '+fin).trim();if(st.keep&&Date.now()-st.last<60000)setTimeout(go,400);else askStopMic()};
-  r.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed'){askClose();micHelp();st.keep=false}};
-  try{r.start()}catch(e){}};go()}
-async function askSend(){askStopMic();const t=$('#askBox').value.trim();if(!t)return;$('#askOut').textContent='Saving…';
- const r=await api('adminRequest',ADMIN.token,t,$('#askScreen').textContent);$('#askBox').value='';
- $('#askOut').innerHTML=esc(r.te)+(r.status==='needs OK'?'<br><b>This needs a parent\'s OK – open My requests.</b>':'<br>It will be built automatically – you will see Done &#10003; in My requests.')}
+ const box=$('#askBox');const base=box.value;const r=new SR();ASKREC={r:r,keep:false};r.lang='te-IN';r.continuous=true;r.interimResults=true;
+ $('#askMic').innerHTML='&#9632; Stop';let fin='';
+ r.onresult=e=>{let inter='';fin='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t+' ';else inter+=t}box.value=(base+' '+fin+inter).trim()};
+ r.onerror=e=>{if(e.error==='aborted')return;if(e.error==='not-allowed'){askClose();micHelp();return}toast(micReason(e.error))};
+ r.onend=()=>{ASKREC=null;const b=$('#askMic');if(b)b.innerHTML='&#127908; Speak';box.value=(base+' '+fin).trim()};
+ try{r.start()}catch(e){ASKREC=null;toast('Tap Speak again')}}
 function adminLock(){askClose();ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();goHome()}
 function dictate(id){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('Voice not supported');const r=new SR();r.lang='te-IN';r.onresult=e=>{$('#'+id).value+=(($('#'+id).value?' ':'')+e.results[0][0].transcript)};r.start()}
 
