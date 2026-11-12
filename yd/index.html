@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v24 · Thu 12/11 16:30';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v25 · Thu 12/11 16:45';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -165,10 +165,12 @@ function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();+
  if(mode==='intro')send('(child opened the app for the first time)')}
 function clockTick(){const el=$('#clock');if(!el)return;const now=new Date(),[h,m]=BOOT.morningEnd.split(':');const end=new Date();end.setHours(+h,+m,0,0);const left=Math.max(0,Math.round((end-now)/60000));el.classList.remove('hidden');el.innerHTML=`<b>Minutes left: ${left}</b> <span class="muted">· ends ${BOOT.morningEnd}</span>`;setTimeout(clockTick,30000)}
 function addBubble(who,text,cap){const c=$('#chat');if(!c)return;const d=document.createElement('div');d.className='bubble '+(who==='me'?'me':'helper');d.textContent=text;if(cap){const k=document.createElement('div');k.className='muted';k.style.marginTop='4px';k.textContent=cap;d.appendChild(k)}c.appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'})}
+function HWMODE(){return /^(homework|check|hwplan)/.test(MODE||'')}
+async function hwAgain(){const t='Sorry, I did not catch that. Please say your answer again.';addBubble('helper',t);await sayFree(t,'en')}
 function sendTyped(){const b=$('#typeBox');if(b.value.trim()){send(b.value.trim());b.value=''}}
 async function send(text){if(!text.startsWith('('))addBubble('me',text);Voice.pause();
  addBubble('helper','• • •');const dots=$('#chat')&&$('#chat').lastElementChild;if(dots)dots.id='thinking';
- try{const r=GEM?await api('talkSpeak',CHILD.id,MODE,text):await api('talk',CHILD.id,MODE,text);const th=$('#thinking');th&&th.remove();if(!(r.say||r.text)){Voice.resume();return}addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
+ try{const r=GEM?await api('talkSpeak',CHILD.id,MODE,text):await api('talk',CHILD.id,MODE,text);const th=$('#thinking');th&&th.remove();if(!(r.say||r.text)){if(HWMODE())await hwAgain();Voice.resume();return}addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
   if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true;$('#micHint').textContent='Say "Hey '+r.helperName+'" any time'}
   await speakReply(r.say||r.text,r.lang||'te',r);
  }catch(e){const th=$('#thinking');th&&th.remove()}
@@ -259,7 +261,7 @@ async function onKidSpeech(blob){const m=$('#micBtn');if(m){m.classList.remove('
  try{const b64=await blobB64(blob);const r=await net('talkVoice',[CHILD.id,MODE,b64,blob.type]);const th=$('#thinking');th&&th.remove();
   if(!r.heard){if(h)h.textContent="Didn't catch that – say it again";Ears.resume();m&&m.classList.add('listen');return}
   if(r.local){addBubble('me',r.heard);if(/^(bye|బై)/i.test(r.heard)){Voice.stop();await sayFree('Okay, call me again!','en');return}localCommand(r.heard)}
-  else if(!(r.say||r.text)){if(h)h.textContent='🎤 Listening… speak any time'}
+  else if(!(r.say||r.text)){if(HWMODE()){addBubble('me',r.heard);await hwAgain()}else if(h)h.textContent='🎤 Listening… speak any time'}
   else{addBubble('me',r.heard);addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
    if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true}
    await speakReply(r.say||r.text,r.lang||'te',r);LASTREPLY=Date.now()}
@@ -476,8 +478,7 @@ function openWordGame(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;V
  sayFree(kid?'Word game! Choose three, four or five letters.':'Word game! Choose a level.','en')}
 const WG_DAY={yuvaan:10,ditya:6};
 function wgToday(){const st=wgStats(),d=new Date().toDateString();return st.day===d?(st.played||0):0}
-function wgPick(n){const list=(CHILD.id==='ditya'?WG_D:WG_Y)[n],st=wgStats(),k='u'+n;let used=st[k]||[];if(used.length>=list.length)used=[];
- const free=list.filter(x=>used.indexOf(x[0])<0),pick=free[Math.floor(Math.random()*free.length)];used.push(pick[0]);st[k]=used;wgSet(st);return pick}
+function wgPick(n){const list=(CHILD.id==='ditya'?WG_D:WG_Y)[n],k=srPick('w'+n,list.map(x=>x[0]));return list.find(x=>x[0]===k)}
 function wgPlayed(){const st=wgStats(),d=new Date().toDateString();if(st.day!==d){st.day=d;st.played=0}st.played=(st.played||0)+1;wgSet(st)}
 function wgNew(n){const lim=WG_DAY[CHILD.id]||8;if(wgToday()>=lim){render(`<div class="card" style="text-align:center;padding:26px"><div style="font-size:56px">🌟</div><div style="font-size:22px;font-weight:800">Great playing today!</div><div class="muted" style="margin-top:6px">You finished today's ${lim} words. Come back tomorrow for new words.</div><button class="primary" style="width:100%;margin-top:14px" onclick="goBack()">Back</button></div>`,true);sayFree('Great playing! You finished today\'s words. Come back tomorrow for new words.','en');return}
  const pick=wgPick(n);
@@ -498,11 +499,11 @@ function wgDraw(){setNav({v:'word',id:CHILD.id});const n=WG.n,cell=(ch,st)=>`<di
 function wgKey(k){if(!WG||WG.over)return;const n=WG.n;
  if(k==='DEL'){if(WG.cur.length>1)WG.cur=WG.cur.slice(0,-1)}
  else if(k==='ENTER'){if(WG.cur.length<n){WG.msg='Type all '+n+' letters';return wgDraw()}const g=WG.cur,s=wgScore(g,WG.word);WG.rows.push({g,s:s.join('')});
-  if(g===WG.word){WG.over=true;wgPlayed();const st=wgStats();st['w'+n]=(st['w'+n]||0)+1;wgSet(st);const star=st['w'+n]%3===0;WG.msg='You got it! '+WG.word+(star?' ⭐':'');
+  if(g===WG.word){WG.over=true;wgPlayed();srMark('w'+n,WG.word.toLowerCase(),true);const st=wgStats();st['w'+n]=(st['w'+n]||0)+1;wgSet(st);const star=st['w'+n]%3===0;WG.msg='You got it! '+WG.word+(star?' ⭐':'');
    if(star){try{api('claimStar',CHILD.id,'Word game: 3 words ('+n+' letters)','')}catch(e){}}
    wgDraw();sayFree((WG.pic?'Yes! It is a '+WG.word.toLowerCase()+'. ':'Super! The word is '+WG.word.toLowerCase()+'. ')+(star?'You earned a star!':''),'en');return}
   WG.pts=Math.max(0,WG.pts-(WG.pic?50:100));
-  if(WG.rows.length>=WG.tries){WG.over=true;wgPlayed();WG.msg='The word was '+WG.word;wgDraw();sayFree('Good try! The word was '+WG.word.toLowerCase()+'. Let\'s try another one.','en');return}
+  if(WG.rows.length>=WG.tries){WG.over=true;wgPlayed();srMark('w'+n,WG.word.toLowerCase(),false);WG.msg='The word was '+WG.word;wgDraw();sayFree('Good try! The word was '+WG.word.toLowerCase()+'. Let\'s try another one.','en');return}
   WG.cur=WG.word[0];if(WG.pic&&WG.rows.length>=2)WG.cur=WG.word.slice(0,2);WG.msg=WG.pic&&WG.rows.length===2?'Helper gave you one more letter!':'Try again!';
   wgDraw();return}
  else if(/^[A-Z]$/.test(k)&&WG.cur.length<n)WG.cur+=k;
@@ -540,24 +541,58 @@ let QZ=null;
 function qzKey(){return 'ydQuiz_'+(CHILD?CHILD.id:'x')}
 function qzSt(){try{return JSON.parse(localStorage.getItem(qzKey())||'{}')}catch(e){return{}}}
 function qzSave(s){try{localStorage.setItem(qzKey(),JSON.stringify(s))}catch(e){}}
+/* smart repeat: wrong items come back on the next days until right; known ones now and then; retired after 3 right on different days (rare check after 30 days); the rest are new */
+function srDay(){const d=new Date();return Math.floor((d.getTime()-d.getTimezoneOffset()*6e4)/864e5)}
+function srKey(g){return 'ydSR_'+(CHILD?CHILD.id:'x')+'_'+g}
+function srGet(g){try{return JSON.parse(localStorage.getItem(srKey(g))||'{}')}catch(e){return{}}}
+function srPut(g,s){try{localStorage.setItem(srKey(g),JSON.stringify(s))}catch(e){}}
+function srPick(g,keys){const s=srGet(g),t=srDay(),one=a=>a[Math.floor(Math.random()*a.length)],nt=k=>s[k]&&s[k].l!==t;
+ const wrong=keys.filter(k=>nt(k)&&s[k].w),fresh=keys.filter(k=>!s[k]);
+ const due=keys.filter(k=>nt(k)&&!s[k].w&&s[k].r.length<3&&t-s[k].l>=(s[k].r.length<2?2:5));
+ const rare=keys.filter(k=>nt(k)&&!s[k].w&&s[k].r.length>=3&&t-s[k].l>=30);
+ if(wrong.length)return one(wrong);
+ if(due.length&&(!fresh.length||Math.random()<0.4))return one(due);
+ if(rare.length&&(!fresh.length||Math.random()<0.1))return one(rare);
+ if(fresh.length)return one(fresh);
+ const any=keys.filter(k=>!s[k]||s[k].l!==t);return one(any.length?any:keys)}
+function srMark(g,k,ok){const s=srGet(g),t=srDay(),e=s[k]||{r:[],w:false,l:0};if(ok){if(e.r.indexOf(t)<0)e.r.push(t);e.w=false}else e.w=true;e.l=t;s[k]=e;srPut(g,s)}
+/* animal groups: every option uses the SAME animal; words that are also correct for that animal are never used as wrong options */
+const GW=['pride','herd','school','flock','pack','swarm','colony','parliament','troop','tower','bale','pod','murder','gaggle','litter','army','caravan','dazzle','crash','band','cast','smack','team'];
+const GALSO={giraffes:['herd'],zebras:['herd'],rhinos:['herd'],camels:['herd','train'],sheep:['herd'],horses:['herd'],geese:['flock'],crows:['flock'],owls:['flock'],penguins:['flock','waddle'],dolphins:['school'],fish:['shoal'],ants:['army','swarm'],bees:['colony','hive'],gorillas:['troop'],monkeys:['band','barrel'],jellyfish:['swarm','bloom'],puppies:['pack'],turtles:['bale'],frogs:['knot']};
+function gParts(x){const m=x.match(/^an? (\w+) of (.+)$/);return{w:m[1],a:m[2]}}
+function gPhrase(w,a){return (/^[aeiou]/.test(w)?'an ':'a ')+w+' of '+a}
 function openQuiz(kind){if(CHILD&&RESTING[CHILD.id])return showRest();if(kind==='actions'&&CHILD.id==='ditya')kind='actionsKid';++NAVSEQ;Voice.stop();setNav({v:'quiz',id:CHILD.id,kind});
  const set=QZ_SETS[kind],st=qzSt(),d=new Date().toDateString(),k=kind;if(!st[k]||st[k].day!==d)st[k]=Object.assign(st[k]||{},{day:d,played:0});qzSave(st);
  if(st[k].played>=set.day){render(`<div class="card" style="text-align:center;padding:26px"><div style="font-size:56px">🌟</div><div style="font-size:22px;font-weight:800">Great playing today!</div><div class="muted" style="margin-top:6px">You finished today's ${set.day} questions. Come back tomorrow!</div><button class="primary" style="width:100%;margin-top:14px" onclick="openGames()">🎮 Games</button></div>`,true);sayFree('Great playing! Come back tomorrow for more.','en');return}
- let used=st[k].used||[];if(used.length>=set.items.length)used=[];const free=set.items.filter(x=>used.indexOf(x[0])<0),it=free[Math.floor(Math.random()*free.length)];used.push(it[0]);st[k].used=used;qzSave(st);
- const others=set.items.filter(x=>x[0]!==it[0]).sort(()=>Math.random()-0.5).slice(0,set.n-1).map(x=>x[0]),opts=others.concat([it[0]]).sort(()=>Math.random()-0.5);
- QZ={kind,set,it,opts,done:false,tries:0};qzDraw();sayFree(set.ask,'en')}
-function qzDraw(){const{set,it,opts,kind}=QZ,st=qzSt()[kind]||{},pic=kind==='groups'?`<div style="font-size:64px">${it[1]}</div><div style="font-size:40px;letter-spacing:4px;margin-top:4px">${it[1].repeat(6)}</div>`:`<div style="font-size:96px;line-height:1.1">${it[1]}</div>`;
- render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">${kind==='groups'?'🦉':'🎬'} ${set.title}</b><span class="tag" style="background:#E8F1FF;color:#1C4AAE">${st.played||0}/${set.day} today</span></div>
- <div class="card" style="text-align:center;padding:18px"><div style="font-weight:800;margin-bottom:8px">${set.ask}</div>${pic}</div>
- <div style="display:grid;gap:10px;margin-top:6px">${opts.map((o,i)=>`<button id="qo${i}" style="min-height:58px;font-size:${kind==='actionsKid'?24:19}px;font-weight:800;background:#fff;border:2px solid #DDE3EE" onclick="qzPick(${i})">${esc(o)}</button>`).join('')}</div>
- <div id="qzRes" style="margin-top:8px"></div>`,true)}
+ const lvl=kind==='groups'?(st[k].lvl||1):1,srg=kind+(lvl===2?'2':''),key=srPick(srg,set.items.map(x=>x[0])),it=set.items.find(x=>x[0]===key);
+ let opts=[],g=null;
+ if(kind==='groups'){g=gParts(it[0]);const bad=[g.w].concat(GALSO[g.a]||[]);const pool=GW.filter(w=>bad.indexOf(w)<0).sort(()=>Math.random()-0.5).slice(0,set.n-1);opts=pool.map(w=>gPhrase(w,g.a)).concat([it[0]]).sort(()=>Math.random()-0.5)}
+ else{const others=set.items.filter(x=>x[0]!==it[0]).sort(()=>Math.random()-0.5).slice(0,set.n-1).map(x=>x[0]);opts=others.concat([it[0]]).sort(()=>Math.random()-0.5)}
+ QZ={kind,set,it,opts,g,lvl,srg,done:false,tries:0};qzDraw();
+ sayFree(kind==='groups'?(lvl===2?'Type the missing word. A blank of '+g.a+'.':'What do we call a group of '+g.a+'?'):set.ask,'en')}
+function qzLvl(n){const st=qzSt();st.groups=st.groups||{};st.groups.lvl=n;st.groups.manual=true;qzSave(st);openQuiz('groups')}
+function qzDraw(){const{set,it,opts,kind,g,lvl}=QZ,st=qzSt()[kind]||{},pic=kind==='groups'?`<div style="font-size:64px">${it[1]}</div><div style="font-size:40px;letter-spacing:4px;margin-top:4px">${it[1].repeat(6)}</div>`:`<div style="font-size:96px;line-height:1.1">${it[1]}</div>`;
+ const lv=kind==='groups'?`<div class="row" style="gap:8px;margin-top:6px"><button style="flex:1;min-height:40px;${lvl===1?'background:#1C4AAE;color:#fff':''}" onclick="qzLvl(1)">Level 1 · choose</button><button style="flex:1;min-height:40px;${lvl===2?'background:#1C4AAE;color:#fff':''}" onclick="qzLvl(2)">Level 2 · type</button></div>`:'';
+ const ask=kind==='groups'?(lvl===2?`Fill in the missing word:<div style="font-size:24px;margin-top:6px">${/^[aeiou]/.test(g.w)?'an':'a'} ____ of ${esc(g.a)}</div>`:`What do we call a group of ${esc(g.a)}?`):set.ask;
+ const body=kind==='groups'&&lvl===2?`<div class="row" style="gap:8px;margin-top:6px"><input id="qzIn" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;font-size:22px;min-height:54px;padding:0 12px" placeholder="type the word" onkeydown="if(event.key==='Enter')qzType()"><button class="primary" style="min-height:54px" onclick="qzType()">Check</button></div><div id="qzHint" class="muted" style="text-align:center;margin-top:6px;font-size:18px"></div>`
+  :`<div style="display:grid;gap:10px;margin-top:6px">${opts.map((o,i)=>`<button id="qo${i}" style="min-height:58px;font-size:${kind==='actionsKid'?24:19}px;font-weight:800;background:#fff;border:2px solid #DDE3EE" onclick="qzPick(${i})">${esc(o)}</button>`).join('')}</div>`;
+ render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">${kind==='groups'?'🦉':'🎬'} ${set.title}</b><span class="tag" style="background:#E8F1FF;color:#1C4AAE">${st.played||0}/${set.day} today</span></div>${lv}
+ <div class="card" style="text-align:center;padding:18px"><div style="font-weight:800;margin-bottom:8px">${ask}</div>${pic}</div>${body}
+ <div id="qzRes" style="margin-top:8px"></div>`,true);const inp=$('#qzIn');if(inp)setTimeout(()=>inp.focus(),50)}
 function qzPick(i){if(!QZ||QZ.done)return;const o=QZ.opts[i],b=$('#qo'+i),ok=o===QZ.it[0];QZ.tries++;
- if(!ok){b.style.background='#FFD9D9';b.style.borderColor='#E57373';b.disabled=true;sayFree(QZ.tries===1?'Not this one. Try again!':'Look carefully. One more try!','en');if(QZ.tries<2||QZ.set.n>3)return}
- QZ.done=true;QZ.opts.forEach((x,j)=>{if(x===QZ.it[0]){const c=$('#qo'+j);c.style.background='#DDF5E3';c.style.borderColor='#2E9E4F'}});
- const st=qzSt(),k=QZ.kind;st[k].played=(st[k].played||0)+1;if(ok&&QZ.tries===1){st[k].right=(st[k].right||0)+1}qzSave(st);
- const star=ok&&QZ.tries===1&&st[k].right%5===0;if(star){try{api('claimStar',CHILD.id,QZ.set.title+': 5 right','')}catch(e){}}
- $('#qzRes').innerHTML=`<div class="card" style="background:${ok?'#DDF5E3':'#FFF6D6'}"><b>${ok?'Correct!':'The answer is: '+esc(QZ.it[0])}</b>${star?' ⭐':''}<div class="muted" style="margin-top:4px">${esc(QZ.it[2])}</div><button class="primary" style="width:100%;margin-top:10px" onclick="openQuiz('${k==='actionsKid'?'actions':k}')">▶ Next</button></div>`;
- sayFree((ok?'Correct! ':'The answer is '+QZ.it[0]+'. ')+QZ.it[2],'en')}
+ if(!ok){b.style.background='#FFD9D9';b.style.borderColor='#E57373';b.disabled=true;sayFree(QZ.tries===1?'Not this one. Think again!':'Look carefully. One more try!','en');if(QZ.tries<2||QZ.set.n>3)return}
+ qzFinish(ok)}
+function qzType(){if(!QZ||QZ.done)return;const inp=$('#qzIn'),v=(inp.value||'').trim().toLowerCase().replace(/^an? /,'').split(' ')[0],w=QZ.g.w;if(!v)return;QZ.tries++;const ok=v===w;
+ if(!ok&&QZ.tries===1){$('#qzHint').innerHTML='Clue: it starts with <b>'+w[0].toUpperCase()+'</b> · '+w.length+' letters';inp.value='';inp.focus();sayFree('Not quite. Clue: it starts with '+w[0].toUpperCase()+'.','en');return}
+ inp.disabled=true;qzFinish(ok)}
+function qzFinish(ok){QZ.done=true;(QZ.opts||[]).forEach((x,j)=>{const c=$('#qo'+j);if(c&&x===QZ.it[0]){c.style.background='#DDF5E3';c.style.borderColor='#2E9E4F'}});
+ const first=ok&&QZ.tries===1;srMark(QZ.srg,QZ.it[0],first);
+ const st=qzSt(),k=QZ.kind;st[k].played=(st[k].played||0)+1;if(first){st[k].right=(st[k].right||0)+1}
+ let up=false;if(k==='groups'&&QZ.lvl===1&&first){st[k].r1=(st[k].r1||0)+1;if(st[k].r1>=10&&!st[k].manual&&!st[k].lvl){st[k].lvl=2;up=true}}
+ qzSave(st);
+ const star=first&&st[k].right%5===0;if(star){try{api('claimStar',CHILD.id,QZ.set.title+': 5 right','')}catch(e){}}
+ $('#qzRes').innerHTML=`<div class="card" style="background:${ok?'#DDF5E3':'#FFF6D6'}"><b>${ok?'Correct!':'The answer is: '+esc(QZ.it[0])}</b>${star?' ⭐':''}${up?'<div style="font-weight:800;margin-top:4px">🎉 Level 2 unlocked – now you type the word!</div>':''}<div class="muted" style="margin-top:4px">${esc(QZ.it[2])}</div><button class="primary" style="width:100%;margin-top:10px" onclick="openQuiz('${k==='actionsKid'?'actions':k}')">▶ Next</button></div>`;
+ sayFree((ok?'Correct! ':'The answer is '+QZ.it[0]+'. ')+QZ.it[2]+(up?' Level two unlocked!':''),'en')}
 /* ---------- wake by name (laptop/desktop Chrome): free listening only for the helper's name ---------- */
 const Wake=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let r=null,on=false;
  const norm=x=>String(x||'').toLowerCase().replace(/[^a-z\u0c00-\u0c7f ]/g,' ').replace(/\s+/g,' ').trim();
