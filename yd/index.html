@@ -56,7 +56,31 @@ const $=s=>document.querySelector(s);
 let FTOK=null;try{FTOK=localStorage.getItem('ydFam')}catch(e){}
 const EXEC='https://script.google.com/macros/s/AKfycbzlbBcB1A44zfK6o79kL52P6fLARg079FUkOJohUEW68c3diEe0JzLLyGw1zfl_sLRN/exec';
 async function post(body){const r=await fetch(EXEC,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});return r.json()}
-const api=(fn,...args)=>post({tok:FTOK,name:fn,args:args}).then(j=>{if(!j.ok)throw new Error(j.error);return j.data}).catch(e=>{if(/FAMILY_CODE/.test(e.message)){try{localStorage.removeItem('ydFam')}catch(x){}FTOK=null;familyScreen()}else toast(/Failed to fetch|NetworkError/.test(e.message)?'No internet – please try again':e.message);throw e});
+const net=(fn,args)=>post({tok:FTOK,name:fn,args:args}).then(j=>{if(!j.ok)throw new Error(j.error);return j.data}).catch(e=>{if(/FAMILY_CODE/.test(e.message)){try{localStorage.removeItem('ydFam')}catch(x){}FTOK=null;familyScreen()}else toast(/Failed to fetch|NetworkError|Load failed/.test(e.message)?'No internet – please try again':e.message);throw e});
+/* ---------- speed: phone-side copy of everything, refreshed quietly ---------- */
+const READS=new Set(['getBoot','getToday','getHomework','getStars','getVideos','getRoutine','adminToday','adminGetTimetable','adminRequests']);
+const QUIET_WRITES=new Set(['homeworkUpdate','claimStar','markVideoShown','logTimer']);
+const dayKey=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()};
+let MEM={day:dayKey(),data:{}};try{const m=JSON.parse(localStorage.getItem('ydCache')||'null');if(m&&m.day===dayKey())MEM=m}catch(e){}
+let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem('ydCache',JSON.stringify(MEM))}catch(e){}},300)}
+const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
+const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
+function memPut(k,v){MEM.data[k]=v;memSave()}
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false;const inflight={};
+function rerender(){const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
+function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
+let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
+function patchLocal(fn,a){
+ if(fn==='homeworkUpdate')Object.keys(MEM.data).filter(k=>k.startsWith('getHomework|')).forEach(k=>MEM.data[k].forEach(h=>{if(h.id===a[0])h.status=a[1]}));
+ if(fn==='claimStar'){const s=MEM.data['getStars|'+JSON.stringify([a[0]])];if(s)s.today.push({item:a[1],status:'waiting'});const t=MEM.data['getToday|'+JSON.stringify([a[0]])];if(t)t.starsWaiting++}
+ if(fn==='markVideoShown')Object.keys(MEM.data).filter(k=>k.startsWith('getVideos|')).forEach(k=>MEM.data[k].forEach(v=>{if(v.id===a[0])v.status=v.status==='Shown'?'Revised':'Shown'}));
+ memSave()}
+const api=(fn,...args)=>{
+ if(READS.has(fn)){const k=ckey(fn,args),c=memGet(k);if(c!==undefined){refreshKey(fn,args,k).catch(()=>{});return Promise.resolve(c)}return refreshKey(fn,args,k).then(d=>JSON.parse(JSON.stringify(d)))}
+ if(QUIET_WRITES.has(fn)){patchLocal(fn,args);net(fn,args).then(()=>refreshBundle(1500)).catch(()=>toast('Not saved – please check internet'));return Promise.resolve(true)}
+ return net(fn,args).then(d=>{if(fn.startsWith('admin')&&!/Login|CheckToken|Requests$|Today|GetTimetable/.test(fn)){Object.keys(MEM.data).filter(k=>k.startsWith('admin')).forEach(k=>delete MEM.data[k]);refreshBundle(500)}return d})};
+setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)refreshBundle()},60000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&FTOK)refreshBundle()});
 function familyScreen(msg){$('#backBtn').classList.add('hidden');$('#app').innerHTML=`<div class="card" style="text-align:center;margin-top:30px"><div style="font-size:40px">&#128274;</div><div style="font-size:22px;font-weight:800">Family code</div><div class="muted">Type the 6-number family code once. This phone will remember it.</div>
  <input id="famCode" type="password" inputmode="numeric" maxlength="6" style="text-align:center;font-size:26px;letter-spacing:8px;margin-top:12px"><div id="famMsg" class="muted" style="color:#A12828;min-height:20px">${msg?esc(msg):''}</div><button class="primary" style="width:100%" onclick="famGo()">Open</button></div>`}
 function famGo(){const c=$('#famCode').value.trim();post({fn:'familyUnlock',code:c}).then(j=>{if(!j.ok)return familyScreen(j.error);const r=j.data;if(!r.ok)return familyScreen(r.msg);FTOK=r.token;try{localStorage.setItem('ydFam',FTOK)}catch(e){}start()}).catch(e=>familyScreen('No internet – please try again'))}
@@ -64,14 +88,14 @@ function micHelp(){const p=$('#askPanel');p.classList.remove('hidden');p.innerHT
  <ol style="padding-left:20px;line-height:1.6;margin:8px 0"><li>At the top, tap the small icon on the left of the web address (lock or sliders).</li><li>Tap <b>Permissions</b> or <b>Site settings</b> &#8594; <b>Microphone</b> &#8594; <b>Allow</b>.</li><li>If there is no Microphone there: phone <b>Settings &#8594; Apps &#8594; Chrome &#8594; Permissions &#8594; Microphone &#8594; Allow</b>.</li><li>Come back and reload this page.</li></ol><div class="muted">You can also type in the box instead.</div>`}
 function toast(m){const d=document.createElement('div');d.textContent=m;d.style.cssText='position:fixed;bottom:20px;left:16px;right:16px;background:#1F2A44;color:#fff;padding:12px 14px;border-radius:14px;z-index:9';document.body.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function render(html,showBack){$('#app').innerHTML=html;$('#backBtn').classList.toggle('hidden',!showBack);window.scrollTo(0,0)}
+function render(html,showBack){LASTVIEW=PENDINGVIEW;PENDINGVIEW=null;$('#app').innerHTML=html;$('#backBtn').classList.toggle('hidden',!showBack);if(!QUIET)window.scrollTo(0,0)}
 
 /* ---------- home ---------- */
-async function start(){if(!FTOK)return familyScreen();BOOT=await api('getBoot');$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;goHome();
+async function start(){if(!FTOK)return familyScreen();BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;goHome();
  let t=null;try{t=JSON.parse(localStorage.getItem('ydAdmin')||'null')}catch(e){}
  if(t&&t.token){const c=await api('adminCheckToken',t.token);if(c.ok){ADMIN=t;showFab()}else{try{localStorage.removeItem('ydAdmin')}catch(e){}}}}
 function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN)}
-function goHome(){Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}CHILD=null;
+function goHome(){PENDINGVIEW=()=>goHome();Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}CHILD=null;
  const colors={yuvaan:['#DCE6FB','#2A5FD6'],ditya:['#FBE1EE','#C2367C']};
  render(`<h1 style="margin:4px 0;font-size:28px">Who's learning today?</h1>`+
  BOOT.children.map(c=>{const col=colors[c.id]||['#eee','#333'];
@@ -80,8 +104,8 @@ function goHome(){Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio
  `<div class="row" style="justify-content:flex-end"><button class="ghost" onclick="adminLoginScreen()">&#128274; Parents</button></div>`)}
 
 /* ---------- child today ---------- */
-async function openChild(id){CHILD=BOOT.children.find(c=>c.id===id);
- const t=await api('getToday',id);
+async function openChild(id){PENDINGVIEW=()=>openChild(id);CHILD=BOOT.children.find(c=>c.id===id);
+ const t=await api('getToday',id);{const n=new Date();t.now=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')}
  const nowIdx=t.slots.findIndex((s,i)=>s.time<=t.now&&(!t.slots[i+1]||t.slots[i+1].time>t.now));
  render(`<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:24px;font-weight:800">Hi ${esc(CHILD.name)}!</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">${t.starsApproved} stars today</span></div>
  ${CHILD.introDone?'':`<button class="card big" style="background:#FFF1C9" onclick="openTalk('intro')"><span style="font-size:34px">&#128075;</span><div><div style="font-size:19px;font-weight:800">Meet your helper</div><div class="muted">Choose a name for your helper</div></div></button>`}
@@ -109,10 +133,11 @@ function clockTick(){const el=$('#clock');if(!el)return;const now=new Date(),[h,
 function addBubble(who,text,cap){const c=$('#chat');if(!c)return;const d=document.createElement('div');d.className='bubble '+(who==='me'?'me':'helper');d.textContent=text;if(cap){const k=document.createElement('div');k.className='muted';k.style.marginTop='4px';k.textContent=cap;d.appendChild(k)}c.appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'})}
 function sendTyped(){const b=$('#typeBox');if(b.value.trim()){send(b.value.trim());b.value=''}}
 async function send(text){if(!text.startsWith('('))addBubble('me',text);Voice.pause();
- try{const r=await api('talk',CHILD.id,MODE,text);addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
+ addBubble('helper','• • •');const dots=$('#chat')&&$('#chat').lastElementChild;if(dots)dots.id='thinking';
+ try{const r=await api('talk',CHILD.id,MODE,text);const th=$('#thinking');th&&th.remove();addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
   if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true;$('#micHint').textContent='Say "Hey '+r.helperName+'" any time'}
   await Voice.speak(r.say||r.text,r.lang||'te');
- }catch(e){}
+ }catch(e){const th=$('#thinking');th&&th.remove()}
  Voice.resume()}
 async function showOnScreen(show){const box=$('#screenShow');if(!box||!show)return;
  if(show.startsWith('wiki:')){try{const t=encodeURIComponent(show.slice(5).trim());const j=await (await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+t)).json();if(j.thumbnail)box.innerHTML=`<img src="${esc((j.originalimage||j.thumbnail).source)}" alt="${esc(j.title)}">`}catch(e){}}
@@ -198,19 +223,19 @@ function rtEnd(){clearInterval(RT.timer);if(RT.audio)RT.audio.pause();$('#rtMusi
  api('claimStar',CHILD.id,'Routine: '+RT.name,'');api('logTimer',CHILD.id,'routine',RT.name,RT.steps.reduce((a,s)=>a+s.seconds,0));Voice.speak('సూపర్! చాలా బాగా చేశావు!','te')}
 
 /* ---------- homework / stars / videos ---------- */
-async function openHomework(){const hw=await api('getHomework',CHILD.id);
+async function openHomework(){PENDINGVIEW=()=>openHomework();const hw=await api('getHomework',CHILD.id);
  render(`<div style="font-size:22px;font-weight:800">Homework race</div><div class="muted">One hour for everything. Pick one to start.</div>`+
  (hw.length?hw.map(h=>`<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><div><span class="tag" style="background:#EFEAFB;color:#5B3FB0">${esc(h.kind)}</span> <b>${esc(h.subject)}</b><div class="muted">${esc(h.details)}</div></div><span class="muted">${esc(h.status)}</span></div>
  <div class="row" style="margin-top:10px">${h.status==='done'?`<span class="chip">Done ${h.minutes?h.minutes+' min':''}</span>`:`<button class="primary" onclick="hwStart('${h.id}','${esc(h.kind)}')">Start</button><button class="green" onclick="hwDone('${h.id}')">Done</button><button class="danger" onclick="hwPending('${h.id}')">Later</button>`}</div></div>`).join(''):'<div class="card muted">No homework added yet. Amma adds it from the diary.</div>'),true)}
 async function hwStart(id,kind){await api('homeworkUpdate',id,'started','');openTalk(/learn|read/i.test(kind)?'check':'homework')}
 async function hwDone(id){await api('homeworkUpdate',id,'done','');await api('claimStar',CHILD.id,'Homework item done','');toast('Great! Amma will check your star.');openHomework()}
 async function hwPending(id){await api('homeworkUpdate',id,'pending','Moved to later');openHomework()}
-async function openStars(){const s=await api('getStars',CHILD.id);
+async function openStars(){PENDINGVIEW=()=>openStars();const s=await api('getStars',CHILD.id);
  render(`<div style="font-size:22px;font-weight:800">My stars</div><div class="card"><b>This week: ${s.week} stars</b><div class="muted">Bronze 20 · Silver 25 · Gold 30</div></div>`+
  (s.today.map(x=>`<div class="slot"><span>${x.status==='approved'?'&#11088;':'&#9734;'}</span><span>${esc(x.item)}</span><span class="muted" style="margin-left:auto">${x.status==='waiting'?'Amma checks':esc(x.status)}</span></div>`).join('')||'<div class="card muted">No stars yet today.</div>'),true)}
 function videoEmbed(v){if(v.source==='facebook')return `<iframe src="https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(v.link)}&show_text=false" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
  const m=String(v.link).match(/\/d\/([^/]+)/);if(v.source==='drive'&&m)return `<iframe src="https://drive.google.com/file/d/${m[1]}/preview" allow="autoplay"></iframe>`;return `<a href="${esc(v.link)}" target="_blank">Open video</a>`}
-async function openVideos(){const vs=await api('getVideos',CHILD.id);
+async function openVideos(){PENDINGVIEW=()=>openVideos();const vs=await api('getVideos',CHILD.id);
  render(`<div style="font-size:22px;font-weight:800">Video corner</div>`+(vs.map(v=>`<div class="card"><b>${esc(v.title)}</b> <span class="tag" style="background:#EEF1F7">${esc(v.status)}</span><div style="margin-top:10px">${videoEmbed(v)}</div><button class="ghost" style="margin-top:8px" onclick="api('markVideoShown','${v.id}');toast('Saved')">I watched it</button></div>`).join('')||'<div class="card muted">No videos yet.</div>'),true)}
 
 /* ---------- admin ---------- */
@@ -220,7 +245,7 @@ function adminLoginScreen(){render(`<div style="font-size:22px;font-weight:800">
  <button class="green" onclick="doLogin()">Open</button>`,true)}
 async function doLogin(){const r=await api('adminLogin',$('#aRole').value,$('#aPin').value);if(!r.ok)return toast('Wrong PIN');ADMIN=r;try{localStorage.setItem('ydAdmin',JSON.stringify(r))}catch(e){}showFab();adminHome('today')}
 const ATABS=[['today','Today'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','Ask Claude'],['use','Usage']];
-async function adminHome(tab){const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
+async function adminHome(tab){PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
  const d=await api('adminToday',ADMIN.token);let body='';
  const kidOpts=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
  if(tab==='today'){body=['yuvaan','ditya'].map(k=>{const t=d[k];const n=d.children.find(c=>c.id===k);return `<div class="card"><b>${esc(n.name)}</b> <span class="muted">helper: ${esc(n.helperName)}${n.nameChosenOn?' (chosen '+esc(n.nameChosenOn)+')':''}</span><div class="muted">Stars today: ${t.starsApproved} approved, ${t.starsWaiting} waiting</div></div>`}).join('')+
