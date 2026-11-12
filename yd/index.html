@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v43 · Thu 12/11 21:30';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v44 · Thu 12/11 22:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -1712,7 +1712,65 @@ function adminLoginScreen(){render(`<div style="font-size:22px;font-weight:800">
  <button class="green" onclick="doLogin()">Open</button>`,true)}
 async function adminFood(k,meal){try{await api('adminQuest',ADMIN.token,k,'food',{meal});toast(meal+' on time ✓ +5 min')}catch(e){toast('Could not save')}adminHome('quest')}
 async function doLogin(){const r=await api('adminLogin',$('#aRole').value,$('#aPin').value);if(!r.ok)return toast('Wrong PIN');ADMIN=r;try{localStorage.setItem('ydAdmin',JSON.stringify(r))}catch(e){}showFab();pollThread();adminHome('today')}
-const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','&#10022; Ask'],['use','📊 Usage'],['quest','🎮 Game time'],['lvl','🛠️ Levels']];
+/* ---------- Admin → 📝 HW report: pick a date, see every homework item ---------- */
+let HWR=null;
+function hwrIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function hwrDay(iso){const d=new Date(iso+'T12:00:00');return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+d.getDate()+'/'+(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(2)}
+function hwrBody(){setTimeout(hwrLoad,30);return `<div class="card"><b>📝 Homework report</b><div class="muted">Pick a day. Every homework item shows time, questions, hints, wrong ones and what happens to them.</div><label>Date<input id="hwrDate" type="date" value="${hwrIso(new Date())}" max="${hwrIso(new Date())}" onchange="hwrLoad()"></label></div><div id="hwrOut"></div>`}
+async function hwrLoad(){const el=$('#hwrOut'),inp=$('#hwrDate');if(!el||!inp)return;el.innerHTML='<div class="card muted">Preparing the report… the first time for a day can take up to a minute.</div>';
+ try{HWR=await api('adminHwReport',ADMIN.token,inp.value);if($('#hwrOut'))$('#hwrOut').innerHTML=hwrHtml(HWR)}catch(e){if($('#hwrOut'))$('#hwrOut').innerHTML='<div class="card">Could not load the report. Please try again.</div>'}}
+function hwrSpeed(s){if(s==null)return '';return s<=20?'⚡ Fast':s<=45?'👍 OK':'🐢 Slow'}
+function hwrPct(it){const r=it.rep;return r&&r.total?Math.round((r.rightOwn||0)/r.total*100):null}
+function hwrHtml(R){if(!R||!R.items.length)return `<div class="card muted">No homework on ${hwrDay(R?R.date:hwrIso(new Date()))}.</div>`;
+ const kids={};R.items.forEach(i=>(kids[i.childName]=kids[i.childName]||[]).push(i));
+ return Object.keys(kids).map(k=>`<div class="card" style="background:#F5F8FF"><b style="font-size:18px">${esc(k)}</b> <span class="muted">· ${hwrDay(R.date)}</span></div>`+kids[k].map(it=>{const r=it.rep,p=hwrPct(it),over=it.plannedMin&&it.minutes>it.plannedMin;
+  const tm=`<b style="color:${over?'#C62828':'#1F2A44'}">${it.minutes||0} min</b>${it.plannedMin?` <span class="muted">of ${it.plannedMin} min target${over?' · over by '+(it.minutes-it.plannedMin)+' min':''}</span>`:''}${it.startedAt?` <span class="muted">(${esc(it.startedAt)}${it.finishedAt?' – '+esc(it.finishedAt):''})</span>`:''}`;
+  const st=it.status==='done'?'✅ Done':it.status==='started'?'🟧 Started':it.status==='pending'?'⏳ Later':'⬜ Not started';
+  let inner='';
+  if(!r)inner=`<div class="muted" style="margin-top:6px">${it.turns?'Report not ready – tap the date again in a minute.':'No homework talk saved for this item.'}</div>`;
+  else{const prog=p==null?'':(it.prevPct==null?`${p}% right on own (first report for ${esc(it.subject)})`:`${p}% right on own · earlier days ${it.prevPct}% → ${p>it.prevPct?'⬆ better':p<it.prevPct?'⬇ lower':'same'}`);
+   inner=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;text-align:center">
+    <div style="background:#E9F6EC;border-radius:10px;padding:6px"><b>${r.rightOwn||0}</b><div class="muted" style="font-size:11px">right on own</div></div>
+    <div style="background:#FFF6DD;border-radius:10px;padding:6px"><b>${r.hinted||0}</b><div class="muted" style="font-size:11px">needed hint</div></div>
+    <div style="background:#FFEDE6;border-radius:10px;padding:6px"><b>${r.told||0}</b><div class="muted" style="font-size:11px">had to be told</div></div>
+    <div style="background:#FDE8E8;border-radius:10px;padding:6px"><b style="color:#C62828">${r.wrong||0}</b><div class="muted" style="font-size:11px">still wrong</div></div></div>
+    <div class="muted" style="margin-top:6px">Total ${r.total||0} questions · ${it.turns} answers given${it.avgSec!=null?` · speed ${hwrSpeed(it.avgSec)} (about ${it.avgSec} s per answer)`:''}</div>
+    ${prog?`<div style="margin-top:6px"><b>Progress:</b> ${prog}</div>`:''}
+    ${r.quality?`<div style="margin-top:6px"><b>How the answers were:</b> ${esc(r.quality)}</div>`:''}
+    ${(r.wrongList||[]).length?`<div style="margin-top:8px"><b>Wrong / hinted – what happens next</b>${r.wrongList.map(w=>`<div style="padding:6px 0;border-bottom:1px solid #EEF1F7">${w.cleared?'✅':'⏳'} ${esc(w.q)}<div class="muted" style="font-size:13px">${esc(w.plan)}${w.cleared?' · cleared':''}</div></div>`).join('')}</div>`:''}
+    ${r.note?`<div style="margin-top:6px"><b>Practise next:</b> ${esc(r.note)}</div>`:''}`}
+  return `<div class="card"><div class="row" style="justify-content:space-between"><b>${esc(it.subject)}</b><span class="muted">${st}</span></div>${it.details?`<div class="muted">${esc(String(it.details).slice(0,120))}</div>`:''}<div style="margin-top:6px">⏱ ${tm}</div>${it.pendingNote?`<div class="muted">Note: ${esc(it.pendingNote)}</div>`:''}${inner}</div>`}).join('')).join('')+
+ `<div class="card"><b>Share</b><div class="grid2" style="margin-top:8px"><button onclick="hwrCopy()">📋 Copy text</button><button class="green" onclick="hwrWa()">Open in WhatsApp</button></div><button style="margin-top:8px;width:100%" onclick="hwrImg()">🖼️ Image (PNG)</button></div>`}
+function hwrText(){const R=HWR;if(!R)return '';const L=['📝 *Homework report – '+hwrDay(R.date)+'*'];let lastKid='';
+ R.items.forEach(it=>{if(it.childName!==lastKid){L.push('','*'+it.childName+'*');lastKid=it.childName}const r=it.rep,p=hwrPct(it);
+  L.push('','• *'+it.subject+'* – '+(it.status==='done'?'done':it.status||'not started'));
+  L.push('  Time: '+(it.minutes||0)+' min'+(it.plannedMin?' (target '+it.plannedMin+')':''));
+  if(r){L.push('  Right on own '+(r.rightOwn||0)+' · hint '+(r.hinted||0)+' · told '+(r.told||0)+' · wrong '+(r.wrong||0)+' of '+(r.total||0));
+   if(it.avgSec!=null)L.push('  Speed: '+hwrSpeed(it.avgSec).replace(/^\S+ /,'')+' (~'+it.avgSec+' s per answer)');
+   if(p!=null)L.push('  Progress: '+p+'%'+(it.prevPct!=null?' (earlier '+it.prevPct+'%)':''));
+   if(r.quality)L.push('  '+r.quality);
+   (r.wrongList||[]).forEach(w=>L.push('  '+(w.cleared?'✅ ':'⏳ ')+w.q+' → '+w.plan));
+   if(r.note)L.push('  Next: '+r.note)}});
+ return L.join('\n')}
+function hwrCopy(){navigator.clipboard.writeText(hwrText()).then(()=>toast('Copied – paste in WhatsApp')).catch(()=>toast('Could not copy'))}
+function hwrWa(){window.open('https://wa.me/?text='+encodeURIComponent(hwrText()),'_blank')}
+function hwrImg(){const R=HWR;if(!R)return;const W=900,pad=28,cv=document.createElement('canvas'),x=cv.getContext('2d');
+ const rows=[];rows.push(['h','Homework report – '+hwrDay(R.date)]);let lastKid='';
+ R.items.forEach(it=>{if(it.childName!==lastKid){rows.push(['k',it.childName]);lastKid=it.childName}const r=it.rep,p=hwrPct(it);
+  rows.push(['s',it.subject+'  ·  '+(it.minutes||0)+' min'+(it.plannedMin?' / target '+it.plannedMin:''),it.plannedMin&&it.minutes>it.plannedMin]);
+  if(r){rows.push(['t','Right on own '+(r.rightOwn||0)+'   Hint '+(r.hinted||0)+'   Told '+(r.told||0)+'   Wrong '+(r.wrong||0)+'   (total '+(r.total||0)+')']);
+   if(it.avgSec!=null||p!=null)rows.push(['t',(it.avgSec!=null?'Speed: '+hwrSpeed(it.avgSec).replace(/^\S+ /,'')+'   ':'')+(p!=null?'Progress: '+p+'%'+(it.prevPct!=null?' (earlier '+it.prevPct+'%)':''):'')]);
+   (r.wrongList||[]).forEach(w=>rows.push(['w',(w.cleared?'✓ ':'• ')+w.q+' → '+w.plan,!w.cleared]))}
+  else rows.push(['t','No report yet'])});
+ x.font='20px system-ui';const wrap=(t,f)=>{x.font=f;const out=[];let line='';String(t).split(' ').forEach(wd=>{const tt=line?line+' '+wd:wd;if(x.measureText(tt).width>W-2*pad-20){out.push(line);line=wd}else line=tt});out.push(line);return out};
+ const F={h:'bold 30px system-ui',k:'bold 26px system-ui',s:'bold 22px system-ui',t:'20px system-ui',w:'19px system-ui'};
+ const lines=[];rows.forEach(r=>wrap(r[1],F[r[0]]).forEach(l=>lines.push([r[0],l,r[2]])));
+ const lh={h:46,k:42,s:36,t:30,w:28};cv.width=W;cv.height=pad*2+lines.reduce((a,l)=>a+lh[l[0]]+(l[0]==='k'?12:0),0);
+ x.fillStyle='#fff';x.fillRect(0,0,W,cv.height);x.strokeStyle='#C9D3E6';x.lineWidth=2;x.strokeRect(6,6,W-12,cv.height-12);
+ let y=pad;lines.forEach(([k,l,red])=>{if(k==='k'){y+=12;x.fillStyle='#EEF3FF';x.fillRect(pad-8,y,W-2*pad+16,lh.k);}x.font=F[k];x.fillStyle=red?'#C62828':k==='h'?'#1F2A44':k==='w'?'#555':'#1F2A44';x.textBaseline='top';x.fillText(l,pad+(k==='w'||k==='t'?14:0),y+6);y+=lh[k]});
+ const url=cv.toDataURL('image/png');const o=document.createElement('div');o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;gap:10px';
+ o.innerHTML=`<img src="${url}" style="max-width:100%;max-height:75vh;border-radius:8px;background:#fff"><div class="row" style="gap:10px"><a download="Homework-report-${R.date}.png" href="${url}"><button class="green">Download image</button></a><button onclick="this.closest('div').parentNode.remove()">Close</button></div>`;document.body.appendChild(o)}
+const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['hwr','📝 HW report'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','&#10022; Ask'],['use','📊 Usage'],['quest','🎮 Game time'],['lvl','🛠️ Levels']];
 async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
  const d=await api('adminToday',ADMIN.token);let body='';
  const kidOpts=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
@@ -1723,6 +1781,7 @@ async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PEN
   `<div class="card"><b>Give a star</b><label>Child<select id="gsKid">${kidOpts}</select></label><label>For<input id="gsItem" placeholder="e.g. Helped at home"></label><button class="green" style="margin-top:8px" onclick="giveStar()">Give star</button></div>`}
  if(tab==='instr'){body=`<div class="card"><label>Child<select id="iKid">${kidOpts}</select></label><label>What<select id="iKind"><option value="read">Read</option><option value="questions">Ask questions</option><option value="video">Show video</option><option value="task">Task</option></select></label><label>Details<textarea id="iText"></textarea></label><label>Time<input id="iTime" type="time"></label><label>Date<input id="iDate" type="date"></label><button class="green" style="margin-top:8px" onclick="addInstr()">Save</button></div>`}
  if(tab==='hw'){HWFILES=[];const L=await api('adminHomework',ADMIN.token);body=hwAdminForm()+hwAdminList(L)}
+ if(tab==='hwr'){body=hwrBody()}
  if(tab==='tt'){const rows=await api('adminGetTimetable',ADMIN.token,'yuvaan');body=`<div class="card"><b>Yuvaan – timetable</b>${rows.map(r=>`<div class="row" style="justify-content:space-between;border-bottom:1px solid #EEF1F7;padding:8px 0"><span><b>${esc(t12(r.time))}</b> ${esc(r.activity)}</span><span class="muted">${esc(r.days)}</span></div>`).join('')}</div>
   <div class="card"><b>Add a slot</b><label>Child<select id="tKid">${kidOpts}</select></label><label>Days<input id="tDays" value="Mon,Tue,Wed,Thu,Fri"></label><label>Time<input id="tTime" type="time"></label><label>Activity<input id="tAct"></label><button class="green" style="margin-top:8px" onclick="addSlot()">Save slot</button></div>`}
  if(tab==='vid'){body=`<div class="card"><label>Child<select id="vKid">${kidOpts}</select></label><label>Title<input id="vTitle"></label><label>Facebook link or Google Drive link<input id="vLink" placeholder="Paste link"></label><button class="green" style="margin-top:8px" onclick="addVid()">Save video</button><div class="muted" style="margin-top:8px">Facebook links play inside the app. To make questions from a reel, upload the saved video to Drive – it is processed from Karthik's side.</div></div>`}
