@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v19 · Thu 12/11 15:00';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v20 · Thu 12/11 15:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -109,7 +109,7 @@ async function start(){const jm=(location.hash||'').match(/join=([a-f0-9]{20})/)
  restoreNav()}
 function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children.find(c=>c.id===n.id);
  if(kid&&kid.introDone===false&&n.v==='talk')n.v='child';
- if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='colour')return openColour(n.i||0)}
+ if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='colour')return openColour(n.i||0)}
  if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
  goHome()}
 function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN);if(ADMIN)updateDot()}
@@ -376,6 +376,7 @@ function yuvaanHome(t,nowIdx){return `<div class="row" style="align-items:center
  <button class="kt" style="background:#EAF8EE" onclick="openTrace('wte')"><span>✍️</span>తెలుగు writing</button>
  <button class="kt" style="background:#E6F4FF" onclick="openTyping()"><span>⌨️</span>Typing</button>
  <button class="kt" style="background:#F1EDE6" onclick="openChess()"><span>♟️</span>Chess</button>
+ <button class="kt" style="background:#E9F7E2" onclick="openWordGame()"><span>🔤</span>Word game</button>
  <button class="kt" style="background:#EFEFEF" onclick="openVideos()"><span>🎬</span>Videos</button>
  </div>
  <div class="kgrid" style="margin-top:10px"><button class="kt sm" onclick="openRoutine('brushing')"><span>🪥</span>Brushing</button><button class="kt sm" onclick="openRoutine('washroom')"><span>🚿</span>Washroom</button><button class="kt sm" onclick="openRoutine('ready')"><span>👕</span>Get ready</button><button class="kt sm" onclick="openRoutine('exercise')"><span>🧘</span>Exercise</button></div>
@@ -461,6 +462,51 @@ function chUndo(){if(!CG||!CG.prev||!CG.prev.length||CG.busy)return;CG.s=CG.prev
 function chHint(){if(!CG||CG.over||CG.s.turn!=='w')return;const m=CH.best(CG.s,CG.puz!=null?2:3,0);if(!m)return;CG.hint=m;const n=CH.make(CG.s,m),pc=CH.name[m.p.toLowerCase()];
  let why=CH.inCheck(n)&&!CH.legal(n).length?'it is checkmate':m.cap!=='.'?'it captures the '+CH.name[m.cap.toLowerCase()]:CH.inCheck(n)?'it gives check':m.castle?'castling keeps your king safe':'it puts your '+pc+' on a strong square';
  CG.msg='Hint: '+pc+' '+CH.sqName(m.f)+' to '+CH.sqName(m.t);chDraw();speakReply('Try your '+pc+' to '+CH.sqName(m.t)+', because '+why+'.','en')}
+/* ---------- Word game (Lingo style): first letter given, green = right place, yellow = in the word ---------- */
+const WG_Y={3:[['owl','A bird that is awake at night'],['ant','A tiny insect that lives in a big group'],['ice','Frozen water'],['map','It shows places and roads'],['jet','A very fast aeroplane'],['gem','A precious stone'],['zoo','A place where many animals are kept'],['fog','A thick cloud close to the ground'],['web','A spider makes it'],['ink','You write with it in a pen'],['yak','A hairy animal of the Himalayas'],['hut','A small, simple house'],['sky','It is blue on a clear day'],['oil','We cook with it; it can also run engines']],
+ 4:[['moon','It shines at night because of the sun'],['iron','A metal; also used to press clothes'],['bulb','It gives light when switched on'],['wire','It carries electricity'],['seal','A sea animal with flippers'],['crow','A black bird that says caw caw'],['rain','Water falling from the clouds'],['salt','It is found in sea water'],['gold','A yellow, precious metal'],['coal','A black fuel dug from mines'],['king','He rules a kingdom'],['desk','A table for study'],['lion','The king of the jungle'],['nest','A home that birds build']],
+ 5:[['ocean','A very big sea'],['tiger','India\'s national animal'],['earth','The planet we live on'],['camel','A desert animal with a hump'],['cloud','It brings rain'],['river','Water flowing to the sea'],['pearl','A gem found inside an oyster'],['globe','A round model of the earth'],['chess','A game with kings and queens'],['brain','It thinks for your body'],['heart','It pumps blood'],['whale','The biggest animal in the sea'],['polar','A ___ bear lives in the Arctic'],['solar','About the sun: ___ energy'],['storm','Strong wind with heavy rain']]};
+const WG_D={3:[['cat','🐱'],['dog','🐶'],['sun','☀️'],['bus','🚌'],['pig','🐷'],['cow','🐄'],['egg','🥚'],['car','🚗'],['bed','🛏️'],['fox','🦊'],['ant','🐜'],['owl','🦉'],['bee','🐝'],['key','🔑'],['box','📦']],
+ 4:[['fish','🐟'],['frog','🐸'],['star','⭐'],['moon','🌙'],['tree','🌳'],['cake','🎂'],['duck','🦆'],['lion','🦁'],['bear','🐻'],['ship','🚢'],['kite','🪁'],['milk','🥛'],['rose','🌹'],['book','📖'],['ball','⚽']],
+ 5:[['apple','🍎'],['horse','🐴'],['mouse','🐭'],['tiger','🐯'],['zebra','🦓'],['house','🏠'],['chair','🪑'],['bread','🍞'],['snake','🐍'],['train','🚆'],['sheep','🐑'],['whale','🐋'],['grape','🍇'],['clock','⏰'],['plane','✈️']]};
+let WG=null;
+function wgSKey(){return 'ydWord_'+(CHILD?CHILD.id:'x')}
+function wgStats(){try{return JSON.parse(localStorage.getItem(wgSKey())||'{}')}catch(e){return{}}}
+function wgSet(s){try{localStorage.setItem(wgSKey(),JSON.stringify(s))}catch(e){}}
+function openWordGame(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'word',id:CHILD.id});const s=wgStats(),kid=CHILD.id==='ditya';
+ const lv=n=>`<button class="kt" style="background:${n===3?'#EAF8EE':n===4?'#FFF6D6':'#FFE8EE'}" onclick="wgNew(${n})"><span>${n===3?'🟩':n===4?'🟨':'🟥'}</span>${n} letters<div class="muted" style="font-size:12px;font-weight:700">${s['w'+n]||0} won</div></button>`;
+ render(`<b style="font-size:20px">🔤 Word game</b><div class="muted">${kid?'Look at the picture and find the word!':'Read the hint and find the word!'} The first letter is given. 🟩 right place · 🟨 in the word.</div>
+ <div class="kgrid">${lv(3)}${lv(4)}${lv(5)}</div><div class="card"><b>Stars:</b> win 3 words in a level to earn a star.</div>`,true);
+ speakReply(kid?'Word game! Choose three, four or five letters.':'Word game! Choose a level.','en')}
+function wgNew(n){const list=(CHILD.id==='ditya'?WG_D:WG_Y)[n],pick=list[Math.floor(Math.random()*list.length)];
+ WG={n,word:pick[0].toUpperCase(),clue:pick[1],pic:CHILD.id==='ditya',rows:[],cur:pick[0][0].toUpperCase(),tries:CHILD.id==='ditya'?6:5,pts:500,over:false,msg:''};wgDraw();
+ speakReply(WG.pic?'What is this? Find the word. It starts with '+WG.word[0]+'.':'Hint: '+WG.clue+'. It starts with '+WG.word[0]+'.','en')}
+function wgScore(g,w){const res=Array(w.length).fill('x'),left={};for(let i=0;i<w.length;i++){if(g[i]===w[i])res[i]='g';else left[w[i]]=(left[w[i]]||0)+1}
+ for(let i=0;i<w.length;i++)if(res[i]!=='g'&&left[g[i]]){res[i]='y';left[g[i]]--}return res}
+function wgDraw(){setNav({v:'word',id:CHILD.id});const n=WG.n,cell=(ch,st)=>`<div style="aspect-ratio:1/1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:${n===5?26:30}px;font-weight:800;background:${st==='g'?'#2E9E4F':st==='y'?'#E0A800':st==='x'?'#5B6476':'#fff'};color:${st?'#fff':'#1F2A44'};border:2px solid ${st?'transparent':'#C9D2E3'}">${ch||''}</div>`;
+ let grid='';WG.rows.forEach(r=>{grid+=r.g.split('').map((c,i)=>cell(c,r.s[i])).join('')});
+ if(!WG.over&&WG.rows.length<WG.tries){grid+=Array.from({length:n},(_,i)=>cell(WG.cur[i]||(i===0?WG.word[0]:''),'')).join('');for(let k=WG.rows.length+1;k<WG.tries;k++)grid+=Array.from({length:n},()=>cell('','')).join('')}
+ const keys=['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'],used={};WG.rows.forEach(r=>r.g.split('').forEach((c,i)=>{const st=r.s[i];if(st==='g'||(st==='y'&&used[c]!=='g')||!used[c])used[c]=st}));
+ const kb=keys.map((row,ri)=>`<div style="display:flex;gap:4px;justify-content:center;margin-top:5px">${ri===2?'<button onclick="wgKey(\'ENTER\')" style="min-height:46px;padding:0 10px;font-size:13px">✔ OK</button>':''}${row.split('').map(c=>`<button onclick="wgKey('${c}')" style="min-height:46px;min-width:0;flex:1;max-width:40px;padding:0;font-size:17px;background:${used[c]==='g'?'#2E9E4F':used[c]==='y'?'#E0A800':used[c]==='x'?'#5B6476':'#E8ECF3'};color:${used[c]?'#fff':'#1F2A44'}">${c}</button>`).join('')}${ri===2?'<button onclick="wgKey(\'DEL\')" style="min-height:46px;padding:0 10px">⌫</button>':''}</div>`).join('');
+ render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:18px">🔤 ${n} letters</b><span class="tag" style="background:#E8F1FF;color:#1C4AAE">${WG.pts} points</span></div>
+ ${WG.pic?`<div style="text-align:center;font-size:96px;line-height:1.1">${WG.clue}</div>`:`<div class="card" style="background:#FFF6D6"><b>Hint:</b> ${esc(WG.clue)}</div>`}
+ <div style="display:grid;grid-template-columns:repeat(${n},1fr);gap:6px;max-width:${n*64}px;margin:8px auto">${grid}</div>
+ <div class="muted" style="text-align:center;min-height:22px;font-weight:700">${esc(WG.msg)}</div>
+ ${WG.over?`<div class="grid2"><button class="primary" onclick="wgNew(${n})">▶ Next word</button><button onclick="openWordGame()">Levels</button></div>`:kb}`,true)}
+function wgKey(k){if(!WG||WG.over)return;const n=WG.n;
+ if(k==='DEL'){if(WG.cur.length>1)WG.cur=WG.cur.slice(0,-1)}
+ else if(k==='ENTER'){if(WG.cur.length<n){WG.msg='Type all '+n+' letters';return wgDraw()}const g=WG.cur,s=wgScore(g,WG.word);WG.rows.push({g,s:s.join('')});
+  if(g===WG.word){WG.over=true;const st=wgStats();st['w'+n]=(st['w'+n]||0)+1;wgSet(st);const star=st['w'+n]%3===0;WG.msg='You got it! '+WG.word+(star?' ⭐':'');
+   if(star){try{api('claimStar',CHILD.id,'Word game: 3 words ('+n+' letters)','')}catch(e){}}
+   wgDraw();speakReply((WG.pic?'Yes! It is a '+WG.word.toLowerCase()+'. ':'Super! The word is '+WG.word.toLowerCase()+'. ')+(star?'You earned a star!':''),'en');return}
+  WG.pts=Math.max(0,WG.pts-(WG.pic?50:100));
+  if(WG.rows.length>=WG.tries){WG.over=true;WG.msg='The word was '+WG.word;wgDraw();speakReply('Good try! The word was '+WG.word.toLowerCase()+'. Let\'s try another one.','en');return}
+  WG.cur=WG.word[0];if(WG.pic&&WG.rows.length>=2)WG.cur=WG.word.slice(0,2);WG.msg=WG.pic&&WG.rows.length===2?'Helper gave you one more letter!':'Try again!';
+  wgDraw();return}
+ else if(/^[A-Z]$/.test(k)&&WG.cur.length<n)WG.cur+=k;
+ wgDraw()}
+document.addEventListener('keydown',e=>{const n=getNav()||{};if(n.v!=='word'||!WG||WG.over)return;if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))return;
+ if(e.key==='Enter')wgKey('ENTER');else if(e.key==='Backspace')wgKey('DEL');else if(/^[a-zA-Z]$/.test(e.key))wgKey(e.key.toUpperCase())});
 /* ---------- wake by name (laptop/desktop Chrome): free listening only for the helper's name ---------- */
 const Wake=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let r=null,on=false;
  const norm=x=>String(x||'').toLowerCase().replace(/[^a-z\u0c00-\u0c7f ]/g,' ').replace(/\s+/g,' ').trim();
@@ -558,6 +604,7 @@ function dityaHome(t){return `<div class="row" style="align-items:center;justify
  <button class="kt" style="background:#EFEFEF" onclick="openVideos()"><span>🎬</span>Videos</button>
  <button class="kt" style="background:#FFF1C9" onclick="openStars()"><span>⭐</span>Stars</button>
  <button class="kt" style="background:#EFEAFB" onclick="openHomework()"><span>📚</span>Homework</button>
+ <button class="kt" style="background:#E9F7E2" onclick="openWordGame()"><span>🔤</span>Word game</button>
  </div>
  <div class="kgrid" style="margin-top:10px"><button class="kt sm" onclick="openRoutine('brushing')"><span>🪥</span>Brush</button><button class="kt sm" onclick="openRoutine('washroom')"><span>🚽</span>Washroom</button><button class="kt sm" onclick="openRoutine('ready')"><span>👗</span>Get ready</button><button class="kt sm" onclick="openRoutine('exercise')"><span>🧘</span>Exercise</button></div>`}
 const LETTERS={en:[['A','A for Apple'],['B','B for Ball'],['C','C for Cat'],['D','D for Dog'],['E','E for Elephant'],['F','F for Fish'],['G','G for Goat'],['H','H for Hat'],['I','I for Ice cream'],['J','J for Jug'],['K','K for Kite'],['L','L for Lion'],['M','M for Mango'],['N','N for Nest'],['O','O for Orange'],['P','P for Parrot'],['Q','Q for Queen'],['R','R for Rabbit'],['S','S for Sun'],['T','T for Tiger'],['U','U for Umbrella'],['V','V for Van'],['W','W for Watch'],['X','X for Xylophone'],['Y','Y for Yak'],['Z','Z for Zebra']],
