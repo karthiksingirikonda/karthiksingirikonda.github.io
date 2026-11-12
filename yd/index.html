@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v21 · Thu 12/11 15:45';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v22 · Thu 12/11 15:55';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -820,7 +820,7 @@ function askOpen(){if(!ADMIN)return;const p=$('#askPanel');p.classList.remove('h
  p.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center"><b>&#10022;</b><span class="muted" style="flex:1;margin-left:8px;font-size:12px">on: <span id="askScreen">${esc(screenName())}</span></span><button class="ghost" aria-label="Close" onclick="askClose()">&#10005;</button></div>
  <div id="thread" style="display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto;margin:8px 0;padding:2px"><div class="muted">Loading…</div></div>
  <textarea id="askBox" rows="2" placeholder="Ask or say what to change – తెలుగులో చెప్పండి"></textarea>
- <div class="grid2" style="margin-top:8px"><button class="ghost" id="askMic" onclick="askMic()">&#127908; Speak</button><div id="askMicHint" class="muted" style="grid-column:1/-1;font-size:12px;text-align:center"></div><button class="green" onclick="askSend()">Send</button></div>
+ <div style="margin-top:8px"><button class="ghost" id="askMic" onclick="askMic()" style="width:100%">&#127908; Speak</button><div id="askMicHint" class="muted" style="font-size:12px;text-align:center"></div></div><div class="grid2" style="margin-top:6px;align-items:start"><div><button class="green" style="width:100%" onclick="askSend('ask')">💬 Ask a question</button><div class="muted" style="font-size:12px;margin-top:4px;text-align:center">Answer only – nothing in the app changes</div></div><div><button class="primary" style="width:100%" onclick="askSend('change')">🛠️ Send as a change</button><div class="muted" style="font-size:12px;margin-top:4px;text-align:center">Change or build something – you confirm first</div></div></div>
  <div class="row" style="justify-content:flex-end;margin-top:6px"><button class="ghost" style="min-height:34px;font-size:13px" onclick="adminLock()">Lock (hide this button)</button></div>`;
  api('adminThread',ADMIN.token).then(drawThread).catch(()=>{})}
 const RQ={'new':['#FFF1C9','Saved – will be built at the next check (within an hour)'],'building':['#E8F0FE','Being built…'],'done':['#E2F5EC','Done &#10003;'],'needs OK':['#FDECEC','Needs a parent&#39;s OK']};
@@ -842,9 +842,9 @@ function updateDot(){const f=$('#askFab');if(!f)return;let seen='';try{seen=loca
  let d=f.querySelector('.dot');if(show&&!d){d=document.createElement('span');d.className='dot';f.appendChild(d)}if(!show&&d)d.remove()}
 function pollThread(){if(!ADMIN)return;net('adminThread',[ADMIN.token]).then(t=>{memPut(ckey('adminThread',[ADMIN.token]),t);THREAD=t;if(!$('#askPanel').classList.contains('hidden')&&$('#thread'))drawThread(t);else updateDot()}).catch(()=>{})}
 setInterval(()=>{if(document.visibilityState==='visible'&&ADMIN)pollThread()},60000);
-async function askSend(){askStopMic();const t=$('#askBox').value.trim();if(!t)return;$('#askBox').value='';
- const box=$('#thread');if(box){box.insertAdjacentHTML('beforeend',`<div class="pmsg">${esc(t)}</div><div class="cmsg" id="thinkC">• • •</div>`);box.scrollTop=box.scrollHeight}
- try{const list=await api('adminChat',ADMIN.token,t,$('#askScreen').textContent);memPut(ckey('adminThread',[ADMIN.token]),list);drawThread(list)}catch(e){const c=$('#thinkC');c&&c.remove()}}
+async function askSend(mode){mode=mode||'ask';askStopMic();const t=$('#askBox').value.trim();if(!t)return;$('#askBox').value='';
+ const box=$('#thread');if(box){box.insertAdjacentHTML('beforeend',`<div class="pmsg">${mode==='change'?'🛠️ ':''}${esc(t)}</div><div class="cmsg" id="thinkC">• • •</div>`);box.scrollTop=box.scrollHeight}
+ try{const list=await api('adminChat',ADMIN.token,t,$('#askScreen').textContent,mode);memPut(ckey('adminThread',[ADMIN.token]),list);drawThread(list)}catch(e){const c=$('#thinkC');c&&c.remove()}}
 async function confirmP(id,yes){const box=$('#thread');if(box){box.insertAdjacentHTML('beforeend',`<div class="cmsg" id="thinkC">• • •</div>`);box.scrollTop=box.scrollHeight}
  try{const list=await api('adminConfirm',ADMIN.token,id,yes);memPut(ckey('adminThread',[ADMIN.token]),list);drawThread(list)}catch(e){const c=$('#thinkC');c&&c.remove()}}
 async function okReq(id){await api('adminApproveRequest',ADMIN.token,id);pollThread()}
