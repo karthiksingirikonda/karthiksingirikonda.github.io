@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v33 · Thu 12/11 20:15';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v34 · Thu 12/11 21:00';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -121,7 +121,7 @@ let MICOBS=null;function micStateOf(t){t=String(t||'');if(/Speaking/.test(t))ret
 function paintMic(){const h=$('#micHint');if(!h)return;const st=micStateOf(h.textContent);h.className='st-'+st;const m=$('#micBtn');if(m){m.classList.toggle('speak',st==='speak');m.classList.toggle('think',st==='think');if(st==='listen'){m.classList.add('listen');m.classList.remove('sleep')}else if(st==='off'){m.classList.remove('listen');m.classList.add('sleep')}else{m.classList.remove('listen','sleep')}}}
 function watchMic(){try{MICOBS&&MICOBS.disconnect()}catch(e){}const h=$('#micHint');if(!h)return;MICOBS=new MutationObserver(paintMic);MICOBS.observe(h,{childList:true,characterData:true,subtree:true});paintMic()}
 // Back: from any of a child's screens → that child's page; from the child's page (or Admin) → main screen.
-function goBack(){const n=getNav()||{};if(CHILD&&['chess','word','typing','quiz','colour','ckid','sudoku'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
+function goBack(){const n=getNav()||{};if(CHILD&&['chess','word','typing','quiz','colour','ckid','sudoku','quest'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
 // phone/browser back button follows the same rule
 try{history.pushState({yd:1},'')}catch(e){}
 window.addEventListener('popstate',()=>{const n=getNav()||{};if(n.v&&n.v!=='home'){goBack();try{history.pushState({yd:1},'')}catch(e){}}});
@@ -448,7 +448,7 @@ let CHT=null;
 function chSetRec(n){const s=chStats();s.rec=n;try{localStorage.setItem(chKey(),JSON.stringify(s))}catch(e){}openChess()}
 function chTest(){CHT={i:0,right:0};chPuzzle(0);CG.test=true;CG.miss=0}
 function chTestNext(){CHT.i++;if(CHT.i<5){chPuzzle(CHT.i);CG.test=true;CG.miss=0;CG.msg='Test '+(CHT.i+1)+' of 5. '+CG.msg;chDraw();return}
- const lv=CHT.right>=4?3:CHT.right>=2?2:1,s=chStats();s.rec=lv;try{localStorage.setItem(chKey(),JSON.stringify(s))}catch(e){}const r=CHT.right;CHT=null;
+ const lv=CHT.right>=4?3:CHT.right>=2?2:1,s=chStats();if(CHT.right>=3)api('questKid',CHILD.id,'earn',{kind:'chess',id:'test',label:'Chess test '+CHT.right+'/5'}).catch(()=>{});s.rec=lv;try{localStorage.setItem(chKey(),JSON.stringify(s))}catch(e){}const r=CHT.right;CHT=null;
  render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:56px">📝</div><div style="font-size:22px;font-weight:800">Test done: ${r} of 5</div><div class="muted">Your level: ${['','Easy','Medium','Hard'][lv]}</div><button class="primary" style="width:100%;margin-top:12px" onclick="chNew(${lv})">▶ Play at ${['','Easy','Medium','Hard'][lv]}</button><button style="width:100%;margin-top:8px" onclick="openChess()">Chess menu</button></div>`,true);sayFree('Test done! You got '+r+' of five. Your level is '+['','easy','medium','hard'][lv]+'.','en')}
 function chPuzzle(i){i=(i+CH_PUZ.length)%CH_PUZ.length;const[f,title]=CH_PUZ[i];CG={s:CH.parse(f),lv:0,sel:-1,dests:[],last:null,hint:null,over:false,puz:i,msg:title+'. Find the checkmate!'};chDraw();sayFree(title+'. Find the checkmate in one move!','en')}
 function chDraw(){setNav({v:'chess',id:CHILD.id});const{s}=CG;let h='';
@@ -465,7 +465,7 @@ function chPlay(m){CG.prev=CG.prev||[];CG.prev.push(CG.s);CG.s=CH.make(CG.s,m);C
  const opp=CH.legal(CG.s);
  if(CG.puz!=null){if(CH.inCheck(CG.s)&&!opp.length){CG.over=true;CG.msg='Checkmate! Puzzle solved ⭐';chBump('pz');chDraw();sayFree('Checkmate! Brilliant, you solved it!','en');if(CG.test&&CHT){if(!CG.miss)CHT.right++;setTimeout(chTestNext,1600)}}
   else{CG.msg='Not mate yet – try another move.';CG.s=CG.prev.pop();CG.last=null;if(CG.test&&CHT){CG.miss=(CG.miss||0)+1;if(CG.miss>=2){CG.over=true;CG.msg='Next test puzzle…';chDraw();setTimeout(chTestNext,1200);return}}chDraw();sayFree('Good try! That is not checkmate. Look again for a check the king cannot escape.','en')}return}
- if(!opp.length){CG.over=true;const mate=CH.inCheck(CG.s);CG.msg=mate?'Checkmate – you win! 🏆':'Stalemate – draw.';if(mate){chBump('w'+CG.lv);try{api('claimStar',CHILD.id,'Chess win ('+['','Easy','Medium','Hard'][CG.lv]+')','')}catch(e){}}chDraw();sayFree(mate?'Checkmate! You won the game. Super!':'Stalemate. It is a draw.','en');return}
+ if(!opp.length){CG.over=true;const mate=CH.inCheck(CG.s);CG.msg=mate?'Checkmate – you win! 🏆':'Stalemate – draw.';if(mate){chBump('w'+CG.lv);api('questKid',CHILD.id,'earn',{kind:'chess',id:'win',label:'Chess win ('+['','Easy','Medium','Hard'][CG.lv]+')'}).catch(()=>{});try{api('claimStar',CHILD.id,'Chess win ('+['','Easy','Medium','Hard'][CG.lv]+')','')}catch(e){}}chDraw();sayFree(mate?'Checkmate! You won the game. Super!':'Stalemate. It is a draw.','en');return}
  CG.msg=CH.inCheck(CG.s)?'Check! Thinking…':'Thinking…';CG.busy=true;chDraw();
  setTimeout(()=>{const d=CG.lv===1?1:CG.lv===2?2:3,r=CH.best(CG.s,d,CG.lv===1?120:CG.lv===2?25:0);if(!r){CG.busy=false;return}CG.s=CH.make(CG.s,r);CG.last=r;CG.busy=false;
   const mine=CH.legal(CG.s);if(!mine.length){CG.over=true;const mate=CH.inCheck(CG.s);CG.msg=mate?'Checkmate – the computer wins. Try again!':'Stalemate – draw.';chDraw();sayFree(mate?'Checkmate. Good game! Let us try again.':'Stalemate. It is a draw.','en');return}
@@ -521,11 +521,11 @@ function wgKey(k){if(!WG||WG.over)return;const n=WG.n;
 document.addEventListener('keydown',e=>{const n=getNav()||{};if(n.v!=='word'||!WG||WG.over)return;if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))return;
  if(e.key==='Enter')wgKey('ENTER');else if(e.key==='Backspace')wgKey('DEL');else if(/^[a-zA-Z]$/.test(e.key))wgKey(e.key.toUpperCase())});
 /* ---------- 🎮 Games hub + picture quizzes (Animal groups, Guess the action) – all free, on the device ---------- */
-function openGames(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'games',id:CHILD.id});const y=CHILD.id!=='ditya';gmSync();
+function openGames(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'games',id:CHILD.id});const y=CHILD.id!=='ditya';gmSync();if(QG)qStop();
  const T=(bg,ic,label,fn)=>`<button class="kt" style="background:${bg}" onclick="${fn}"><span>${ic}</span>${label}</button>`;
  render(`<b style="font-size:22px">🎮 Games</b><div class="kgrid">`+(y?
-  T('#F1EDE6','♟️','Chess','openChess()')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#E6F4FF','🦉','Animal groups','openQuiz(\'groups\')')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#FDEBF3','🧩','Name the part','openQuiz(\'parts\')')+T('#E8F4FF','🔍','Look-alikes','openQuiz(\'alike\')')+T('#FFF3E0','🔎',"What's it called?",'openQuiz(\'names\')')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#EEF3FF','⌨️','Typing','openTyping()')
-  :T('#E9F7E2','🔤','Word game','openWordGame()')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#E6F4FF','🐣','Animal babies','openQuiz(\'babies\')')+T('#FDEBF3','👃','My body','openQuiz(\'partsKid\')')+T('#FFF3E0','🔎','What is it?','openQuiz(\'namesKid\')')+T('#F1EDE6','♟️','Chess school','openChessKid()')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#FFF6D6','🎨','Colouring','openColour(0)'))+`</div>`,true)}
+  T('#FFE4E6','🗺️','Quest','openQuest()')+T('#F1EDE6','♟️','Chess','openChess()')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#E6F4FF','🦉','Animal groups','openQuiz(\'groups\')')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#FDEBF3','🧩','Name the part','openQuiz(\'parts\')')+T('#E8F4FF','🔍','Look-alikes','openQuiz(\'alike\')')+T('#FFF3E0','🔎',"What's it called?",'openQuiz(\'names\')')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#EEF3FF','⌨️','Typing','openTyping()')
+  :T('#FFE4E6','🍓','Fruit Garden','openQuest()')+T('#E9F7E2','🔤','Word game','openWordGame()')+T('#FFF0E0','🎬','Guess the action','openQuiz(\'actions\')')+T('#E6F4FF','🐣','Animal babies','openQuiz(\'babies\')')+T('#FDEBF3','👃','My body','openQuiz(\'partsKid\')')+T('#FFF3E0','🔎','What is it?','openQuiz(\'namesKid\')')+T('#F1EDE6','♟️','Chess school','openChessKid()')+T('#F3EEFF','🔢','Sudoku','openSudoku()')+T('#FFF6D6','🎨','Colouring','openColour(0)'))+`</div>`,true)}
 const QZ_SETS={
  groups:{title:'Animal groups',ask:'What do we call a group of these?',n:4,day:15,segs:true,items:[
   ['a pride of lions','🦁','A pride of lions rested under the tree.'],['a herd of elephants','🐘','A herd of elephants walked to the river.'],['a school of fish','🐟','A school of fish swam past the boat.'],['a flock of sheep','🐑','The shepherd looked after a flock of sheep.'],
@@ -809,7 +809,7 @@ function qzFinish(ok){QZ.done=true;(QZ.opts||[]).forEach((x,j)=>{const c=$('#qo'
  const st=qzSt(),k=QZ.kind;st[k].played=(st[k].played||0)+1;if(first){st[k].right=(st[k].right||0)+1}
  let note='';
  if(QZ.set.kid)note=tmMsg(tmNote(QZ.srg,first));
- else if(QZ.test){const t=st[k].tst||{n:0,right:0};t.n++;if(first)t.right++;st[k].tst=t;if(t.n>=5){st[k].lv=t.right>=5?'hard':t.right>=3?'medium':'easy';st[k].win=[];note='📝 Test done: '+t.right+' of 5 right – your level is '+LVN[st[k].lv]+'!'}}
+ else if(QZ.test){const t=st[k].tst||{n:0,right:0};t.n++;if(first)t.right++;st[k].tst=t;if(t.n>=5){st[k].lv=t.right>=5?'hard':t.right>=3?'medium':'easy';st[k].win=[];if(t.right>=4)api('questKid',CHILD.id,'earn',{kind:'test',id:k,label:'Test '+QZ.set.title+' '+t.right+'/5'}).catch(()=>{});note='📝 Test done: '+t.right+' of 5 right – your level is '+LVN[st[k].lv]+'!'}}
  else{const w=(st[k].win||[]).concat([first?1:0]).slice(-10),order=['easy','medium','hard'],i=order.indexOf(st[k].lv);st[k].win=w;
   if(w.length>=10&&w.reduce((a,b)=>a+b,0)>=9&&i<2){st[k].lv=order[i+1];st[k].win=[];note='⬆️ Great work – moving you up to '+LVN[order[i+1]]+'!'}
   else if(w.length>=6&&w.slice(-6).reduce((a,b)=>a+b,0)<=2&&i>0){st[k].lv=order[i-1];st[k].win=[];note='Let us practise at '+LVN[order[i-1]]+' for a while.'}}
@@ -893,7 +893,7 @@ function sdWin(){SD.done=true;const mins=Math.round((Date.now()-SD.t0)/60000),st
  else if(SD.lv==='test'){const lv=SD.miss===0&&mins<=7?'hard':SD.miss<=2&&mins<=12?'medium':'easy';sdSaveState({lv});extra='Test done! Your level: '+lv[0].toUpperCase()+lv.slice(1)}
  else{const o={};o[SD.lv]=(st[SD.lv]||0)+1;let clean=(st.clean||0)+(SD.miss===0?1:0);if(SD.miss>5)clean=-1;const order=['easy','medium','hard'],i=order.indexOf(SD.lv);
   if(clean>=2&&i<2){o.lv=order[i+1];clean=0;extra='⬆️ Two clean puzzles – moving you up to '+order[i+1]+'!'}else if(clean<0&&i>0){o.lv=order[i-1];clean=0;extra='Let us practise a little easier first.'}o.clean=Math.max(0,clean);sdSaveState(o);srMark('sudoku','y'+SD.lv,SD.miss===0)}
- try{api('claimStar',CHILD.id,'Sudoku solved'+(SD.kid?' ('+SD.N+'×'+SD.N+')':' ('+SD.lv+')'),'')}catch(e){}
+ if(SD.miss<=1)api('questKid',CHILD.id,'earn',{kind:'sudoku',id:SD.N+SD.lv,label:'Sudoku solved'}).catch(()=>{});try{api('claimStar',CHILD.id,'Sudoku solved'+(SD.kid?' ('+SD.N+'×'+SD.N+')':' ('+SD.lv+')'),'')}catch(e){}
  SD.msg='🏆 Solved'+(SD.kid?'!':' in '+mins+' min with '+SD.miss+' mistakes.')+(extra?' '+extra:'');SD.sel=null;sdDraw();sayFree('You solved it! '+extra,'en')}
 function sdGiveUp(){sdSaveState({lv:'easy'});SD.done=true;SD.cur=SD.sol.map(r=>r.slice());SD.msg='No problem! You will start at Easy and move up.';sdDraw();sayFree('No problem. You will start at easy and move up step by step.','en')}
 /* ---------- real photos (free photo library of the online encyclopedia), checked by hand; emoji only when no clear photo ---------- */
@@ -910,6 +910,171 @@ function phImg(kind,key,emoji,big){const t=phTitle(kind,key);const fb=`<div styl
  if(u)return `<div data-ph="${esc(t)}"><img src="${u}" alt="" style="max-width:100%;max-height:230px;border-radius:14px;object-fit:contain" onerror="this.parentNode.innerHTML='${emoji}'"></div>`;
  if(!(t in PHC))phFetch([t]);return `<div data-ph="${esc(t)}">${fb}</div>`}
 function phPreload(kind,keys){phFetch(keys.map(k=>phTitle(kind,k)).filter(Boolean))}
+/* ---------- 🗺️ Quest (Yuvaan) and 🍓 Fruit Garden (Ditya): action games opened with EARNED time on game days ---------- */
+const QW={forest:['#86C06C','🌳'],sky:['#93C5FD','☁️'],jungle:['#4D7C0F','🌴'],space:['#1E1B4B','✨'],castle:['#6B7280','🏰'],volcano:['#7F1D1D','🔥'],ocean:['#0E7490','🫧'],desert:['#D6A75C','🌵'],city:['#475569','🏢']};
+const QSTORIES=[
+ {title:'Save the Queen of the Crystal Castle',levels:[
+  {name:'Forest of Zombies',world:'forest',game:'shooter',foe:'🧟',text:'The Crystal Queen has been taken by the Dragon King! Zombies guard the forest path. Clear them to find the first key.'},
+  {name:'Sky Battle',world:'sky',game:'jet',foe:'🦅',text:'You found the first key! Now fly your jet over the mountains – giant eagles attack from above.'},
+  {name:'Dinosaur Jungle',world:'jungle',game:'jumper',foe:'🦖',text:'The second key is hidden deep in the jungle. Run and jump over the dinosaurs!'},
+  {name:'Alien Moon',world:'space',game:'jet',foe:'👽',text:'The Dragon King has friends on the moon. Blast through the alien ships to get the third key.'},
+  {name:'Ghost Castle',world:'castle',game:'shooter',foe:'👻',text:'You reach the dark castle. Ghosts float in every hall. Light them up to open the gates.'},
+  {name:'Dragon Volcano',world:'volcano',game:'jumper',foe:'🐉',text:'The Dragon King waits on the volcano with the Queen. This is the hardest fight – jump the fireballs!'}]},
+ {title:'The Lost Space Station',levels:[
+  {name:'Robot City',world:'city',game:'shooter',foe:'🤖',text:'A message comes from space: the space station is lost and robots have taken over the city. Stop them!'},
+  {name:'Meteor Storm',world:'space',game:'jet',foe:'☄️',text:'Fly up through a meteor storm to reach the station.'},
+  {name:'Desert Scorpions',world:'desert',game:'jumper',foe:'🦂',text:'The station fell into a desert! Run past the scorpions to the crash site.'},
+  {name:'Deep Sea Rescue',world:'ocean',game:'shooter',foe:'🐙',text:'One part sank into the ocean. Clear the sea monsters to bring it back.'},
+  {name:'Alien Mothership',world:'space',game:'jet',foe:'🛸',text:'The aliens want the station too. Beat their mothership!'},
+  {name:'Final Launch',world:'volcano',game:'jumper',foe:'🔥',text:'Fix the station and launch it home – jump over the flames to the rocket!'}]}];
+let QV=null,QG=null,QTICK=null,QUSED=0;
+async function qLoad(op,arg){QV=await api('questKid',CHILD.id,op||'get',arg||{});return QV}
+function qLeft(){return Math.max(0,(QV?QV.leftSec:0)-QUSED)}
+function qLives(){return QV&&QV.unlim?'♾️':'❤️'.repeat(QV?QV.lives:0)||'0'}
+async function openQuest(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'quest',id:CHILD.id});const kid=CHILD.id==='ditya';
+ render(`<div class="card">Loading…</div>`,true);try{await qLoad('get')}catch(e){return render('<div class="card">Could not open right now. Try again.</div>',true)}QUSED=0;
+ const v=QV,mm=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0'),p=v.prog||{};
+ const title=kid?'🍓 Fruit Garden':'🗺️ Quest',st=kid?null:QSTORIES[(p.story||0)%QSTORIES.length],lv=st?st.levels[(p.level||0)%6]:null;
+ const earned=v.earned.map(e=>`<div>✅ ${esc(e.label)} <b style="color:#16A34A">+${e.min} min</b></div>`).join('')||'<div class="muted">No minutes yet this week. Earn them with homework in 1 hour, good test scores, chess, Sudoku and food on time.</div>';
+ let action;
+ if(!v.open)action=`<div class="card" style="background:#FFF6D6;font-weight:800">🔒 Opens on ${esc(v.days.join(' and '))}. Keep earning minutes!</div>`;
+ else if(qLeft()<=0)action=`<div class="card" style="background:#FFE8EE;font-weight:800">${v.minutes?'⏰ Today\'s game time is used up. See you next game day!':'No minutes earned this week – earn them during the week.'}</div>`;
+ else if(!v.unlim&&v.lives<=0)action=`<div class="card" style="background:#FFE8EE"><b>💔 No lives left.</b><div class="muted">Do a quest to win lives back – or wait for next week.</div></div><button class="primary" style="width:100%;min-height:64px;font-size:20px" onclick="qLifeMenu()">❤️ Earn lives</button>`;
+ else action=`<button class="primary" style="width:100%;min-height:70px;font-size:22px" onclick="${kid?'fcStart()':'qPlay()'}">▶ Play · ${mm(qLeft())} left</button>`;
+ render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:22px">${title}</b><span class="tag" style="background:#FFE8EE;color:#B91C1C">${qLives()}</span></div>
+ ${st?`<div class="card"><b>📖 ${esc(st.title)}${(p.season||1)>1?' · Season '+p.season:''}</b><div class="muted">Level ${(p.level||0)+1} of 6: ${esc(lv.name)} ${lv.foe} · round ${(p.round||0)+1} of 5</div></div>`:`<div class="card"><b>🐰 Help Bunny grow the Fruit Garden</b><div class="muted">Level ${(p.level||0)+1} · round ${(p.round||0)+1} of 5</div></div>`}
+ ${action}
+ <div class="card"><b>⏳ My game time this week: ${v.minutes} of ${v.cap} min</b>${v.unlim?`<div style="color:#16A34A;font-weight:800">♾️ Unlimited lives until ${esc(v.unlim)}</div>`:''}<div style="margin-top:6px;line-height:1.8">${earned}</div></div>
+ ${(!v.unlim&&v.lives>0)?`<button style="width:100%" onclick="qLifeMenu()">❤️ Win more lives (quests and projects)</button>`:''}`,true);
+ sayFree(kid?'Fruit Garden!':'Quest!','en')}
+/* ----- session timer: counts only while a game round runs ----- */
+function qTimerStart(){clearInterval(QTICK);let acc=0;QTICK=setInterval(()=>{if(!QG||QG.paused)return;QUSED++;acc++;if(acc>=30){acc=0;api('questKid',CHILD.id,'use',{sec:30}).catch(()=>{})}const el=$('#qTime');if(el)el.textContent=Math.floor(qLeft()/60)+':'+String(qLeft()%60).padStart(2,'0');if(qLeft()<=0){qStop();render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:56px">⏰</div><div style="font-size:22px;font-weight:800">Game time is over for today</div><div class="muted">Great playing! Earn more minutes during the week.</div><button class="primary" style="width:100%;margin-top:12px" onclick="openGames()">🎮 Games</button></div>`,true);sayFree('Game time is over for today. Great playing!','en')}},1000)}
+function qStop(){clearInterval(QTICK);QTICK=null;if(QG){QG.over=true;cancelAnimationFrame(QG.raf)}const left=QUSED%30;if(left&&CHILD)api('questKid',CHILD.id,'use',{sec:left}).catch(()=>{})}
+/* ----- difficulty: mix of easy and tough rounds; keeps him winning about 6–7 times in 10 ----- */
+function qDiff(){const p=QV.prog||{},w=QV.wins||[],r=w.slice(-8),rate=r.length?r.reduce((a,b)=>a+b,0)/r.length:0.6;let d=2+(p.level||0)*0.8+((p.season||1)-1)*3+(p.round||0)*0.5;
+ if(rate>0.75)d+=1.5;if(rate<0.45)d-=1.5;if(Math.random()<0.2)d+=2.5;if((p.round||0)===4&&(p.level||0)===5)d+=3;return Math.max(1,d)}
+/* ----- Yuvaan: play the next round of the current level ----- */
+function qPlay(){const p=QV.prog||{},st=QSTORIES[(p.story||0)%QSTORIES.length],lv=st.levels[(p.level||0)%6];
+ if(!(p.round)&&!p.seen){p.seen=1;QV.prog=p;return tmCard(lv.foe,lv.name,lv.text,lv.text,()=>qRun(lv))}qRun(lv)}
+function qRun(lv){const d=qDiff(),p=QV.prog||{},tough=d>(2+(p.level||0)*0.8+((p.season||1)-1)*3+(p.round||0)*0.5)+2;
+ render(`<div class="row" style="justify-content:space-between;align-items:center;gap:6px"><b>${lv.foe} ${esc(lv.name)} · round ${(p.round||0)+1}/5${tough?' · 🔥 tough':''}</b><span class="tag" style="background:#FFE8EE;color:#B91C1C">${qLives()}</span><span class="tag" style="background:#E8F1FF;color:#1C4AAE">⏱ <span id="qTime"></span></span></div>
+ <div id="qHud" style="font-weight:800;margin:4px 0"></div><canvas id="qCv" width="900" height="480" style="width:100%;max-width:900px;border-radius:14px;touch-action:none;display:block;margin:0 auto"></canvas>
+ <div class="row" style="gap:8px;margin-top:8px" id="qPad"></div>`,true);
+ QG={lv,d,over:false,paused:false,keys:{},touch:{}};qTimerStart();({shooter:gShooter,jet:gJet,jumper:gJumper})[lv.game](QG);
+ sayFree(tough?'This round is tough! Do your best.':'Round '+((p.round||0)+1)+'. Go!','en')}
+function qPadBtns(list){$('#qPad').innerHTML=list.map(([k,l])=>`<button style="flex:1;min-height:64px;font-size:26px" onpointerdown="QG.touch['${k}']=1" onpointerup="QG.touch['${k}']=0" onpointerleave="QG.touch['${k}']=0">${l}</button>`).join('')}
+document.addEventListener('keydown',e=>{if(!QG||QG.over)return;const n=getNav()||{};if(n.v!=='quest')return;QG.keys[e.key]=1;if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault()});
+document.addEventListener('keyup',e=>{if(QG)QG.keys[e.key]=0});
+function qKey(g,...ks){return ks.some(k=>g.keys[k]||g.touch[k])}
+function qBg(x,g,t){const[c,deco]=QW[g.lv.world]||QW.forest;x.fillStyle=c;x.fillRect(0,0,900,480);x.globalAlpha=0.5;x.font='30px serif';for(let i=0;i<10;i++)x.fillText(deco,(i*97+t*0.3)%940-40,40+(i*53)%420);x.globalAlpha=1}
+async function qEnd(win){if(!QG||QG.over&&QG.ended)return;QG.over=true;QG.ended=true;cancelAnimationFrame(QG.raf);clearInterval(QTICK);
+ const kid=CHILD.id==='ditya',p=QV.prog||{},w=(QV.wins||[]).concat([win?1:0]).slice(-20);let msg,next=kid?'fcStart()':'qPlay()',nextLabel='▶ Next round',puzzle=false;
+ if(win){p.round=(p.round||0)+1;if(p.round>=5){p.round=0;p.seen=0;p.level=(p.level||0)+1;puzzle=true;if(p.level>=6){p.level=0;p.story=(p.story||0)+1;if(p.story%QSTORIES.length===0)p.season=(p.season||1)+1}}msg='🏆 Round won!'}
+ else{msg='💥 You lost this round.';if(!QV.unlim){try{await qLoad('lose')}catch(e){}}}
+ try{QV=await api('questKid',CHILD.id,'prog',{prog:p,wins:w})}catch(e){QV.prog=p;QV.wins=w}
+ if(puzzle&&!kid)return qChest();if(puzzle&&kid){nextLabel='▶ Next level: '+FC_RULES[(p.level||0)%FC_RULES.length][1];msg='🌟 Level done! Bunny\'s garden grows 🌷'}
+ const noLives=!QV.unlim&&QV.lives<=0;
+ render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:60px">${win?'🏆':'💥'}</div><div style="font-size:24px;font-weight:800">${msg}</div><div style="font-size:22px;margin-top:6px">${qLives()}</div>
+ ${noLives?`<div class="muted" style="margin-top:6px">No lives left – win them back with a quest.</div><button class="primary" style="width:100%;margin-top:12px" onclick="qLifeMenu()">❤️ Earn lives</button>`:`<button class="primary" style="width:100%;margin-top:12px" onclick="${next}">${win?nextLabel:'🔁 Try again'}</button>`}
+ <button style="width:100%;margin-top:8px" onclick="openQuest()">Quest map</button></div>`,true);
+ sayFree(win?'You won the round!':'You lost this round. '+(noLives?'No lives left. Do a quest to win lives back.':'Try again!'),'en')}
+/* ----- treasure chest puzzle between levels ----- */
+function qPuzzleItem(){const kinds=['groups','parts','names','alike'].filter(k=>QZ_SETS[k]),k=kinds[Math.floor(Math.random()*kinds.length)],set=QZ_SETS[k],it=set.items[Math.floor(Math.random()*set.items.length)];
+ let q,ans=it[0],opts;if(k==='groups'){const g=gParts(it[0]);q='What do we call a group of '+g.a+'?';opts=sdShuffle(GW.filter(w=>w!==g.w&&(GALSO[g.a]||[]).indexOf(w)<0)).slice(0,3).map(w=>gPhrase(w,g.a)).concat([ans])}
+ else if(k==='alike'){q=it[4];opts=[it[0],it[5]]}else{q=it[4]||set.ask;opts=sdShuffle(set.items.filter(x=>x[0]!==ans&&QSEG(x)===QSEG(it)).map(x=>x[0])).slice(0,3).concat([ans])}
+ return{q,ans,opts:sdShuffle(opts),why:it[2]}}
+function qChest(){const P=qPuzzleItem();QG={chest:P};const p=QV.prog||{},st=QSTORIES[(p.story||0)%QSTORIES.length];
+ render(`<div class="card" style="text-align:center"><div style="font-size:80px">🧰</div><b>Level complete! Solve the chest puzzle to open the way.</b></div><div class="card"><div style="font-size:20px;font-weight:800">${esc(P.q)}</div>${P.opts.map((o,i)=>`<button style="display:block;width:100%;margin-top:8px;min-height:54px;font-size:18px;font-weight:800" id="qc${i}" onclick="qChestPick(${i})">${esc(o)}</button>`).join('')}<div id="qcMsg" style="font-weight:800;margin-top:8px"></div></div>`,true);sayFree('Level complete! Solve the chest puzzle. '+P.q,'en')}
+function qChestPick(i){const P=QG.chest,o=P.opts[i];if(o!==P.ans){$('#qc'+i).style.background='#FFD9D9';$('#qcMsg').textContent='Not this one – think again!';sayFree('Not this one. Think again!','en');return}
+ $('#qc'+i).style.background='#DDF5E3';const p=QV.prog||{},st=QSTORIES[(p.story||0)%QSTORIES.length],lv=st.levels[(p.level||0)%6];
+ $('#qcMsg').innerHTML=`💎 Chest opened! ${esc(P.why)}<br><br><b>Next: ${esc(lv.name)} ${lv.foe}</b><div class="muted">${esc(lv.text)}</div><button class="primary" style="width:100%;margin-top:10px" onclick="qPlay()">▶ Go</button>`;sayFree('Correct! The chest is open. '+lv.text,'en')}
+/* ----- game 1: shooter (enemies come from the right) ----- */
+function gShooter(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowUp','▲'],['ArrowDown','▼']]);let py=240,t=0,es=[],bs=[],fx=[],kills=0,hits=0;const need=Math.round(6+g.d*1.2),sp=1.4+g.d*0.35,boss=(QV.prog||{}).round===4;let bossHp=boss?Math.round(6+g.d):0,bossY=240;
+ function f(){if(g.over)return;t++;qBg(x,g,t);if(qKey(g,'ArrowUp','w'))py-=6;if(qKey(g,'ArrowDown','s'))py+=6;py=Math.max(30,Math.min(450,py));
+  if(t%14===0)bs.push({x:90,y:py});if(t%Math.max(14,Math.round(60-g.d*4))===0&&kills+es.length<need)es.push({x:930,y:40+Math.random()*400,v:sp*(0.7+Math.random()*0.6)});
+  bs.forEach(b=>b.x+=12);es.forEach(e=>{e.x-=e.v;if(e.x<60&&!e.hit){e.hit=1;hits++}});
+  es.forEach(e=>bs.forEach(b=>{if(!e.dead&&Math.abs(b.x-e.x)<28&&Math.abs(b.y-e.y)<30){e.dead=1;b.x=2000;kills++;for(let k=0;k<6;k++)fx.push({x:e.x,y:e.y,a:k,l:22})}}));
+  es=es.filter(e=>!e.dead&&!e.hit);bs=bs.filter(b=>b.x<920);
+  if(boss&&kills>=need){bossY=240+Math.sin(t/25)*170;x.font='110px serif';x.fillText(g.lv.foe,760,bossY+40);bs.forEach(b=>{if(b.x>740&&Math.abs(b.y-bossY)<60){b.x=2000;bossHp--}});if(t%45===0)es.push({x:740,y:bossY,v:sp*1.5,shot:1})}
+  x.font='44px serif';es.forEach(e=>x.fillText(e.shot?'🔥':g.lv.foe,e.x-22,e.y+16));fx.forEach(p=>{p.l--;x.font='16px serif';if(p.l>0)x.fillText('⭐',p.x+Math.cos(p.a)*(22-p.l)*3,p.y+Math.sin(p.a)*(22-p.l)*3)});fx=fx.filter(p=>p.l>0);
+  x.fillStyle='#FDE047';bs.forEach(b=>{x.beginPath();x.arc(b.x,b.y,5,0,7);x.fill()});x.font='50px serif';x.fillText('🧑‍🚀',30,py+18);
+  $('#qHud').textContent=(boss&&kills>=need?'BOSS ❤️ '+Math.max(0,bossHp)+' · ':'')+'Defeated '+Math.min(kills,need)+' / '+need+' · Hits '+hits+' / 3';
+  if(hits>=3)return qEnd(false);if(kills>=need&&(!boss||bossHp<=0))return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
+/* ----- game 2: jet fighter (enemies come from the top) ----- */
+function gJet(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([['ArrowLeft','◀'],['ArrowRight','▶']]);let px=450,t=0,es=[],bs=[],fx=[],kills=0,hits=0;const need=Math.round(8+g.d*1.3),sp=1.2+g.d*0.3;
+ function f(){if(g.over)return;t++;qBg(x,g,t);if(qKey(g,'ArrowLeft','a'))px-=8;if(qKey(g,'ArrowRight','d'))px+=8;px=Math.max(30,Math.min(870,px));
+  if(t%12===0)bs.push({x:px,y:420});if(t%Math.max(12,Math.round(55-g.d*4))===0&&kills+es.length<need)es.push({x:40+Math.random()*820,y:-30,v:sp*(0.7+Math.random()*0.6),w:(Math.random()-0.5)*1.5});
+  bs.forEach(b=>b.y-=12);es.forEach(e=>{e.y+=e.v;e.x+=e.w;if(e.x<20||e.x>880)e.w*=-1;if(e.y>450&&!e.hit){e.hit=1;hits++}if(Math.abs(e.x-px)<36&&Math.abs(e.y-440)<34&&!e.hit){e.hit=1;hits++}});
+  es.forEach(e=>bs.forEach(b=>{if(!e.dead&&Math.abs(b.x-e.x)<28&&Math.abs(b.y-e.y)<28){e.dead=1;b.y=-2000;kills++;for(let k=0;k<6;k++)fx.push({x:e.x,y:e.y,a:k,l:22})}}));
+  es=es.filter(e=>!e.dead&&!e.hit);bs=bs.filter(b=>b.y>-20);
+  x.font='44px serif';es.forEach(e=>x.fillText(g.lv.foe,e.x-22,e.y+16));fx.forEach(p=>{p.l--;x.font='16px serif';if(p.l>0)x.fillText('⭐',p.x+Math.cos(p.a)*(22-p.l)*3,p.y+Math.sin(p.a)*(22-p.l)*3)});fx=fx.filter(p=>p.l>0);
+  x.fillStyle='#FDE047';bs.forEach(b=>{x.fillRect(b.x-2,b.y,4,12)});x.font='54px serif';x.fillText('🛩️',px-27,460);
+  $('#qHud').textContent='Shot down '+Math.min(kills,need)+' / '+need+' · Hits '+hits+' / 3';if(hits>=3)return qEnd(false);if(kills>=need)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
+/* ----- game 3: jumper (run and jump over enemies, collect stars) ----- */
+function gJumper(g){const cv=$('#qCv'),x=cv.getContext('2d');qPadBtns([[' ','⤒ Jump']]);let y=380,vy=0,t=0,obs=[],stars=0,hits=0,dist=0,inv=0;const goal=Math.round(900+g.d*160),sp=4+g.d*0.45;
+ cv.onpointerdown=()=>{g.touch[' ']=1;setTimeout(()=>g.touch[' ']=0,120)};
+ function f(){if(g.over)return;t++;dist+=sp;qBg(x,g,t*3);x.fillStyle='rgba(0,0,0,.25)';x.fillRect(0,420,900,60);
+  if(qKey(g,' ','ArrowUp','w')&&y>=380){vy=-15.5}vy+=0.8;y=Math.min(380,y+vy);if(inv>0)inv--;
+  if(t%Math.max(34,Math.round(95-g.d*6))===0)obs.push({x:930,y:Math.random()<0.25?300:385,s:Math.random()<0.4});
+  obs.forEach(o=>{o.x-=sp;if(!o.done&&Math.abs(o.x-120)<34&&Math.abs(o.y-y)<40){o.done=1;if(o.s)stars++;else if(!inv){hits++;inv=40}}});obs=obs.filter(o=>o.x>-40&&!(o.done&&o.s));
+  x.font='46px serif';obs.forEach(o=>x.fillText(o.s?'⭐':g.lv.foe,o.x-23,o.y+18));x.globalAlpha=inv%10<5?1:0.4;x.font='54px serif';x.fillText('🏃',95,y+20);x.globalAlpha=1;
+  x.fillStyle='#fff';x.fillRect(20,20,860,10);x.fillStyle='#22C55E';x.fillRect(20,20,860*Math.min(1,dist/goal),10);
+  $('#qHud').textContent='Run to the flag 🚩 · Stars '+stars+' · Hits '+hits+' / 3';if(hits>=3)return qEnd(false);if(dist>=goal)return qEnd(true);g.raf=requestAnimationFrame(f)}f()}
+/* ----- ❤️ earn lives: the app gives a quest and checks it itself ----- */
+const QREAD=[
+ {t:'The Clever Crow',p:'A thirsty crow found a pot with a little water at the bottom. Its beak could not reach the water. The crow did not give up. It picked up small pebbles and dropped them into the pot one by one. Slowly the water rose to the top, and the crow drank happily.',q:[['Why could the crow not drink at first?',['The water was too low','The pot was empty','It was not thirsty'],0],['What did the crow drop into the pot?',['Pebbles','Leaves','Seeds'],0]]},
+ {t:'The Honest Woodcutter',p:'A poor woodcutter dropped his iron axe into a river. A kind spirit came up with a golden axe and asked, "Is this yours?" The woodcutter said no. The spirit showed a silver axe; again he said no. When the spirit showed the iron axe, he said yes. The spirit was so happy with his honesty that it gave him all three axes.',q:[['Which axe was really his?',['The iron axe','The golden axe','The silver axe'],0],['Why did he get all three axes?',['Because he was honest','Because he cried','Because he was rich'],0]]},
+ {t:'Kalpana Chawla',p:'Kalpana Chawla was born in Karnal, Haryana. As a child she loved looking at aeroplanes and stars. She studied engineering, worked very hard and became the first woman of Indian origin to go to space, in 1997. She showed that big dreams come true with hard work.',q:[['Where was Kalpana Chawla born?',['Karnal','Chennai','Mumbai'],0],['What did she become famous for?',['Going to space','Winning a race','Writing songs'],0]]},
+ {t:'Why Leaves Are Green',p:'Leaves are green because of something called chlorophyll. Chlorophyll catches sunlight. The plant uses this sunlight, water from its roots and air to make its own food. This is called photosynthesis. That is why plants need sunlight to grow.',q:[['What makes leaves green?',['Chlorophyll','Water','Soil'],0],['What do plants make with sunlight?',['Their own food','Stones','Rain'],0]]}];
+const QPROJ={yuvaan:[
+ ['Cardboard house','Build a small house from cardboard boxes: walls, a roof, a door and windows. Then paint it and make the inside – rooms, a bed, a table, a sofa.'],
+ ['Light it up','With the battery, wire, bulb and switch Nanna gives you, make a circuit where the switch turns the bulb on and off. Fix it on a cardboard board neatly.'],
+ ['Learn and teach','Learn something new on your own (a science fact, a magic trick, a chess opening). Make a small poster, then teach it to Amma or Ditya.'],
+ ['Painting','Paint a picture of your dream city or a place from your story quest. Fill the whole page with colour.'],
+ ['Model','Make a model of a rocket, car, robot or bridge from paper, cardboard and tape. It should stand on its own.']],
+ ditya:[['Paper flower','Make a flower from coloured paper and stick it on a card.'],['Colour sort','Sort your toys into groups by colour – red, blue, yellow, green.'],['Clay fruits','Make 3 fruits with clay or dough.'],['Helper','Water the plants with Amma and tell what you did.']]};
+function qLifeMenu(){++NAVSEQ;setNav({v:'quest',id:CHILD.id});const kid=CHILD.id==='ditya';
+ render(`<b style="font-size:22px">❤️ Win lives</b><div class="muted">Choose a quest. Get it right and lives come back.</div>
+ <div class="kgrid">${kid?`<button class="kt" style="background:#E9F7E2" onclick="qLifeQuiz()"><span>🖼️</span>3 picture questions<div class="muted" style="font-size:12px">+1 ❤️</div></button>`:`<button class="kt" style="background:#E9F7E2" onclick="qLifeQuiz()"><span>🧠</span>3 knowledge puzzles<div class="muted" style="font-size:12px">+1 ❤️</div></button><button class="kt" style="background:#E6F4FF" onclick="qLifeRead()"><span>📖</span>Read and answer<div class="muted" style="font-size:12px">+1 ❤️</div></button><button class="kt" style="background:#FFF6D6" onclick="qLifeWord()"><span>🔤</span>Unscramble the word<div class="muted" style="font-size:12px">+1 ❤️</div></button>`}
+ <button class="kt" style="background:#FDEBF3" onclick="qProjMenu()"><span>🛠️</span>Real-world project<div class="muted" style="font-size:12px">+1 / +3 ❤️ or ♾️ for a week</div></button></div>
+ <button style="width:100%;margin-top:8px" onclick="openQuest()">Back</button>`,true);sayFree('Choose a quest to win lives back.','en')}
+async function qGiveLife(task){try{await qLoad('life',{task})}catch(e){}render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:60px">❤️</div><div style="font-size:24px;font-weight:800">+1 life!</div><div style="font-size:22px">${qLives()}</div><button class="primary" style="width:100%;margin-top:12px" onclick="openQuest()">▶ Back to the game</button></div>`,true);sayFree('Well done! You won a life back.','en')}
+function qNoLife(){render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:56px">🙂</div><div style="font-size:22px;font-weight:800">Not this time</div><div class="muted">Try another quest – a new one comes each time.</div><button class="primary" style="width:100%;margin-top:12px" onclick="qLifeMenu()">Choose a quest</button></div>`,true);sayFree('Not this time. Try another quest.','en')}
+function qAskSeq(list,task){let i=0,right=0;const kid=CHILD.id==='ditya';const step=()=>{if(i>=list.length)return right===list.length?qGiveLife(task):qNoLife();const Q=list[i];
+ render(`<div class="muted" style="font-weight:800">Quest ${i+1} of ${list.length}</div>${Q.pic?`<div style="text-align:center">${Q.pic}</div>`:''}<div class="card"><div style="font-size:20px;font-weight:800">${esc(Q.q)}</div>${Q.opts.map((o,j)=>`<button style="display:block;width:100%;margin-top:8px;min-height:54px;font-size:18px;font-weight:800" onclick="QSEQ(${j})">${esc(o)}</button>`).join('')}</div>`,true);
+ window.QSEQ=j=>{if(Q.opts[j]===Q.ans)right++;i++;step()};sayFree(Q.q+(kid?' Is it '+Q.opts.join(', or ')+'?':''),'en')};step()}
+function qLifeQuiz(){const kid=CHILD.id==='ditya',list=[];for(let n=0;n<3;n++){if(kid){const k=['babies','namesKid','partsKid'][n],set=QZ_SETS[k],it=set.items[Math.floor(Math.random()*set.items.length)];list.push({q:it[4]||set.ask,ans:it[0],opts:sdShuffle(sdShuffle(set.items.filter(x=>x[0]!==it[0]).map(x=>x[0])).slice(0,2).concat([it[0]])),pic:phImg(k,it[0],it[1])})}else list.push(qPuzzleItem())}qAskSeq(list,'3 puzzles')}
+function qLifeRead(){const R=QREAD[Math.floor(Math.random()*QREAD.length)];render(`<b style="font-size:20px">📖 ${esc(R.t)}</b><div class="card" style="font-size:19px;line-height:1.6">${esc(R.p)}</div><button class="primary" style="width:100%;min-height:56px" onclick="qLifeReadQ()">I have read it ▶</button>`,true);window.QR=R}
+function qLifeReadQ(){const R=window.QR;qAskSeq(R.q.map(([q,o,a])=>({q,ans:o[a],opts:sdShuffle(o.slice())})),'reading')}
+function qLifeWord(){const list=WG_Y[5],it=list[Math.floor(Math.random()*list.length)],w=it[0];let s=w;while(s===w)s=sdShuffle(w.split('')).join('');
+ render(`<b style="font-size:20px">🔤 Unscramble the word</b><div class="card" style="text-align:center"><div style="font-size:40px;letter-spacing:8px;font-weight:900">${s.toUpperCase()}</div><div class="muted">Clue: ${esc(it[1])}</div></div><div class="row" style="gap:8px"><input id="qwIn" style="flex:1;font-size:22px;min-height:54px" autocomplete="off" onkeydown="if(event.key==='Enter')qLifeWordCheck('${w}')"><button class="primary" onclick="qLifeWordCheck('${w}')">Check</button></div>`,true);sayFree('Unscramble the word. Clue: '+it[1],'en')}
+function qLifeWordCheck(w){const v=($('#qwIn').value||'').trim().toLowerCase();if(v===w)qGiveLife('unscramble');else qNoLife()}
+function qProjMenu(){const kid=CHILD.id==='ditya',L=QPROJ[kid?'ditya':'yuvaan'];
+ render(`<b style="font-size:22px">🛠️ Real-world projects</b><div class="muted">Do it for real, then send a photo. Small try = +1 ❤️ · good finished project = +3 ❤️ · big special project = ♾️ unlimited lives for a week.</div>
+ ${L.map((p,i)=>`<div class="card"><b>${esc(p[0])}</b><div class="muted" style="margin-top:4px">${esc(p[1])}</div><button class="primary" style="width:100%;margin-top:8px" onclick="qProjSend(${i})">📷 I made it – send a photo</button></div>`).join('')}<button style="width:100%" onclick="qLifeMenu()">Back</button>`,true)}
+function qProjSend(i){const kid=CHILD.id==='ditya',P=QPROJ[kid?'ditya':'yuvaan'][i];
+ render(`<b style="font-size:20px">📷 ${esc(P[0])}</b><div class="card"><input type="file" accept="image/*" capture="environment" id="qpFile" style="font-size:16px"><div style="margin-top:10px;font-weight:800">Tell how you made it:</div><textarea id="qpTxt" rows="3" style="width:100%;font-size:17px" placeholder="I used… first I… then I…"></textarea><button class="primary" style="width:100%;margin-top:10px;min-height:54px" onclick="qProjGo(${i})">Send</button><div id="qpMsg" style="margin-top:8px;font-weight:800"></div></div>`,true)}
+async function qProjGo(i){const kid=CHILD.id==='ditya',P=QPROJ[kid?'ditya':'yuvaan'][i],f=$('#qpFile').files[0];if(!f)return toast('Take a photo first');$('#qpMsg').textContent='Looking at your project…';
+ const b64=await new Promise((res,rej)=>{const img=new Image();img.onload=()=>{const k=Math.min(1,900/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',0.8))};img.onerror=rej;img.src=URL.createObjectURL(f)});
+ try{const v=await api('questProject',CHILD.id,P[0],P[1],b64,$('#qpTxt').value);QV=v;const g=v.grade,r=g==='big'?'♾️ Unlimited lives for a week!':g==='medium'?'❤️❤️❤️ +3 lives!':g==='small'?'❤️ +1 life!':'Not yet – finish it and send again.';
+  render(`<div class="card" style="text-align:center;padding:24px"><div style="font-size:60px">${g==='none'?'🙂':'🏆'}</div><div style="font-size:22px;font-weight:800">${esc(r)}</div><div class="muted" style="margin-top:6px">${esc(v.say||'')}</div><button class="primary" style="width:100%;margin-top:12px" onclick="openQuest()">▶ Back to the game</button></div>`,true);sayFree((v.say||'')+' '+r.replace(/[^\w\s!+.–-]/g,''),'en')}catch(e){$('#qpMsg').textContent='Could not send – try again.'}}
+/* ---------- Ditya: 🍓 Fruit Cutter – cut only the right ones (fruits / red / starts with…) ---------- */
+const FC_ITEMS=[['🍎','apple','fruit','red'],['🍌','banana','fruit','yellow'],['🍇','grapes','fruit','purple'],['🍊','orange','fruit','orange'],['🍓','strawberry','fruit','red'],['🍉','watermelon','fruit','green'],['🥭','mango','fruit','yellow'],['🍒','cherry','fruit','red'],['🥕','carrot','veg','orange'],['🥦','broccoli','veg','green'],['🍆','brinjal','veg','purple'],['🌽','corn','veg','yellow'],['🥔','potato','veg','brown'],['🫑','capsicum','veg','green'],['🧅','onion','veg','purple']];
+const FC_RULES=[['fruit','Cut only the FRUITS!',i=>i[2]==='fruit'],['veg','Cut only the VEGETABLES!',i=>i[2]==='veg'],['red','Cut only the RED ones!',i=>i[3]==='red'],['b','Cut the ones that start with B!',i=>i[1][0]==='b'],['green','Cut only the GREEN ones!',i=>i[3]==='green'],['c','Cut the ones that start with C!',i=>i[1][0]==='c']];
+function fcStart(){const p=QV.prog||{},R=FC_RULES[(p.level||0)%FC_RULES.length],teach=tmGet('fruitcut').mode==='teach';
+ if(!(p.round))return tmCard('🐰','Round '+((p.round||0)+1),R[1],'Help Bunny! '+R[1],()=>fcRun(R,teach));fcRun(R,teach)}
+function fcRun(R,teach){const p=QV.prog||{};render(`<div class="row" style="justify-content:space-between;align-items:center"><b>🍓 ${esc(R[1])}</b>${tmChip(teach?'teach':'play')}<span class="tag" style="background:#FFE8EE;color:#B91C1C">${qLives()}</span><span class="tag" style="background:#E8F1FF;color:#1C4AAE">⏱ <span id="qTime"></span></span></div><div id="qHud" style="font-weight:800;margin:4px 0"></div><canvas id="qCv" width="900" height="480" style="width:100%;max-width:900px;border-radius:14px;touch-action:none;display:block;margin:0 auto"></canvas>`,true);
+ const g=QG={lv:{world:'forest'},over:false,paused:false,keys:{},touch:{}};qTimerStart();sayFree(R[1],'en');
+ const cv=$('#qCv'),x=cv.getContext('2d');let t=0,items=[],good=0,bad=0,trail=[],down=false,halves=[];const need=6+Math.min(6,(p.level||0)),mx=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*900/r.width,(e.clientY-r.top)*480/r.height]};
+ const cut=(a,b)=>{items.forEach(o=>{if(!o.cut&&Math.hypot(o.x-a,o.y-b)<44){o.cut=1;if(R[2](o.it)){good++;halves.push({e:o.it[0],x:o.x,y:o.y,l:30});sayFree(o.it[1],'en')}else{bad++;o.wrong=40;sayFree('Oops, '+o.it[1]+'!','en')}}})};
+ cv.onpointerdown=e=>{down=true;trail=[mx(e)];cut(...mx(e))};cv.onpointermove=e=>{if(!down)return;const m=mx(e);trail.push(m);if(trail.length>8)trail.shift();cut(...m)};window.onpointerup=()=>{down=false;trail=[]};
+ function f(){if(g.over)return;t++;const gr=x.createLinearGradient(0,0,0,480);gr.addColorStop(0,'#FDF2F8');gr.addColorStop(1,'#ECFCCB');x.fillStyle=gr;x.fillRect(0,0,900,480);x.font='40px serif';x.fillText('🐰',20,470);
+  if(t%Math.max(34,60-(p.level||0)*4)===0){const it=FC_ITEMS[Math.floor(Math.random()*FC_ITEMS.length)];items.push({it,x:120+Math.random()*660,y:500,vy:-11-Math.random()*2.5,vx:(Math.random()-0.5)*3})}
+  items.forEach(o=>{o.x+=o.vx;o.y+=o.vy;o.vy+=0.2});items=items.filter(o=>o.y<520&&!(o.cut&&!o.wrong));
+  items.forEach(o=>{if(o.cut&&o.wrong){o.wrong--;x.font='54px serif';x.fillText('❌',o.x-27,o.y)}else if(!o.cut){if(teach&&R[2](o.it)){x.fillStyle='rgba(34,197,94,.35)';x.beginPath();x.arc(o.x,o.y-18,40,0,7);x.fill()}x.font='58px serif';x.fillText(o.it[0],o.x-29,o.y)}});
+  halves.forEach(h=>{h.l--;h.y+=3;x.font='38px serif';if(h.l>0){x.fillText(h.e,h.x-40,h.y);x.fillText(h.e,h.x+5,h.y+8)}});halves=halves.filter(h=>h.l>0);
+  if(trail.length>1){x.strokeStyle='rgba(255,255,255,.95)';x.lineWidth=8;x.beginPath();x.moveTo(...trail[0]);trail.forEach(p=>x.lineTo(...p));x.stroke()}
+  $('#qHud').textContent='Right '+good+' / '+need+' · Oops '+bad+' / 3';if(bad>=3){tmNote('fruitcut',false);return qEnd(false)}if(good>=need){tmNote('fruitcut',bad===0);return qEnd(true)}g.raf=requestAnimationFrame(f)}f()}
 /* ---------- ♟️ Chess school for Ditya: learn one piece at a time, then practise (free, on the device) ---------- */
 const CK_P=[['rook','♜','The rook moves in straight lines – up, down, left and right – as far as it likes.'],['bishop','♝','The bishop moves on the slants, like the letter X.'],['queen','♛','The queen is the strongest! She moves straight AND on the slants.'],['king','♚','The king moves just one step, any way.'],['knight','♞','The knight jumps like the letter L – two steps, then one step to the side. It can jump over others!'],['pawn','♟','The pawn walks one step forward. On its very first move it can walk two steps.']];
 let CK=null;
@@ -1193,8 +1358,9 @@ function adminLoginScreen(){render(`<div style="font-size:22px;font-weight:800">
  <label>Who?<select id="aRole"><option value="gowthami">Gowthami (admin)</option><option value="karthik">Karthik</option></select></label>
  <label>PIN<input id="aPin" type="password" inputmode="numeric"></label><div class="muted">First time: the PIN you type now becomes your PIN.</div>
  <button class="green" onclick="doLogin()">Open</button>`,true)}
+async function adminFood(k,meal){try{await api('adminQuest',ADMIN.token,k,'food',{meal});toast(meal+' on time ✓ +5 min')}catch(e){toast('Could not save')}adminHome('quest')}
 async function doLogin(){const r=await api('adminLogin',$('#aRole').value,$('#aPin').value);if(!r.ok)return toast('Wrong PIN');ADMIN=r;try{localStorage.setItem('ydAdmin',JSON.stringify(r))}catch(e){}showFab();pollThread();adminHome('today')}
-const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','&#10022; Ask'],['use','📊 Usage']];
+const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','&#10022; Ask'],['use','📊 Usage'],['quest','🎮 Game time']];
 async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
  const d=await api('adminToday',ADMIN.token);let body='';
  const kidOpts=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
@@ -1211,6 +1377,8 @@ async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PEN
  if(tab==='music'){body=`<div class="card"><b>Add music for a routine</b><label>Routine<select id="mRt"><option value="brushing">Brushing</option><option value="washroom">Washroom</option><option value="ready">Get ready</option><option value="exercise">Exercise / yoga</option><option value="bath">After bath (devotional)</option><option value="breakfast">Breakfast (devotional)</option></select></label><label>Title<input id="mTitle" placeholder="e.g. Flute – morning raga"></label><label>YouTube link or Google Drive link<input id="mLink"></label><button class="green" style="margin-top:8px" onclick="addMusic()">Add (approved)</button><div class="muted" style="margin-top:8px">Brushing and washroom work best with Drive files of the right length. Devotional plays from official YouTube channels.</div></div>`}
  if(tab==='ask'){body=`<div class="card"><b>&#10022; Chat</b><div class="muted" style="margin-top:4px">Ask anything about the app or say what you want changed – in Telugu or English. Answers come here; a change is made only after you tap <b>Yes, make it</b>, and you see Saved → Being built → Done &#10003; in the same chat. The &#10022; button at the top opens the same chat on every screen.</div><button class="green" style="margin-top:10px;width:100%" onclick="askOpen()">Open &#10022; chat</button></div>`}
  if(tab==='use'){const U=await api('adminUsage',ADMIN.token);body=usageDash(U)}
+ if(tab==='quest'){const Q=await api('adminQuest',ADMIN.token,'','get',{});body=['yuvaan','ditya'].map(k=>{const v=Q[k],n=k==='ditya'?'Ditya':'Yuvaan';return `<div class="card"><b>${n}</b> – game time this week: <b>${v.minutes} of ${v.cap} min</b> · today used ${Math.round(v.usedSec/60)} min · lives ${v.unlim?'♾️ until '+esc(v.unlim):v.lives}<div class="muted">Opens on ${esc(v.days.join(', '))}</div><div style="margin-top:6px;line-height:1.7">${v.earned.map(e=>'✅ '+esc(e.label)+' +'+e.min).join('<br>')||'<span class="muted">Nothing earned yet</span>'}</div>
+  <div class="grid2" style="margin-top:8px"><button onclick="adminFood('${k}','Lunch')">🍽️ Lunch on time</button><button onclick="adminFood('${k}','Dinner')">🍽️ Dinner on time</button></div></div>`}).join('')+'<div class="card muted">Lives and game rules are run by the game itself (quests and projects). Here you only tick food on time.</div>'}
  if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800">Admin · ${esc(ADMIN.role)}</div>`+tabs+body,true)}
 function liveCards(L){return ['yuvaan','ditya'].map(k=>{const n=BOOT.children.find(c=>c.id===k)||{name:k};const s=L[k].screen;const st=s.over?'<span style="color:#C62828;font-weight:800">Stopped – rest screen showing</span>':(s.stopIn?'Stops in '+s.stopIn+' min':(s.leftMin!=null?s.leftMin+' min left today':'No limit today'));
  return `<div class="card"><div class="row" style="justify-content:space-between"><b>${esc(n.name)}</b><span class="muted">used ${s.usedMin} min today</span></div><div style="margin:6px 0">${st}</div>
