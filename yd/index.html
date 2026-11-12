@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v18 · Thu 12/11 15:00';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v19 · Thu 12/11 15:00';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -109,7 +109,7 @@ async function start(){const jm=(location.hash||'').match(/join=([a-f0-9]{20})/)
  restoreNav()}
 function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children.find(c=>c.id===n.id);
  if(kid&&kid.introDone===false&&n.v==='talk')n.v='child';
- if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='colour')return openColour(n.i||0)}
+ if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='colour')return openColour(n.i||0)}
  if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
  goHome()}
 function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN);if(ADMIN)updateDot()}
@@ -139,7 +139,7 @@ function goHome(){++NAVSEQ;setNav({v:'home'});PENDINGVIEW=()=>goHome();Voice.sto
 async function openChild(id){const SEQ=++NAVSEQ;setNav({v:'child',id:id});PENDINGVIEW=()=>openChild(id);CHILD=BOOT.children.find(c=>c.id===id);if(RESTING[id])return showRest();
  const t=await api('getToday',id);{const n=new Date();t.now=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')}
  const nowIdx=t.slots.findIndex((s,i)=>s.time<=t.now&&(!t.slots[i+1]||t.slots[i+1].time>t.now));
- if(SEQ!==NAVSEQ)return;if(id==='ditya')return render(dityaHome(t),true);render(`<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:24px;font-weight:800">Hi ${esc(CHILD.name)}!</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">${t.starsApproved} stars today</span></div>
+ if(SEQ!==NAVSEQ)return;if(id==='ditya')return render(dityaHome(t),true);if(id==='yuvaan')return render(yuvaanHome(t,nowIdx),true);render(`<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:24px;font-weight:800">Hi ${esc(CHILD.name)}!</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">${t.starsApproved} stars today</span></div>
  ${CHILD.introDone?'':`<button class="card big" style="background:#FFF1C9" onclick="openTalk('intro')"><span style="font-size:34px">&#128075;</span><div><div style="font-size:19px;font-weight:800">Meet your helper</div><div class="muted">Choose a name for your helper</div></div></button>`}
  <button class="primary" style="min-height:64px;font-size:19px" onclick="openTalk('${defaultMode(t)}')">Talk to ${esc(CHILD.helperName)}</button>
  <div class="grid2"><button class="ghost" onclick="openHomework()">Homework</button><button class="ghost" onclick="openStars()">My stars</button><button class="ghost" onclick="openVideos()">Videos</button><button class="ghost" onclick="openTalk('story')">Story</button></div>
@@ -319,6 +319,148 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
   start('reconnect')}
  function say(t){if(on&&ws&&ws.readyState===1)ws.send(JSON.stringify({realtimeInput:{text:'(Say this to the child now, warmly, in your own words, in one or two short sentences: '+t+')'}}))}
  return{start,stop,say,toMic,toggle(){on||busy?stop():start('start')},get on(){return on||busy}}})();
+/* ---------- chess: small offline engine (Yuvaan) ---------- */
+const CH={VAL:{p:100,n:300,b:320,r:500,q:900,k:0},
+ parse(fen){const [pos,turn,cas,ep]=fen.split(' ');const b=[];pos.split('/').forEach(r=>{for(const ch of r){if(/\d/.test(ch))for(let i=0;i<+ch;i++)b.push('.');else b.push(ch)}});
+  return{b,turn:turn||'w',cas:cas&&cas!=='-'?cas:'',ep:ep&&ep!=='-'?(8-(+ep[1]))*8+(ep.charCodeAt(0)-97):-1}},
+ white:p=>p!=='.'&&p===p.toUpperCase(),col:p=>p==='.'?null:(p===p.toUpperCase()?'w':'b'),
+ attacked(b,sq,by){const r=sq>>3,c=sq&7,at=(rr,cc)=>rr>=0&&rr<8&&cc>=0&&cc<8?b[rr*8+cc]:null,is=(p,t)=>p&&p!=='.'&&CH.col(p)===by&&p.toLowerCase()===t;
+  const pd=by==='w'?1:-1;if(is(at(r+pd,c-1),'p')||is(at(r+pd,c+1),'p'))return true;
+  for(const[dr,dc]of[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]])if(is(at(r+dr,c+dc),'n'))return true;
+  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if((dr||dc)&&is(at(r+dr,c+dc),'k'))return true;
+  for(const[dr,dc,ts]of[[1,0,'rq'],[-1,0,'rq'],[0,1,'rq'],[0,-1,'rq'],[1,1,'bq'],[1,-1,'bq'],[-1,1,'bq'],[-1,-1,'bq']]){let rr=r+dr,cc=c+dc;while(rr>=0&&rr<8&&cc>=0&&cc<8){const p=b[rr*8+cc];if(p!=='.'){if(CH.col(p)===by&&ts.includes(p.toLowerCase()))return true;break}rr+=dr;cc+=dc}}
+  return false},
+ kingSq(b,c){return b.indexOf(c==='w'?'K':'k')},
+ pseudo(s){const{b,turn}=s,ms=[],opp=turn==='w'?'b':'w';
+  for(let sq=0;sq<64;sq++){const p=b[sq];if(p==='.'||CH.col(p)!==turn)continue;const r=sq>>3,c=sq&7,t=p.toLowerCase();
+   const add=(to,extra)=>ms.push(Object.assign({f:sq,t:to,p:p,cap:b[to]},extra||{}));
+   if(t==='p'){const d=turn==='w'?-1:1,start=turn==='w'?6:1,last=turn==='w'?0:7,one=sq+d*8;
+    if(r+d>=0&&r+d<8&&b[one]==='.'){add(one,(r+d)===last?{promo:turn==='w'?'Q':'q'}:null);if(r===start&&b[one+d*8]==='.')add(one+d*8,{dbl:1})}
+    for(const dc of[-1,1]){const cc=c+dc;if(cc<0||cc>7||r+d<0||r+d>7)continue;const to=(r+d)*8+cc;if(b[to]!=='.'&&CH.col(b[to])===opp)add(to,(r+d)===last?{promo:turn==='w'?'Q':'q'}:null);else if(to===s.ep)add(to,{epc:r*8+cc})}}
+   else if(t==='n'||t==='k'){const ds=t==='n'?[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]]:[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+    for(const[dr,dc]of ds){const rr=r+dr,cc=c+dc;if(rr<0||rr>7||cc<0||cc>7)continue;const to=rr*8+cc;if(b[to]==='.'||CH.col(b[to])===opp)add(to)}
+    if(t==='k'){const home=turn==='w'?60:4,K=turn==='w'?'K':'k',Q=turn==='w'?'Q':'q';
+     if(sq===home&&!CH.attacked(b,home,opp)){if(s.cas.includes(K)&&b[home+1]==='.'&&b[home+2]==='.'&&b[home+3]===(turn==='w'?'R':'r')&&!CH.attacked(b,home+1,opp)&&!CH.attacked(b,home+2,opp))add(home+2,{castle:'k'});
+      if(s.cas.includes(Q)&&b[home-1]==='.'&&b[home-2]==='.'&&b[home-3]==='.'&&b[home-4]===(turn==='w'?'R':'r')&&!CH.attacked(b,home-1,opp)&&!CH.attacked(b,home-2,opp))add(home-2,{castle:'q'})}}}
+   else{const ds=t==='b'?[[1,1],[1,-1],[-1,1],[-1,-1]]:t==='r'?[[1,0],[-1,0],[0,1],[0,-1]]:[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+    for(const[dr,dc]of ds){let rr=r+dr,cc=c+dc;while(rr>=0&&rr<8&&cc>=0&&cc<8){const to=rr*8+cc;if(b[to]==='.')add(to);else{if(CH.col(b[to])===opp)add(to);break}rr+=dr;cc+=dc}}}}
+  return ms},
+ make(s,m){const b=s.b.slice();b[m.t]=m.promo||m.p;b[m.f]='.';if(m.epc!=null)b[m.epc]='.';
+  if(m.castle){const home=m.f;if(m.castle==='k'){b[home+1]=b[home+3];b[home+3]='.'}else{b[home-1]=b[home-4];b[home-4]='.'}}
+  let cas=s.cas;const strip=x=>{cas=cas.replace(x,'')};if(m.p==='K')strip(/[KQ]/g);if(m.p==='k')strip(/[kq]/g);
+  [[63,'K'],[56,'Q'],[7,'k'],[0,'q']].forEach(([sq,f])=>{if(m.f===sq||m.t===sq)strip(f)});
+  return{b,turn:s.turn==='w'?'b':'w',cas,ep:m.dbl?(m.f+m.t)/2:-1}},
+ legal(s){return CH.pseudo(s).filter(m=>{const n=CH.make(s,m);return !CH.attacked(n.b,CH.kingSq(n.b,s.turn),n.turn)})},
+ inCheck(s){return CH.attacked(s.b,CH.kingSq(s.b,s.turn),s.turn==='w'?'b':'w')},
+ evalW(b){let v=0;for(let sq=0;sq<64;sq++){const p=b[sq];if(p==='.')continue;const t=p.toLowerCase(),r=sq>>3,c=sq&7;let x=CH.VAL[t];
+  const cen=3.5-Math.max(Math.abs(r-3.5),Math.abs(c-3.5));if(t==='n'||t==='b')x+=cen*8;if(t==='p')x+=(CH.white(p)?(6-r):(r-1))*6+(c>1&&c<6?cen*3:0);if(t==='q')x+=cen*2;
+  v+=CH.white(p)?x:-x}return v},
+ search(s,d,a,bt){const ms=CH.legal(s);if(!ms.length)return CH.inCheck(s)?-100000-d:0;if(d===0)return(s.turn==='w'?1:-1)*CH.evalW(s.b);
+  ms.sort((x,y)=>(y.cap!=='.'?CH.VAL[y.cap.toLowerCase()]:0)-(x.cap!=='.'?CH.VAL[x.cap.toLowerCase()]:0));
+  for(const m of ms){const v=-CH.search(CH.make(s,m),d-1,-bt,-a);if(v>=bt)return v;if(v>a)a=v}return a},
+ best(s,d,noise){const ms=CH.legal(s);let bestM=null,bv=-Infinity;for(const m of ms){let v=-CH.search(CH.make(s,m),d-1,-Infinity,Infinity);if(noise)v+=Math.random()*noise;if(v>bv){bv=v;bestM=m}}return bestM},
+ name:{p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'},
+ sqName:sq=>String.fromCharCode(97+(sq&7))+(8-(sq>>3))};
+/* ---------- Yuvaan: home tiles, writing, typing, chess ---------- */
+function yuvaanHome(t,nowIdx){return `<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:26px;font-weight:800">Hi ${esc(CHILD.name)}! 🚀</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">⭐ ${t.starsApproved}</span></div>
+ ${CHILD.introDone?'':`<button class="card big" style="background:#FFF1C9" onclick="openTalk('intro')"><span style="font-size:34px">&#128075;</span><div><div style="font-size:19px;font-weight:800">Meet your helper</div></div></button>`}
+ <div class="kgrid">
+ <button class="kt" style="background:#E8F1FF" onclick="openTalk('${defaultMode(t)}')"><span>💬</span>Talk to ${esc(CHILD.helperName)}</button>
+ <button class="kt" style="background:#EFEAFB" onclick="openHomework()"><span>📚</span>Homework</button>
+ <button class="kt" style="background:#FFF1C9" onclick="openStars()"><span>⭐</span>My stars</button>
+ <button class="kt" style="background:#EEF3FF" onclick="openTalk('speakEn')"><span>🗣️</span>English talk</button>
+ <button class="kt" style="background:#FFF0E0" onclick="openTalk('speakHi')"><span>🗣️</span>हिंदी talk</button>
+ <button class="kt" style="background:#E3F7F7" onclick="openTalk('story')"><span>📖</span>Story</button>
+ <button class="kt" style="background:#FFEFE3" onclick="openTrace('wen')"><span>✍️</span>English writing</button>
+ <button class="kt" style="background:#F6ECFF" onclick="openTrace('whi')"><span>✍️</span>हिंदी writing</button>
+ <button class="kt" style="background:#EAF8EE" onclick="openTrace('wte')"><span>✍️</span>తెలుగు writing</button>
+ <button class="kt" style="background:#E6F4FF" onclick="openTyping()"><span>⌨️</span>Typing</button>
+ <button class="kt" style="background:#F1EDE6" onclick="openChess()"><span>♟️</span>Chess</button>
+ <button class="kt" style="background:#EFEFEF" onclick="openVideos()"><span>🎬</span>Videos</button>
+ </div>
+ <div class="kgrid" style="margin-top:10px"><button class="kt sm" onclick="openRoutine('brushing')"><span>🪥</span>Brushing</button><button class="kt sm" onclick="openRoutine('washroom')"><span>🚿</span>Washroom</button><button class="kt sm" onclick="openRoutine('ready')"><span>👕</span>Get ready</button><button class="kt sm" onclick="openRoutine('exercise')"><span>🧘</span>Exercise</button></div>
+ <div class="muted" style="font-weight:800;margin-top:12px">TODAY</div>`+
+ (t.slots.length?t.slots.map((s,i)=>`<div class="slot ${i===nowIdx?'now':''}"><span class="t">${esc(s.time)}</span><div><div style="font-weight:700">${esc(s.activity)}</div></div></div>`).join(''):'<div class="card muted">Nothing planned yet.</div>')}
+
+/* --- typing: speed test, then practice a little above his best (accuracy first) --- */
+const TYPE_TEXTS=['The sun rises in the east and sets in the west. Every morning the birds sing on the tall tree near our house.',
+ 'My best friend and I like to play chess after school. We think before every move and shake hands after the game.',
+ 'Water is very important for all living things. We should never waste it and always close the tap after use.',
+ 'Elephants are the largest animals on land. They have long trunks, big ears and a very good memory.',
+ 'Reading books makes us smart and happy. A good book can take us to a new world without leaving our room.',
+ 'Electricity comes from power stations through long wires. The plastic cover on wires keeps us safe from shocks.',
+ 'India has many states, languages and festivals. People of different places live together like one big family.',
+ 'A healthy body needs good food, clean water, exercise and enough sleep. Fruits and vegetables keep us strong.',
+ 'Plants make their own food using sunlight, water and air. This is called photosynthesis.',
+ 'The moon does not have its own light. It shines because the light of the sun falls on it.'];
+let TY=null;
+function tyKey(){return 'ydType_'+(CHILD?CHILD.id:'x')}
+function tyLog(){try{return JSON.parse(localStorage.getItem(tyKey())||'[]')}catch(e){return[]}}
+function tySave(l){try{localStorage.setItem(tyKey(),JSON.stringify(l.slice(-60)))}catch(e){}}
+function openTyping(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'typing',id:CHILD.id});
+ const log=tyLog(),best=log.reduce((a,x)=>x.acc>=90&&x.wpm>a?x.wpm:a,0),first=!log.length,text=TYPE_TEXTS[Math.floor(Math.random()*TYPE_TEXTS.length)];
+ TY={text,start:0,done:false,best,first,target:first?0:best+2};
+ const days={};log.forEach(x=>{days[x.d]=Math.max(days[x.d]||0,x.wpm)});const dk=Object.keys(days).slice(-10),mx=Math.max(10,...dk.map(k=>days[k]));
+ render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">⌨️ ${first?'Typing speed test':'Typing practice'}</b><span class="tag" style="background:#E6F4FF;color:#1C4AAE">${first?'Type the text below':'Best '+best+' wpm · aim '+TY.target}</span></div>
+ <div class="card" id="tyText" style="font-size:20px;line-height:1.7;letter-spacing:.2px">${tyPaint('')}</div>
+ <textarea id="tyIn" rows="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Start typing here – the clock starts with your first key" style="font-size:18px"></textarea>
+ <div class="grid2"><div class="card" style="text-align:center"><div class="muted">Speed</div><div id="tyW" style="font-size:30px;font-weight:800">0</div><div class="muted">words / min</div></div><div class="card" style="text-align:center"><div class="muted">Accuracy</div><div id="tyA" style="font-size:30px;font-weight:800">100%</div><div class="muted">correct letters</div></div></div>
+ <div id="tyRes"></div>
+ ${dk.length?`<div class="card"><b>My best speed (last days)</b><div style="display:flex;align-items:flex-end;gap:6px;height:80px;margin-top:8px">${dk.map(k=>`<div style="flex:1;text-align:center"><div style="background:#2F6FED;border-radius:4px 4px 0 0;height:${Math.max(4,Math.round(days[k]/mx*64))}px"></div><div class="muted" style="font-size:10px">${days[k]}</div></div>`).join('')}</div></div>`:''}`,true);
+ const inp=$('#tyIn');inp.focus();inp.addEventListener('input',tyInput);
+ speakReply(first?'Let\'s check your typing speed. Type the sentence as fast as you can, without mistakes.':'Let\'s practise. Try to beat '+TY.target+' words a minute, but correct letters come first!','en')}
+function tyPaint(v){const t=TY.text;let h='';for(let i=0;i<t.length;i++){const ch=esc(t[i]);if(i<v.length)h+=v[i]===t[i]?`<span style="color:#17602B">${ch}</span>`:`<span style="background:#FFD9D9;color:#A12828">${ch}</span>`;else if(i===v.length)h+=`<span style="border-bottom:3px solid #2F6FED">${ch}</span>`;else h+=`<span style="color:#7A8496">${ch}</span>`}return h}
+function tyStats(v){const t=TY.text;let ok=0;for(let i=0;i<v.length;i++)if(v[i]===t[i])ok++;const mins=Math.max(1/60,(Date.now()-TY.start)/60000);return{wpm:Math.round(ok/5/mins),acc:v.length?Math.round(ok/v.length*100):100}}
+function tyInput(){if(!TY||TY.done)return;const v=$('#tyIn').value;if(!TY.start&&v.length)TY.start=Date.now();$('#tyText').innerHTML=tyPaint(v);const s=tyStats(v);$('#tyW').textContent=s.wpm;$('#tyA').textContent=s.acc+'%';
+ if(v.length>=TY.text.length)tyFinish(s)}
+function tyFinish(s){TY.done=true;const secs=Math.round((Date.now()-TY.start)/1000),log=tyLog();const d=new Date().toISOString().slice(0,10);log.push({d,wpm:s.wpm,acc:s.acc});tySave(log);
+ const beat=s.acc>=90&&s.wpm>TY.best;let msg;
+ if(TY.first)msg=`Your speed is ${s.wpm} words a minute with ${s.acc}% correct letters. From now on we practise to go faster!`;
+ else if(beat)msg=`New best! ${s.wpm} words a minute with ${s.acc}% accuracy. Super!`;
+ else if(s.acc<90)msg=`${s.wpm} words a minute, but accuracy is ${s.acc}%. Slow down a little and type carefully – correct letters first.`;
+ else msg=`${s.wpm} words a minute with ${s.acc}% accuracy. Good! Your best is ${TY.best}. Try again to beat it.`;
+ $('#tyRes').innerHTML=`<div class="card" style="background:${beat?'#DDF5E3':'#FFF6D6'}"><b>${esc(msg)}</b><button class="primary" style="width:100%;margin-top:10px" onclick="openTyping()">▶ Practise again</button></div>`;
+ try{api('logTimer',CHILD.id,'typing',s.wpm+' wpm '+s.acc+'%',secs)}catch(e){}if(beat&&!TY.first){try{api('claimStar',CHILD.id,'Typing best '+s.wpm+' wpm ('+s.acc+'%)','')}catch(e){}}
+ speakReply(msg,'en')}
+
+/* --- chess: tap a piece, tap a lit square; 3 levels, hint, puzzles --- */
+const CH_PUZ=[['6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1','Mate in 1: the back rank'],['6rk/6pp/8/6N1/8/8/8/6K1 w - - 0 1','Mate in 1: the knight jump'],['4k3/8/4K3/8/7Q/8/8/8 w - - 0 1','Mate in 1: queen and king together'],['k7/1R6/2K5/8/8/8/8/7R w - - 0 1','Mate in 1: two rooks'],['7k/Q7/6K1/8/8/8/8/8 w - - 0 1','Mate in 1: queen close to the king']];
+const CH_START='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+const CH_GLYPH={K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
+let CG=null;
+function chKey(){return 'ydChess_'+(CHILD?CHILD.id:'x')}
+function chStats(){try{return JSON.parse(localStorage.getItem(chKey())||'{}')}catch(e){return{}}}
+function chBump(k){const s=chStats();s[k]=(s[k]||0)+1;try{localStorage.setItem(chKey(),JSON.stringify(s))}catch(e){}}
+function openChess(){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();setNav({v:'chess',id:CHILD.id});const s=chStats();
+ render(`<b style="font-size:20px">♟️ Chess</b>
+ <div class="kgrid" style="grid-template-columns:repeat(3,1fr)"><button class="kt" style="background:#EAF8EE" onclick="chNew(1)"><span>🙂</span>Easy</button><button class="kt" style="background:#FFF6D6" onclick="chNew(2)"><span>🤔</span>Medium</button><button class="kt" style="background:#FFE8EE" onclick="chNew(3)"><span>🔥</span>Hard</button></div>
+ <button class="kt" style="background:#EEF3FF;width:100%;margin-top:10px;min-height:80px" onclick="chPuzzle(0)"><span>🧩</span>Puzzles (${CH_PUZ.length})</button>
+ <div class="card"><b>My wins</b><div class="muted">Easy ${s.w1||0} · Medium ${s.w2||0} · Hard ${s.w3||0} · Puzzles solved ${s.pz||0}</div></div>`,true)}
+function chNew(lv){CG={s:CH.parse(CH_START),lv,sel:-1,dests:[],last:null,hint:null,over:false,puz:null,msg:'Your move! You are White.'};chDraw();speakReply('New game. You are white. Your move!','en')}
+function chPuzzle(i){i=(i+CH_PUZ.length)%CH_PUZ.length;const[f,title]=CH_PUZ[i];CG={s:CH.parse(f),lv:0,sel:-1,dests:[],last:null,hint:null,over:false,puz:i,msg:title+'. Find the checkmate!'};chDraw();speakReply(title+'. Find the checkmate in one move!','en')}
+function chDraw(){setNav({v:'chess',id:CHILD.id});const{s}=CG;let h='';
+ for(let sq=0;sq<64;sq++){const r=sq>>3,c=sq&7,dark=(r+c)%2===1,p=s.b[sq],isSel=sq===CG.sel,isDest=CG.dests.includes(sq),isLast=CG.last&&(CG.last.f===sq||CG.last.t===sq),isHint=CG.hint&&(CG.hint.f===sq||CG.hint.t===sq);
+  const bg=isSel?'#F6D365':isHint?'#9AE6B4':isLast?(dark?'#C9B26B':'#E6D98F'):(dark?'#B58863':'#F0D9B5');
+  h+=`<button aria-label="${CH.sqName(sq)}" onclick="chTap(${sq})" style="aspect-ratio:1/1;border:0;border-radius:0;padding:0;min-height:0;background:${bg};font-size:min(9vw,46px);line-height:1;display:flex;align-items:center;justify-content:center;position:relative;color:${p!=='.'&&CH.white(p)?'#fff':'#111'};text-shadow:${p!=='.'&&CH.white(p)?'0 0 2px #000,0 0 1px #000':'none'}">${p==='.'?'':CH_GLYPH[p]}${isDest?`<span style="position:absolute;width:28%;height:28%;border-radius:50%;background:#0006"></span>`:''}</button>`}
+ render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:18px">♟️ ${CG.puz!=null?'Puzzle '+(CG.puz+1):['','Easy','Medium','Hard'][CG.lv]}</b><span class="muted" id="chMsg">${esc(CG.msg)}</span></div>
+ <div style="display:grid;grid-template-columns:repeat(8,1fr);border-radius:12px;overflow:hidden;box-shadow:0 2px 10px #0002;max-width:520px;margin:0 auto;width:100%">${h}</div>
+ <div class="grid2" style="margin-top:10px"><button onclick="chHint()">💡 Hint</button>${CG.puz!=null?`<button onclick="chPuzzle(${CG.puz+1})">Next puzzle ▶</button>`:`<button onclick="chNew(${CG.lv})">🔄 New game</button>`}<button onclick="chUndo()">↩ Undo</button><button onclick="openChess()">♟️ Menu</button></div>`,true)}
+function chTap(sq){if(!CG||CG.over||CG.s.turn!=='w'||CG.busy)return;const p=CG.s.b[sq];
+ if(CG.sel>=0&&CG.dests.includes(sq)){const m=CH.legal(CG.s).find(x=>x.f===CG.sel&&x.t===sq);if(m)return chPlay(m);}
+ if(p!=='.'&&CH.white(p)){CG.sel=sq;CG.dests=CH.legal(CG.s).filter(x=>x.f===sq).map(x=>x.t)}else{CG.sel=-1;CG.dests=[]}CG.hint=null;chDraw()}
+function chPlay(m){CG.prev=CG.prev||[];CG.prev.push(CG.s);CG.s=CH.make(CG.s,m);CG.last=m;CG.sel=-1;CG.dests=[];CG.hint=null;
+ const opp=CH.legal(CG.s);
+ if(CG.puz!=null){if(CH.inCheck(CG.s)&&!opp.length){CG.over=true;CG.msg='Checkmate! Puzzle solved ⭐';chBump('pz');chDraw();speakReply('Checkmate! Brilliant, you solved it!','en')}
+  else{CG.msg='Not mate yet – try another move.';CG.s=CG.prev.pop();CG.last=null;chDraw();speakReply('Good try! That is not checkmate. Look again for a check the king cannot escape.','en')}return}
+ if(!opp.length){CG.over=true;const mate=CH.inCheck(CG.s);CG.msg=mate?'Checkmate – you win! 🏆':'Stalemate – draw.';if(mate){chBump('w'+CG.lv);try{api('claimStar',CHILD.id,'Chess win ('+['','Easy','Medium','Hard'][CG.lv]+')','')}catch(e){}}chDraw();speakReply(mate?'Checkmate! You won the game. Super!':'Stalemate. It is a draw.','en');return}
+ CG.msg=CH.inCheck(CG.s)?'Check! Thinking…':'Thinking…';CG.busy=true;chDraw();
+ setTimeout(()=>{const d=CG.lv===1?1:CG.lv===2?2:3,r=CH.best(CG.s,d,CG.lv===1?120:CG.lv===2?25:0);if(!r){CG.busy=false;return}CG.s=CH.make(CG.s,r);CG.last=r;CG.busy=false;
+  const mine=CH.legal(CG.s);if(!mine.length){CG.over=true;const mate=CH.inCheck(CG.s);CG.msg=mate?'Checkmate – the computer wins. Try again!':'Stalemate – draw.';chDraw();speakReply(mate?'Checkmate. Good game! Let us try again.':'Stalemate. It is a draw.','en');return}
+  CG.msg=(CH.inCheck(CG.s)?'Check! ':'')+'Computer played '+CH.name[r.p.toLowerCase()]+' to '+CH.sqName(r.t)+'. Your move.';chDraw();if(CH.inCheck(CG.s))speakReply('Check! Protect your king.','en')},250)}
+function chUndo(){if(!CG||!CG.prev||!CG.prev.length||CG.busy)return;CG.s=CG.prev.pop();CG.over=false;CG.last=null;CG.sel=-1;CG.dests=[];CG.hint=null;CG.msg='Move taken back. Your move.';chDraw()}
+function chHint(){if(!CG||CG.over||CG.s.turn!=='w')return;const m=CH.best(CG.s,CG.puz!=null?2:3,0);if(!m)return;CG.hint=m;const n=CH.make(CG.s,m),pc=CH.name[m.p.toLowerCase()];
+ let why=CH.inCheck(n)&&!CH.legal(n).length?'it is checkmate':m.cap!=='.'?'it captures the '+CH.name[m.cap.toLowerCase()]:CH.inCheck(n)?'it gives check':m.castle?'castling keeps your king safe':'it puts your '+pc+' on a strong square';
+ CG.msg='Hint: '+pc+' '+CH.sqName(m.f)+' to '+CH.sqName(m.t);chDraw();speakReply('Try your '+pc+' to '+CH.sqName(m.t)+', because '+why+'.','en')}
 /* ---------- wake by name (laptop/desktop Chrome): free listening only for the helper's name ---------- */
 const Wake=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let r=null,on=false;
  const norm=x=>String(x||'').toLowerCase().replace(/[^a-z\u0c00-\u0c7f ]/g,' ').replace(/\s+/g,' ').trim();
@@ -421,27 +563,33 @@ function dityaHome(t){return `<div class="row" style="align-items:center;justify
 const LETTERS={en:[['A','A for Apple'],['B','B for Ball'],['C','C for Cat'],['D','D for Dog'],['E','E for Elephant'],['F','F for Fish'],['G','G for Goat'],['H','H for Hat'],['I','I for Ice cream'],['J','J for Jug'],['K','K for Kite'],['L','L for Lion'],['M','M for Mango'],['N','N for Nest'],['O','O for Orange'],['P','P for Parrot'],['Q','Q for Queen'],['R','R for Rabbit'],['S','S for Sun'],['T','T for Tiger'],['U','U for Umbrella'],['V','V for Van'],['W','W for Watch'],['X','X for Xylophone'],['Y','Y for Yak'],['Z','Z for Zebra']],
  te:[['అ','అ – అమ్మ'],['ఆ','ఆ – ఆవు'],['ఇ','ఇ – ఇల్లు'],['ఈ','ఈ – ఈగ'],['ఉ','ఉ – ఉడుత'],['ఊ','ఊ – ఊయల'],['ఋ','ఋ – ఋషి'],['ఎ','ఎ – ఎలుక'],['ఏ','ఏ – ఏనుగు'],['ఐ','ఐ – ఐదు'],['ఒ','ఒ – ఒంటె'],['ఓ','ఓ – ఓడ'],['ఔ','ఔ – ఔషధం'],['క','క – కప్ప'],['గ','గ – గడియారం'],['చ','చ – చేప'],['జ','జ – జింక'],['ట','ట – టమాట'],['త','త – తాబేలు'],['న','న – నక్క'],['ప','ప – పడవ'],['బ','బ – బంతి'],['మ','మ – మామిడి'],['ర','ర – రథం'],['ల','ల – లడ్డు'],['వ','వ – వల']],
  hi:[['अ','अ – अनार'],['आ','आ – आम'],['इ','इ – इमली'],['ई','ई – ईख'],['उ','उ – उल्लू'],['ऊ','ऊ – ऊन'],['ए','ए – एड़ी'],['ऐ','ऐ – ऐनक'],['ओ','ओ – ओखली'],['औ','औ – औरत'],['क','क – कबूतर'],['ख','ख – खरगोश'],['ग','ग – गमला'],['घ','घ – घड़ी'],['च','च – चम्मच'],['ज','ज – जहाज'],['त','त – तरबूज'],['न','न – नल'],['प','प – पतंग'],['म','म – मछली']]};
+LETTERS.wen=['school','friend','because','beautiful','kitchen','library','science','February','Wednesday','elephant','thank you','My name is Yuvaan.','I love reading books.','Water is precious.'].map(w=>[w,w]);
+LETTERS.whi=[['घर','घर'],['फूल','फूल'],['पानी','पानी'],['किताब','किताब'],['दोस्त','दोस्त'],['हाथी','हाथी'],['सूरज','सूरज'],['बादल','बादल'],['मछली','मछली'],['चिड़िया','चिड़िया'],['मेरा नाम युवान है','मेरा नाम युवान है'],['मुझे पढ़ना पसंद है','मुझे पढ़ना पसंद है']];
+LETTERS.wte=[['చీమ','చీమ'],['గులాబి','గులాబి'],['తుపాకి','తుపాకి'],['పుస్తకం','పుస్తకం'],['బడి','బడి'],['పువ్వు','పువ్వు'],['చెట్టు','చెట్టు'],['నీళ్ళు','నీళ్ళు'],['ఆకాశం','ఆకాశం'],['సూర్యుడు','సూర్యుడు'],['నా పేరు యువాన్','నా పేరు యువాన్']];
+function trWordSet(){return /^w/.test(TR.set)}
+function trLang(){return TR.set.replace(/^w/,'')||'en'}
+function trFontPx(w,h,txt){if(!trWordSet())return Math.round(w*0.72);const n=[...txt].length;return Math.round(Math.min(h*0.62,w*1.5/Math.max(2,n)))}
 let TR={set:'en',i:0,drawing:false,last:null};
 function openTrace(set,i){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();TR={set:set,i:i||0,drawing:false,last:null};setNav({v:'trace',id:CHILD.id,set:set,i:TR.i});
- const L=LETTERS[set][TR.i];render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">✏️ Trace the letter</b><span class="muted">${TR.i+1} / ${LETTERS[set].length}</span></div>
- <canvas id="trc" style="width:100%;aspect-ratio:1/1;background:#fff;border-radius:22px;box-shadow:0 2px 10px #0001;touch-action:none"></canvas>
+ const L=LETTERS[set][TR.i];render(`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">✏️ ${/^w/.test(set)?'Write over the word':'Trace the letter'}</b><span class="muted">${TR.i+1} / ${LETTERS[set].length}</span></div>
+ <canvas id="trc" style="width:100%;aspect-ratio:${/^w/.test(set)?'2/1':'1/1'};background:#fff;border-radius:22px;box-shadow:0 2px 10px #0001;touch-action:none"></canvas>
  <div style="text-align:center;font-size:22px;font-weight:800;margin:6px 0" id="trWord">${esc(L[1])}</div>
- <div class="grid2"><button onclick="trClear()">🧽 Clear</button><button onclick="speakReply('${L[1].replace(/'/g,"\\'")}','${set==='en'?'en':set}')">🔊 Hear it</button><button onclick="trMove(-1)">◀ Back</button><button class="green" onclick="trCheck()">✅ Done</button></div>`,true);
- const c=$('#trc'),dp=window.devicePixelRatio||1;const g=c.getContext('2d');const size=()=>{const w=c.clientWidth||($('#app').clientWidth-32)||340;c.width=Math.round(w*dp);c.height=Math.round(w*dp);trGuide()};size();requestAnimationFrame(size);
+ <div class="grid2"><button onclick="trClear()">🧽 Clear</button><button onclick="speakReply('${L[1].replace(/'/g,"\\'")}','${set.replace(/^w/,'')||'en'}')">🔊 Hear it</button><button onclick="trMove(-1)">◀ Back</button><button class="green" onclick="trCheck()">✅ Done</button></div>`,true);
+ const c=$('#trc'),dp=window.devicePixelRatio||1;const g=c.getContext('2d');const size=()=>{const w=c.clientWidth||($('#app').clientWidth-32)||340;c.width=Math.round(w*dp);c.height=Math.round(w*dp/(trWordSet()?2:1));trGuide()};size();requestAnimationFrame(size);
  const pos=e=>{const b=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;return[(p.clientX-b.left)*dp,(p.clientY-b.top)*dp]};
- const down=e=>{e.preventDefault();TR.drawing=true;TR.last=pos(e)},move=e=>{if(!TR.drawing)return;e.preventDefault();const p=pos(e);g.strokeStyle='#2F6FED';g.lineWidth=c.width/14;g.lineCap='round';g.lineJoin='round';g.beginPath();g.moveTo(TR.last[0],TR.last[1]);g.lineTo(p[0],p[1]);g.stroke();TR.last=p},up=()=>{TR.drawing=false};
+ const down=e=>{e.preventDefault();TR.drawing=true;TR.last=pos(e)},move=e=>{if(!TR.drawing)return;e.preventDefault();const p=pos(e);g.strokeStyle='#2F6FED';g.lineWidth=trWordSet()?c.height/16:c.width/14;g.lineCap='round';g.lineJoin='round';g.beginPath();g.moveTo(TR.last[0],TR.last[1]);g.lineTo(p[0],p[1]);g.stroke();TR.last=p},up=()=>{TR.drawing=false};
  c.addEventListener('pointerdown',down);c.addEventListener('pointermove',move);window.addEventListener('pointerup',up);
- speakReply(L[1],set==='en'?'en':set)}
+ speakReply(L[1],set.replace(/^w/,'')||'en')}
 function trFont(){return TR.set==='en'?'bold':'bold'}
-function trGuide(){const c=$('#trc');if(!c)return;const g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);g.fillStyle='#E4E9F2';g.textAlign='center';g.textBaseline='middle';g.font=`700 ${Math.round(c.width*0.72)}px "Noto Sans Telugu","Noto Sans Devanagari",sans-serif`;g.fillText(LETTERS[TR.set][TR.i][0],c.width/2,c.height*0.54)}
+function trGuide(){const c=$('#trc');if(!c)return;const g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);g.fillStyle=trWordSet()?'#CDD5E3':'#E4E9F2';g.textAlign='center';g.textBaseline='middle';g.font=`700 ${trFontPx(c.width,c.height,LETTERS[TR.set][TR.i][0])}px "Noto Sans Telugu","Noto Sans Devanagari",sans-serif`;g.fillText(LETTERS[TR.set][TR.i][0],c.width/2,c.height*0.54)}
 function trClear(){trGuide()}
 function trMove(d){const n=LETTERS[TR.set].length;openTrace(TR.set,(TR.i+d+n)%n)}
 function trCheck(){const c=$('#trc');if(!c)return;const g=c.getContext('2d'),w=c.width,h=c.height,img=g.getImageData(0,0,w,h).data;
- const m=document.createElement('canvas');m.width=w;m.height=h;const mg=m.getContext('2d');mg.fillStyle='#000';mg.textAlign='center';mg.textBaseline='middle';mg.font=`700 ${Math.round(w*0.72)}px "Noto Sans Telugu","Noto Sans Devanagari",sans-serif`;mg.fillText(LETTERS[TR.set][TR.i][0],w/2,h*0.54);const md=mg.getImageData(0,0,w,h).data;
+ const m=document.createElement('canvas');m.width=w;m.height=h;const mg=m.getContext('2d');mg.fillStyle='#000';mg.textAlign='center';mg.textBaseline='middle';mg.font=`700 ${trFontPx(w,h,LETTERS[TR.set][TR.i][0])}px "Noto Sans Telugu","Noto Sans Devanagari",sans-serif`;mg.fillText(LETTERS[TR.set][TR.i][0],w/2,h*0.54);const md=mg.getImageData(0,0,w,h).data;
  let inL=0,hit=0,ink=0,out=0;for(let i=0;i<md.length;i+=16){const letter=md[i+3]>100,blue=img[i+2]>200&&img[i]<120;if(letter){inL++;if(blue)hit++}if(blue){ink++;if(!letter)out++}}
  const cover=inL?hit/inL:0,neat=ink?1-out/ink:0;
- if(cover>0.45&&neat>0.35){const p=['You wrote it so well!','Super! Let\'s write one more!','Amazing, Ditya!','Wow! You are a star!'];const t=p[Math.floor(Math.random()*p.length)];toast('⭐ '+t);speakReply(t,'en').then(()=>trMove(1))}
- else{const t=cover<=0.45?'Trace over the whole letter a little more. You can do it!':'Let\'s try to write right on the letter lines!';toast(t);speakReply(t,'en')}}
+ if(cover>0.45&&neat>0.35){const p=['You wrote it so well!','Super! Let\'s write one more!','Amazing, '+(CHILD?CHILD.name.split(' ')[0]:'')+'!','Wow! You are a star!'];const t=p[Math.floor(Math.random()*p.length)];toast('⭐ '+t);speakReply(t,'en').then(()=>trMove(1))}
+ else{const t=cover<=0.45?(trWordSet()?'Write over the whole word a little more. You can do it!':'Trace over the whole letter a little more. You can do it!'):'Let\'s try to write right on the letter lines!';toast(t);speakReply(t,'en')}}
 const CPICS=[
  ['Sun','<circle class="r" cx="100" cy="100" r="42"/>'+[0,45,90,135,180,225,270,315].map(a=>`<path class="r" d="M100 100 m${Math.round(60*Math.cos(a*Math.PI/180))} ${Math.round(60*Math.sin(a*Math.PI/180))} l${Math.round(25*Math.cos((a-12)*Math.PI/180))} ${Math.round(25*Math.sin((a-12)*Math.PI/180))} l${Math.round(25*Math.cos((a+12)*Math.PI/180)-25*Math.cos((a-12)*Math.PI/180))} ${Math.round(25*Math.sin((a+12)*Math.PI/180)-25*Math.sin((a-12)*Math.PI/180))} z"/>`).join('')],
  ['House','<rect class="r" x="45" y="95" width="110" height="80"/><path class="r" d="M35 100 L100 40 L165 100 Z"/><rect class="r" x="88" y="125" width="26" height="50"/><rect class="r" x="55" y="110" width="24" height="22"/><rect class="r" x="122" y="110" width="24" height="22"/><circle class="r" cx="160" cy="30" r="14"/>'],
