@@ -56,7 +56,7 @@ details summary{cursor:pointer;color:var(--parb);font-size:14px;margin-top:8px}
 <main id="app"></main>
 <div class="bar" id="bar"><span id="barT"></span><button onclick="stopAll()">■ Stop</button></div>
 <script>
-const APPVER='dv12 · Fri 13/11/26';
+const APPVER='dv13 · Fri 13/11/26';
 const COUNTER_URL='https://script.google.com/macros/s/AKfycbzoJVFylqOIFcjF0eqQC3BwExopA8uO4ogMYwLVwh9zK8wsr2HRTClEgpVxUiBMDotO9g/exec';
 const BRAND='DHARMA VAANI',BRAND_TE='ధర్మ వాణి',OFFER='Offered as a seva by <b class="kn">Karthik Singirikonda</b> &amp; family';
 /* Only ready books are listed. A new book is added here when it is fully written. */
@@ -181,8 +181,8 @@ async function kidsRoute(h){const ki=await getJ('data/kids/index.json');
  if(h[1]==='gita'){d=await getJ('data/kids/gita.json');head=BOOKS[0][LANG]||BOOKS[0].en;lab=(c,v)=>`${c.n}.${v.v}`}
  else{const B=BOOKS.find(b=>b.id===h[1]&&b.kind==='kanda');if(!B)return go('kids');const idx=await getJ('data/'+B.id+'/index.json'),K=idx.kandas.find(x=>x.n===+h[2]);if(!K)return go('kids');d=await getJ('data/kids/'+B.id+'_'+K.n+'.json');head=(B[LANG]||B.en)+' · '+(K[LANG]||K.en);lab=(c,v)=>`${K.n}.${c.n}.${v.v}`}
  setTtl('👧👦 '+head);const list=[],labels=[];d.chapters.forEach(c=>c.verses.forEach(v=>{list.push(v);labels.push(lab(c,v))}));
- CUR={list:list,label:v=>labels[list.indexOf(v)],ref:v=>'kids/'+labels[list.indexOf(v)],aud:(h[1]==='gita'&&RECORDED.gita)?v=>'audio/gita/'+labels[list.indexOf(v)].replace('.','_')+'_':null};
- let i=0;app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn(h[1]==='gita'?'gita':'kids')+d.chapters.map(c=>`<div style="font-weight:800;color:#8A2E0B;margin:16px 2px 4px">${c.n}. ${esc(tx(c.t))}</div>`+c.verses.map(v=>{const j=i++,m=mean(v),kd=kidT(v);
+ CUR={list:list,label:v=>labels[list.indexOf(v)],ref:v=>'kids/'+labels[list.indexOf(v)],aud:(h[1]==='gita'&&RECORDED.gita)?v=>'audio/gita/'+labels[list.indexOf(v)].replace('.','_')+'_':KIDSREC[h[1]]?v=>R2+h[1]+'/'+labels[list.indexOf(v)].split('.').join('_')+'_':null};
+ let i=0;app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn((h[1]==='gita'||KIDSREC[h[1]])?'gita':'kids')+d.chapters.map(c=>`<div style="font-weight:800;color:#8A2E0B;margin:16px 2px 4px">${c.n}. ${esc(tx(c.t))}</div>`+c.verses.map(v=>{const j=i++,m=mean(v),kd=kidT(v);
   return `<div class="card" id="v${j}"><div class="row" style="justify-content:space-between"><span class="vno">${labels[j]}</span><button class="play" id="p${j}" onclick="playOne(${j})">${T('listen')}</button></div><div class="sa" style="margin-top:8px">${esc(v.sa)}</div><div class="mean">${esc(m)}</div>${kd?`<div class="kid"><b>${T('kid')}</b> ${esc(kd)}</div>`:''}</div>`}).join('')).join('')}
 
 /* ---------- info / how to install (first open + ⓘ) ---------- */
@@ -220,7 +220,7 @@ function voiceWarnOld(){if(!('speechSynthesis' in window))return `<div class="wa
  if(!VOICES.length)return '';const miss=['hi',LANG].filter((l,i,a)=>a.indexOf(l)===i&&!vFor(l));if(!miss.length)return '';
  const names=miss.map(l=>({te:'Telugu',hi:'Hindi',en:'English'}[l])).join(' + ');
  return `<div class="warn">🔈 <b>${LANG==='te'?'ఈ పరికరంలో '+names+' గొంతు లేదు – అందుకే శబ్దం రాదు.':LANG==='hi'?'इस डिवाइस में '+names+' आवाज़ नहीं है – इसलिए आवाज़ नहीं आएगी।':'This device has no '+names+' voice, so you will not hear it.'}</b> <a href="#info">${LANG==='te'?'ఎలా సరిచేయాలి →':LANG==='hi'?'कैसे ठीक करें →':'How to fix →'}</a></div>`}
-const RECORDED={gita:1};let AUD=null;
+const RECORDED={gita:1};const KIDSREC={ramayana:1};const R2='https://pub-bcd5aa04802a479bb48610363df49899.r2.dev/';let AUD=null;
 function clip(url,run){return new Promise(res=>{if(run!==RUN)return res(false);const a=new Audio(DP(url));AUD=a;a.onended=()=>res(true);a.onerror=()=>res(false);a.play().catch(()=>res(false))})}
 function chunks(t){return String(t).replace(/।।[^।]*।।/g,'।').split(/(?<=[।.!?\n])\s*/).map(s=>s.trim()).filter(Boolean)}
 function say(text,lang,rate,run){return new Promise(res=>{const parts=chunks(text);let i=0;
