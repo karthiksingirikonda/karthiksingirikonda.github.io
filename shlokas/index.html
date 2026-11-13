@@ -56,7 +56,7 @@ details summary{cursor:pointer;color:var(--parb);font-size:14px;margin-top:8px}
 <main id="app"></main>
 <div class="bar" id="bar"><span id="barT"></span><button onclick="stopAll()">■ Stop</button></div>
 <script>
-const APPVER='dv9 · Fri 13/11/26';
+const APPVER='dv10 · Fri 13/11/26';
 const COUNTER_URL='https://script.google.com/macros/s/AKfycbzoJVFylqOIFcjF0eqQC3BwExopA8uO4ogMYwLVwh9zK8wsr2HRTClEgpVxUiBMDotO9g/exec';
 const BRAND='DHARMA VAANI',BRAND_TE='ధర్మ వాణి',OFFER='Offered as a seva by <b class="kn">Karthik Singirikonda</b> &amp; family';
 /* Only ready books are listed. A new book is added here when it is fully written. */
@@ -78,7 +78,7 @@ const $=s=>document.querySelector(s),app=$('#app');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let LANG=localStorage.getItem('dvLang')||localStorage.getItem('shLang')||'te';if(['te','en','hi'].indexOf(LANG)<0)LANG='te';
 const STANDALONE=matchMedia('(display-mode: standalone)').matches||navigator.standalone;
-const CACHE={};const DP=u=>(/\/dv-test\//.test(location.pathname)&&/^data\/(ramayana\/|kids\/ramayana_)/.test(u))?'../shlokas/'+u:u;async function getJ(u){if(!CACHE[u]){const r=await fetch(DP(u));if(!r.ok)throw new Error('load');CACHE[u]=await r.json()}return CACHE[u]}
+const CACHE={};const DP=u=>(/\/dv-test\//.test(location.pathname)&&/^(data|audio)\//.test(u))?'../shlokas/'+u:u;async function getJ(u){if(!CACHE[u]){const r=await fetch(DP(u));if(!r.ok)throw new Error('load');CACHE[u]=await r.json()}return CACHE[u]}
 function setLang(l){LANG=l;try{localStorage.setItem('dvLang',l)}catch(e){}ping('lang','',l);route()}
 function langSeg(){return `<div class="seg">${[['te','తెలుగు'],['en','English'],['hi','हिंदी']].map(([k,n])=>`<button class="${LANG===k?'on':''}" onclick="setLang('${k}')">${n}</button>`).join('')}</div>`}
 const tx=o=>o?(o[LANG]||o.en||o.te||''):'';
@@ -113,24 +113,24 @@ function newsBanner(){let seen=[];try{seen=JSON.parse(localStorage.getItem('dvSe
 function seeNews(id){let seen=[];try{seen=JSON.parse(localStorage.getItem('dvSeen')||'[]')}catch(e){}seen.push(id);try{localStorage.setItem('dvSeen',JSON.stringify(seen))}catch(e){}const x=NEWS.find(n=>n.id===id);if(x&&x.to==='')home();else go(x&&x.to!=null?x.to:id)}
 
 function home(){setTtl(BRAND);CUR=null;
- app.innerHTML=`<div class="row" style="justify-content:center;margin:6px 0 10px">${langSeg()}</div>`+newsBanner()+voiceWarn()+
+ app.innerHTML=`<div class="row" style="justify-content:center;margin:6px 0 10px">${langSeg()}</div>`+newsBanner()+voiceWarn('home')+
  `<div style="font-weight:800;margin:14px 2px 8px">${T('pinned')}</div><div class="pins">`+
  BOOKS.map(b=>`<button class="pin" onclick="go('${b.id}')"><div class="ico">${b.ico}</div><div style="font-size:19px;font-weight:800">${b[LANG]||b.en}</div><div class="muted" style="font-size:12.5px">${b.note[LANG]}</div></button>`).join('')+
  `<button class="pin" style="grid-column:1/-1;flex-direction:row;gap:14px;background:#E9F6EC;border-color:#A9D8B6" onclick="go('kids')"><div class="ico" style="background:#fff;font-size:20px;white-space:nowrap">👧👦</div><div style="text-align:left"><div style="font-size:19px;font-weight:800">${LANG==='hi'?'केवल बच्चों के लिए':LANG==='en'?'For children only':'పిల్లల కోసం మాత్రమే'}</div><div class="muted" style="font-size:12.5px">${LANG==='hi'?'5,064 श्लोक – अर्थ और सीख, उदाहरण के साथ':LANG==='en'?'5,064 verses – meaning and lesson with an example':'5,064 శ్లోకాలు – అర్థం, ఉదాహరణతో నీతి'}</div></div></button></div><div class="card muted" style="text-align:center">${T('more')}</div><div class="foot">${OFFER}<br>${APPVER}</div>`}
 
 /* ---------- Gita-style book: chapters → verses ---------- */
 function flatList(b,d){setTtl(b[LANG]||b.en);CUR=null;
- app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn()+d.chapters.map(c=>`<button class="card tap" onclick="go('${b.id}/${c.n}')"><div class="ico" style="font-weight:800;color:#8A2E0B">${c.n}</div><div><div style="font-weight:800">${esc(c[LANG]||c.en)}</div><div class="muted">${c.verses.length} ${T('verses')}</div></div></button>`).join('')}
+ app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn(b.id)+d.chapters.map(c=>`<button class="card tap" onclick="go('${b.id}/${c.n}')"><div class="ico" style="font-weight:800;color:#8A2E0B">${c.n}</div><div><div style="font-weight:800">${esc(c[LANG]||c.en)}</div><div class="muted">${c.verses.length} ${T('verses')}</div></div></button>`).join('')}
 function flatChapter(b,d,n){const c=d.chapters.find(x=>x.n===n);if(!c)return flatList(b,d);const name=c[LANG]||c.en;setTtl(`${n}. ${name}`);ping('chapter',b.id+'/'+n);
  const sum=LANG==='te'?c.ste:(LANG==='hi'?(c.shi||c.sen):c.sen);
- CUR={list:c.verses,label:v=>`${n}.${v.v}`,intro:sum,ref:v=>b.id+'/'+n+'.'+v.v};
+ CUR={list:c.verses,label:v=>`${n}.${v.v}`,intro:sum,ref:v=>b.id+'/'+n+'.'+v.v,aud:RECORDED[b.id]?v=>`audio/${b.id}/${n}_${v.v}_`:null};
  app.innerHTML=`<div class="card"><div style="font-weight:800;font-size:20px">${n}. ${esc(name)}</div>${tx(c.kh)?`<div class="kh"><b>${T('kh')}</b><br>${esc(tx(c.kh))}</div>`:''}<div class="mean">${esc(sum)}</div>
- <div class="row" style="margin-top:10px">${langSeg()}<button class="play" id="pc" onclick="playAll()">${T('listenAll')}</button></div></div>`+voiceWarn()+verseCards()+
+ <div class="row" style="margin-top:10px">${langSeg()}<button class="play" id="pc" onclick="playAll()">${T('listenAll')}</button></div></div>`+voiceWarn(b.id)+verseCards()+
  nav(n>1?`${b.id}/${n-1}`:'',n<d.chapters.length?`${b.id}/${n+1}`:'',`‹ ${T('ch')} ${n-1}`,`${T('ch')} ${n+1} ›`)}
 
 /* ---------- Ramayana-style book: kandas → sargas → verses ---------- */
 function kandaList(b,idx){setTtl(b[LANG]||b.en);CUR=null;
- app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn()+idx.kandas.map(k=>`<button class="card tap" onclick="go('${b.id}/${k.n}')"><div class="ico" style="font-weight:800;color:#8A2E0B">${k.n}</div><div><div style="font-weight:800">${esc(k[LANG]||k.en)}</div><div class="muted">${k.sargas.length} ${T(b.u2||'sargas')} · ${k.sargas.reduce((a,s)=>a+s.c,0).toLocaleString('en-IN')} ${T('verses')}</div></div></button>`).join('')}
+ app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn(b.id)+idx.kandas.map(k=>`<button class="card tap" onclick="go('${b.id}/${k.n}')"><div class="ico" style="font-weight:800;color:#8A2E0B">${k.n}</div><div><div style="font-weight:800">${esc(k[LANG]||k.en)}</div><div class="muted">${k.sargas.length} ${T(b.u2||'sargas')} · ${k.sargas.reduce((a,s)=>a+s.c,0).toLocaleString('en-IN')} ${T('verses')}</div></div></button>`).join('')}
 function sargaList(b,idx,k){const K=idx.kandas.find(x=>x.n===k);if(!K)return kandaList(b,idx);setTtl(K[LANG]||K.en);CUR=null;
  app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+K.sargas.map(s=>`<button class="card tap" style="padding:10px 14px" onclick="go('${b.id}/${k}/${s.n}')"><div class="ico" style="font-weight:800;color:#8A2E0B;width:40px;height:40px;font-size:16px">${s.n}</div><div><div style="font-weight:700">${esc(tx(s.t))}</div><div class="muted">${s.c} ${T('verses')}</div></div></button>`).join('')}
 async function sargaPage(b,idx,k,n){const K=idx.kandas.find(x=>x.n===k);if(!K)return kandaList(b,idx);
@@ -139,7 +139,7 @@ async function sargaPage(b,idx,k,n){const K=idx.kandas.find(x=>x.n===k);if(!K)re
  const i=K.sargas.findIndex(s=>s.n===n),prev=i>0?K.sargas[i-1]:null,next=i<K.sargas.length-1?K.sargas[i+1]:null;
  app.innerHTML=`<div class="card"><div class="muted">${esc(kn)} · ${T(b.u1||'sarga')} ${n}</div><div style="font-weight:800;font-size:20px">${esc(tx(d.t))}</div>
  ${tx(d.kh)?`<div class="kh"><b>${T('kh')}</b><br>${esc(tx(d.kh))}</div>`:''}<div class="mean">${esc(tx(d.s))}</div>
- <div class="row" style="margin-top:10px">${langSeg()}<button class="play" id="pc" onclick="playAll()">${T('listenAll')}</button></div></div>`+voiceWarn()+verseCards()+
+ <div class="row" style="margin-top:10px">${langSeg()}<button class="play" id="pc" onclick="playAll()">${T('listenAll')}</button></div></div>`+voiceWarn(b.id)+verseCards()+
  nav(prev?`${b.id}/${k}/${prev.n}`:'',next?`${b.id}/${k}/${next.n}`:'',`‹ ${T(b.u1||'sarga')} ${prev?prev.n:''}`,`${T(b.u1||'sarga')} ${next?next.n:''} ›`)}
 
 function verseCards(){return CUR.list.map((v,i)=>{const m=mean(v),kd=kidT(v),p=parT(v);
@@ -164,7 +164,7 @@ async function kidsRoute(h){const ki=await getJ('data/kids/index.json');
  else{const B=BOOKS.find(b=>b.id===h[1]&&b.kind==='kanda');if(!B)return go('kids');const idx=await getJ('data/'+B.id+'/index.json'),K=idx.kandas.find(x=>x.n===+h[2]);if(!K)return go('kids');d=await getJ('data/kids/'+B.id+'_'+K.n+'.json');head=(B[LANG]||B.en)+' · '+(K[LANG]||K.en);lab=(c,v)=>`${K.n}.${c.n}.${v.v}`}
  setTtl('👧👦 '+head);const list=[],labels=[];d.chapters.forEach(c=>c.verses.forEach(v=>{list.push(v);labels.push(lab(c,v))}));
  CUR={list:list,label:v=>labels[list.indexOf(v)],ref:v=>'kids/'+labels[list.indexOf(v)]};
- let i=0;app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn()+d.chapters.map(c=>`<div style="font-weight:800;color:#8A2E0B;margin:16px 2px 4px">${c.n}. ${esc(tx(c.t))}</div>`+c.verses.map(v=>{const j=i++,m=mean(v),kd=kidT(v);
+ let i=0;app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn('kids')+d.chapters.map(c=>`<div style="font-weight:800;color:#8A2E0B;margin:16px 2px 4px">${c.n}. ${esc(tx(c.t))}</div>`+c.verses.map(v=>{const j=i++,m=mean(v),kd=kidT(v);
   return `<div class="card" id="v${j}"><div class="row" style="justify-content:space-between"><span class="vno">${labels[j]}</span><button class="play" id="p${j}" onclick="playOne(${j})">${T('listen')}</button></div><div class="sa" style="margin-top:8px">${esc(v.sa)}</div><div class="mean">${esc(m)}</div>${kd?`<div class="kid"><b>${T('kid')}</b> ${esc(kd)}</div>`:''}</div>`}).join('')).join('')}
 
 /* ---------- info / how to install (first open + ⓘ) ---------- */
@@ -180,7 +180,8 @@ function info(){setTtl('ⓘ '+BRAND);CUR=null;const t=(te,en,hi)=>LANG==='hi'?hi
  <li>${t('ఈ లింక్‌ను <b>Chrome</b> లో తెరవండి.','Open this link in <b>Chrome</b>.','यह लिंक <b>Chrome</b> में खोलें।')}</li><li>${t('పైన కుడివైపు <b>⋮</b> నొక్కండి.','Tap <b>⋮</b> at the top right.','ऊपर दाईं ओर <b>⋮</b> दबाएँ।')}</li>
  <li>${t('<b>Add to Home screen</b> లేదా <b>Install app</b> → <b>Install</b>.','Tap <b>Add to Home screen</b> or <b>Install app</b> → <b>Install</b>.','<b>Add to Home screen</b> या <b>Install app</b> → <b>Install</b>।')}</li>
  <li class="muted">${t('ల్యాప్‌టాప్: <b>Microsoft Edge</b> లో తెరిచి → <b>⋯</b> → More tools → Apps → Install this site as an app.','Laptop: open in <b>Microsoft Edge</b> → <b>⋯</b> → More tools → Apps → Install this site as an app.','लैपटॉप: <b>Microsoft Edge</b> में खोलें → <b>⋯</b> → More tools → Apps → Install this site as an app।')}</li></ol></div>
- <div class="card"><b>🔊 ${t('గొంతు కోసం (ఒక్కసారి)','For the voice (one time)','आवाज़ के लिए (एक बार)')}</b><ol style="margin:6px 0 0;padding-left:20px">
+ <div class="card"><b>🔊 ${t('వినడం','Listening','सुनना')}</b><div class="mean">${t('భగవద్గీతకు రికార్డ్ చేసిన గొంతు ఉంది – ఏ ఫోన్‌లోనైనా ▶ నొక్కితే వినిపిస్తుంది, ఏ సెట్టింగ్స్ అవసరం లేదు. మిగతా గ్రంథాలకు రికార్డ్ చేసిన గొంతు ప్రతి నెలా కొంచెం కొంచెం వస్తుంది (🔊 త్వరలో).','The Bhagavad Gita has a recorded voice – tap ▶ on any phone, no settings needed. Recorded voice for the other books is added a little every month (🔊 coming soon).','भगवद्गीता की आवाज़ रिकॉर्ड की हुई है – किसी भी फ़ोन पर ▶ दबाएँ, कोई सेटिंग नहीं चाहिए। बाकी ग्रंथों की रिकॉर्ड की हुई आवाज़ हर महीने थोड़ी-थोड़ी जुड़ेगी (🔊 जल्द)।')}</div></div>
+<div class="card"><b>📱 ${t('ఇప్పుడే అన్నీ వినాలంటే (ఐచ్ఛికం)','To hear everything now (optional)','अभी सब सुनना हो तो (वैकल्पिक)')}</b><div class="mean">${t('మీ ఫోన్‌లో తెలుగు/హిందీ గొంతు ఉంటే (Samsung, ఇంకా చాలా ఫోన్లు), రికార్డ్ కాని భాగాలు కూడా ఫోన్ గొంతుతో వినిపిస్తాయి. లేకపోతే ఈ క్రింది విధంగా వేసుకోవచ్చు:','If your phone has a Telugu/Hindi voice (Samsung and many others), parts not yet recorded also play in the phone\'s voice. If not, you can add it like this:','अगर आपके फ़ोन में तेलुगु/हिंदी आवाज़ है (Samsung और कई फ़ोन), तो बिना रिकॉर्ड वाले भाग भी फ़ोन की आवाज़ में सुनाई देंगे। नहीं तो ऐसे जोड़ सकते हैं:')}</div><ol style="margin:6px 0 0;padding-left:20px">
  <li>${t('ఫోన్ <b>Settings</b> → వెతుకులో <b>Text-to-speech</b>.','Phone <b>Settings</b> → search <b>Text-to-speech</b>.','फ़ोन <b>Settings</b> → खोज में <b>Text-to-speech</b>।')}</li><li>${t('Preferred engine: <b>Speech Services by Google</b>.','Preferred engine: <b>Speech Services by Google</b>.','Preferred engine: <b>Speech Services by Google</b>।')}</li>
  <li>${t('<b>⚙</b> → <b>Install voice data</b> → <b>Telugu (India)</b>, <b>Hindi (India)</b>.','<b>⚙</b> → <b>Install voice data</b> → <b>Telugu (India)</b> and <b>Hindi (India)</b>.','<b>⚙</b> → <b>Install voice data</b> → <b>Telugu (India)</b>, <b>Hindi (India)</b>।')}</li></ol>
  <div class="row" style="margin-top:8px"><button class="play" onclick="testVoice('te')">🔊 తెలుగు</button><button class="play" onclick="testVoice('hi')">🔊 हिंदी</button><button class="play" onclick="testVoice('en')">🔊 English</button></div></div>
@@ -194,10 +195,15 @@ function loadVoices(){VOICES=speechSynthesis.getVoices()||[]}
 if('speechSynthesis' in window){loadVoices();speechSynthesis.onvoiceschanged=()=>{const had=VOICES.length;loadVoices();if(!had&&!location.hash)home()}}
 const LC={te:'te-IN',hi:'hi-IN',en:'en-IN'};
 const vFor=l=>VOICES.find(v=>v.lang.replace('_','-').toLowerCase()===LC[l].toLowerCase())||VOICES.find(v=>v.lang.replace('_','-').toLowerCase().startsWith(l));
-function voiceWarn(){if(!('speechSynthesis' in window))return `<div class="warn">🔈 ${LANG==='te'?'ఈ బ్రౌజర్‌లో వినే సౌకర్యం లేదు. ఫోన్‌లో Chrome, ల్యాప్‌టాప్‌లో Microsoft Edge వాడండి.':'Listening is not available in this browser. Use Chrome on a phone, Microsoft Edge on a laptop.'}</div>`;
+function voiceWarn(id){if(RECORDED[id])return `<div class="warn" style="background:#e8f5e9;border-color:#a5d6a7;color:#1b5e20">🔊 ${LANG==='te'?'రికార్డ్ చేసిన గొంతు – ఏ ఫోన్‌లోనైనా, సెట్టింగ్స్ లేకుండా వినిపిస్తుంది.':LANG==='hi'?'रिकॉर्ड की हुई आवाज़ – हर फ़ोन पर, बिना किसी सेटिंग के।':'Recorded voice – plays on every phone, no settings needed.'}</div>`;
+ if(id==='home')return '';const soon=`<div class="warn">🔊 ${LANG==='te'?'ఈ భాగానికి రికార్డ్ చేసిన గొంతు త్వరలో వస్తుంది. మీ ఫోన్‌లో ఇప్పటికే తెలుగు/హిందీ గొంతు ఉంటే (Samsung, ఇంకా చాలా ఫోన్లు) ఇప్పుడే వినవచ్చు – ఇది ఐచ్ఛికం.':LANG==='hi'?'इस भाग की रिकॉर्ड की हुई आवाज़ जल्द आ रही है। अगर आपके फ़ोन में पहले से हिंदी/तेलुगु आवाज़ है (Samsung और कई फ़ोन), तो अभी सुन सकते हैं – यह वैकल्पिक है।':'Recorded voice for this part is coming soon. If your phone already has a Telugu/Hindi voice (Samsung and many others), you can listen now – optional.'} <a href="#info">${LANG==='te'?'ఎలా →':LANG==='hi'?'कैसे →':'How →'}</a></div>`;
+ return soon}
+function voiceWarnOld(){if(!('speechSynthesis' in window))return `<div class="warn">🔈 ${LANG==='te'?'ఈ బ్రౌజర్‌లో వినే సౌకర్యం లేదు. ఫోన్‌లో Chrome, ల్యాప్‌టాప్‌లో Microsoft Edge వాడండి.':'Listening is not available in this browser. Use Chrome on a phone, Microsoft Edge on a laptop.'}</div>`;
  if(!VOICES.length)return '';const miss=['hi',LANG].filter((l,i,a)=>a.indexOf(l)===i&&!vFor(l));if(!miss.length)return '';
  const names=miss.map(l=>({te:'Telugu',hi:'Hindi',en:'English'}[l])).join(' + ');
  return `<div class="warn">🔈 <b>${LANG==='te'?'ఈ పరికరంలో '+names+' గొంతు లేదు – అందుకే శబ్దం రాదు.':LANG==='hi'?'इस डिवाइस में '+names+' आवाज़ नहीं है – इसलिए आवाज़ नहीं आएगी।':'This device has no '+names+' voice, so you will not hear it.'}</b> <a href="#info">${LANG==='te'?'ఎలా సరిచేయాలి →':LANG==='hi'?'कैसे ठीक करें →':'How to fix →'}</a></div>`}
+const RECORDED={gita:1};let AUD=null;
+function clip(url,run){return new Promise(res=>{if(run!==RUN)return res(false);const a=new Audio(DP(url));AUD=a;a.onended=()=>res(true);a.onerror=()=>res(false);a.play().catch(()=>res(false))})}
 function chunks(t){return String(t).replace(/।।[^।]*।।/g,'।').split(/(?<=[।.!?\n])\s*/).map(s=>s.trim()).filter(Boolean)}
 function say(text,lang,rate,run){return new Promise(res=>{const parts=chunks(text);let i=0;
  const next=()=>{if(run!==RUN||i>=parts.length)return res();const u=new SpeechSynthesisUtterance(parts[i++]);const v=vFor(lang);if(v)u.voice=v;u.lang=LC[lang]||'hi-IN';u.rate=rate;u.onend=next;u.onerror=next;speechSynthesis.speak(u)};next()})}
@@ -205,15 +211,16 @@ function testVoice(l){stopAll();const run=++RUN;say({te:'నమస్కార�
 const pause=(ms,run)=>new Promise(r=>setTimeout(r,run===RUN?ms:0));
 async function speakVerse(i,run){const v=CUR.list[i];const el=$('#v'+i);document.querySelectorAll('.playing').forEach(e=>e.classList.remove('playing'));
  if(el){el.classList.add('playing');el.scrollIntoView({behavior:'smooth',block:'center'})}$('#barT').textContent=`${CUR.label(v)} ${T('playing')}`;ping('play',CUR.ref(v));
- await say(v.sa,'hi',0.8,run);if(run!==RUN)return;await pause(500,run);
- const m=mean(v),k=kidT(v);if(m){await say(m,LANG,0.95,run);if(k&&run===RUN){await pause(300,run);await say(T('kidSay')+k,LANG,0.95,run)}}
+ const A=CUR.aud&&CUR.aud(v);
+ if(!(A&&await clip(A+'sa.mp3',run)))await say(v.sa,'hi',0.8,run);if(run!==RUN)return;await pause(500,run);
+ const m=mean(v),k=kidT(v);if(m){if(!(A&&await clip(A+LANG+'.mp3',run)))await say(m,LANG,0.95,run);if(k&&run===RUN){await pause(300,run);await say(T('kidSay')+k,LANG,0.95,run)}}
  if(el)el.classList.remove('playing')}
 async function playOne(i){const b=$('#p'+i),on=b&&b.classList.contains('on');stopAll();if(on||!CUR)return;const run=++RUN;b.classList.add('on');b.textContent=T('stop');$('#bar').classList.add('show');
  await speakVerse(i,run);if(run===RUN)stopAll()}
 async function playAll(){const on=$('#pc').classList.contains('on');stopAll();if(on||!CUR)return;const run=++RUN;
  $('#pc').classList.add('on');$('#pc').textContent=T('stop');$('#bar').classList.add('show');
- if(CUR.intro)await say(CUR.intro,LANG,0.95,run);for(let i=0;i<CUR.list.length&&run===RUN;i++){await speakVerse(i,run);await pause(700,run)}if(run===RUN)stopAll()}
-function stopAll(){RUN++;try{speechSynthesis.cancel()}catch(e){}$('#bar').classList.remove('show');document.querySelectorAll('.play.on').forEach(b=>{b.classList.remove('on');b.textContent=b.id==='pc'?T('listenAll'):T('listen')});document.querySelectorAll('.playing').forEach(e=>e.classList.remove('playing'))}
+ if(CUR.intro&&!(CUR.aud&&!vFor(LANG)))await say(CUR.intro,LANG,0.95,run);for(let i=0;i<CUR.list.length&&run===RUN;i++){await speakVerse(i,run);await pause(700,run)}if(run===RUN)stopAll()}
+function stopAll(){RUN++;try{speechSynthesis.cancel()}catch(e){}try{if(AUD){AUD.pause();AUD=null}}catch(e){}$('#bar').classList.remove('show');document.querySelectorAll('.play.on').forEach(b=>{b.classList.remove('on');b.textContent=b.id==='pc'?T('listenAll'):T('listen')});document.querySelectorAll('.playing').forEach(e=>e.classList.remove('playing'))}
 
 /* ---------- anonymous usage count: a random device number only, no personal data (off until the sheet is set up) ---------- */
 let DEV=null;try{DEV=localStorage.getItem('dvDev');if(!DEV){DEV=Math.random().toString(36).slice(2,12);localStorage.setItem('dvDev',DEV)}}catch(e){}
