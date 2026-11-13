@@ -56,7 +56,7 @@ details summary{cursor:pointer;color:var(--parb);font-size:14px;margin-top:8px}
 <main id="app"></main>
 <div class="bar" id="bar"><span id="barT"></span><button onclick="stopAll()">■ Stop</button></div>
 <script>
-const APPVER='dv11 · Fri 13/11/26';
+const APPVER='dv12 · Fri 13/11/26';
 const COUNTER_URL='https://script.google.com/macros/s/AKfycbzoJVFylqOIFcjF0eqQC3BwExopA8uO4ogMYwLVwh9zK8wsr2HRTClEgpVxUiBMDotO9g/exec';
 const BRAND='DHARMA VAANI',BRAND_TE='ధర్మ వాణి',OFFER='Offered as a seva by <b class="kn">Karthik Singirikonda</b> &amp; family';
 /* Only ready books are listed. A new book is added here when it is fully written. */
@@ -181,8 +181,8 @@ async function kidsRoute(h){const ki=await getJ('data/kids/index.json');
  if(h[1]==='gita'){d=await getJ('data/kids/gita.json');head=BOOKS[0][LANG]||BOOKS[0].en;lab=(c,v)=>`${c.n}.${v.v}`}
  else{const B=BOOKS.find(b=>b.id===h[1]&&b.kind==='kanda');if(!B)return go('kids');const idx=await getJ('data/'+B.id+'/index.json'),K=idx.kandas.find(x=>x.n===+h[2]);if(!K)return go('kids');d=await getJ('data/kids/'+B.id+'_'+K.n+'.json');head=(B[LANG]||B.en)+' · '+(K[LANG]||K.en);lab=(c,v)=>`${K.n}.${c.n}.${v.v}`}
  setTtl('👧👦 '+head);const list=[],labels=[];d.chapters.forEach(c=>c.verses.forEach(v=>{list.push(v);labels.push(lab(c,v))}));
- CUR={list:list,label:v=>labels[list.indexOf(v)],ref:v=>'kids/'+labels[list.indexOf(v)]};
- let i=0;app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn('kids')+d.chapters.map(c=>`<div style="font-weight:800;color:#8A2E0B;margin:16px 2px 4px">${c.n}. ${esc(tx(c.t))}</div>`+c.verses.map(v=>{const j=i++,m=mean(v),kd=kidT(v);
+ CUR={list:list,label:v=>labels[list.indexOf(v)],ref:v=>'kids/'+labels[list.indexOf(v)],aud:(h[1]==='gita'&&RECORDED.gita)?v=>'audio/gita/'+labels[list.indexOf(v)].replace('.','_')+'_':null};
+ let i=0;app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn(h[1]==='gita'?'gita':'kids')+d.chapters.map(c=>`<div style="font-weight:800;color:#8A2E0B;margin:16px 2px 4px">${c.n}. ${esc(tx(c.t))}</div>`+c.verses.map(v=>{const j=i++,m=mean(v),kd=kidT(v);
   return `<div class="card" id="v${j}"><div class="row" style="justify-content:space-between"><span class="vno">${labels[j]}</span><button class="play" id="p${j}" onclick="playOne(${j})">${T('listen')}</button></div><div class="sa" style="margin-top:8px">${esc(v.sa)}</div><div class="mean">${esc(m)}</div>${kd?`<div class="kid"><b>${T('kid')}</b> ${esc(kd)}</div>`:''}</div>`}).join('')).join('')}
 
 /* ---------- info / how to install (first open + ⓘ) ---------- */
@@ -231,7 +231,7 @@ async function speakVerse(i,run){const v=CUR.list[i];const el=$('#v'+i);document
  if(el){el.classList.add('playing');el.scrollIntoView({behavior:'smooth',block:'center'})}$('#barT').textContent=`${CUR.label(v)} ${T('playing')}`;ping('play',CUR.ref(v));
  const A=CUR.aud&&CUR.aud(v);
  if(!(A&&await clip(A+'sa.mp3',run)))await say(v.sa,'hi',0.8,run);if(run!==RUN)return;await pause(500,run);
- const m=mean(v),k=kidT(v);if(m){if(!(A&&await clip(A+LANG+'.mp3',run)))await say(m,LANG,0.95,run);if(k&&run===RUN){await pause(300,run);await say(T('kidSay')+k,LANG,0.95,run)}}
+ const m=mean(v),k=kidT(v);if(m){if(!(A&&await clip(A+LANG+'.mp3',run)))await say(m,LANG,0.95,run);if(k&&run===RUN){await pause(300,run);if(!(A&&await clip(A+'k'+LANG+'.mp3',run)))await say(T('kidSay')+k,LANG,0.95,run)}}
  if(el)el.classList.remove('playing')}
 async function playOne(i){const b=$('#p'+i),on=b&&b.classList.contains('on');stopAll();if(on||!CUR)return;const run=++RUN;b.classList.add('on');b.textContent=T('stop');$('#bar').classList.add('show');
  await speakVerse(i,run);if(run===RUN)stopAll()}
