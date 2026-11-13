@@ -56,7 +56,7 @@ details summary{cursor:pointer;color:var(--parb);font-size:14px;margin-top:8px}
 <main id="app"></main>
 <div class="bar" id="bar"><span id="barT"></span><button onclick="stopAll()">■ Stop</button></div>
 <script>
-const APPVER='dv7 · Fri 13/11/26';
+const APPVER='dv8 · Fri 13/11/26';
 const COUNTER_URL='';
 const BRAND='DHARMA VAANI',BRAND_TE='ధర్మ వాణి',OFFER='Offered as a seva by <b class="kn">Karthik Singirikonda</b> &amp; family';
 /* Only ready books are listed. A new book is added here when it is fully written. */
@@ -64,7 +64,7 @@ const BOOKS=[
  {id:'gita',te:'భగవద్గీత',en:'Bhagavad Gita',hi:'भगवद्गीता',ico:'🪔',kind:'flat',note:{te:'18 అధ్యాయాలు · 700 శ్లోకాలు',en:'18 chapters · 700 verses',hi:'18 अध्याय · 700 श्लोक'}},
  {id:'ramayana',te:'రామాయణం',en:'Ramayana',hi:'रामायण',ico:'🏹',kind:'kanda',u1:'sarga',u2:'sargas',note:{te:'7 కాండలు · 648 సర్గలు · 23,291 శ్లోకాలు',en:'7 Kandas · 648 chapters · 23,291 verses',hi:'7 काण्ड · 648 सर्ग · 23,291 श्लोक'}},
  {id:'bhagavatam',te:'శ్రీమద్భాగవతం',en:'Srimad Bhagavatam',hi:'श्रीमद्भागवत',ico:'🦚',kind:'kanda',u1:'ch',u2:'chs',note:{te:'12 స్కంధాలు · 335 అధ్యాయాలు · 14,088 శ్లోకాలు',en:'12 Skandhas · 335 chapters · 14,088 verses',hi:'12 स्कन्ध · 335 अध्याय · 14,088 श्लोक'}}];
-const NEWS=[{id:'bhagavatam',te:'✨ కొత్తగా: శ్రీమద్భాగవతం పూర్తిగా వచ్చింది',en:'✨ New: Bhagavatam added',hi:'✨ नया: पूरा श्रीमद्भागवत जुड़ गया'}];
+const NEWS=[{id:'ram-bh',to:'',te:'✨ కొత్తగా: రామాయణం, శ్రీమద్భాగవతం పూర్తిగా వచ్చాయి',en:'✨ New: Ramayana and Bhagavatam added',hi:'✨ नया: पूरी रामायण और श्रीमद्भागवत जुड़ गए'}];
 const L={
  verses:{te:'శ్లోకాలు',en:'verses',hi:'श्लोक'},listen:{te:'▶ వినండి',en:'▶ Listen',hi:'▶ सुनें'},listenAll:{te:'▶ మొత్తం వినండి',en:'▶ Listen to all',hi:'▶ पूरा सुनें'},
  stop:{te:'■ ఆపు',en:'■ Stop',hi:'■ रोकें'},kid:{te:'👧👦 పిల్లలకు:',en:'👧👦 For children:',hi:'👧👦 बच्चों के लिए:'},
@@ -110,7 +110,7 @@ async function route(){const h=location.hash.slice(1).split('/').filter(Boolean)
 function newsBanner(){let seen=[];try{seen=JSON.parse(localStorage.getItem('dvSeen')||'[]')}catch(e){}
  const n=NEWS.filter(x=>seen.indexOf(x.id)<0);if(!n.length)return '';
  return n.map(x=>`<div class="newb">${esc(tx(x))}<button class="play" style="padding:4px 12px;font-size:14px" onclick="seeNews('${x.id}')">${LANG==='hi'?'देखें':LANG==='en'?'Open':'చూడండి'}</button></div>`).join('')}
-function seeNews(id){let seen=[];try{seen=JSON.parse(localStorage.getItem('dvSeen')||'[]')}catch(e){}seen.push(id);try{localStorage.setItem('dvSeen',JSON.stringify(seen))}catch(e){}go(id)}
+function seeNews(id){let seen=[];try{seen=JSON.parse(localStorage.getItem('dvSeen')||'[]')}catch(e){}seen.push(id);try{localStorage.setItem('dvSeen',JSON.stringify(seen))}catch(e){}const x=NEWS.find(n=>n.id===id);if(x&&x.to==='')home();else go(x&&x.to!=null?x.to:id)}
 
 function home(){setTtl(BRAND);CUR=null;
  app.innerHTML=`<div class="row" style="justify-content:center;margin:6px 0 10px">${langSeg()}</div>`+newsBanner()+voiceWarn()+
