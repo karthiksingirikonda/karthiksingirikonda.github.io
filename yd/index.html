@@ -28,7 +28,7 @@ button,.btn{min-height:48px;border-radius:14px;border:none;font:inherit;font-wei
 .tag{font-size:12px;font-weight:800;border-radius:8px;padding:3px 8px}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.kgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}.kt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;border-radius:22px;min-height:104px;font-size:17px;font-weight:800;color:#1F2A44;box-shadow:0 2px 8px #0001}.kt span{font-size:40px;line-height:1}.kt.sm{min-height:80px;font-size:14px;background:#F4F6FA}.kt.sm span{font-size:28px}
+.kgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}.kt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;border-radius:22px;min-height:104px;font-size:17px;font-weight:800;color:#1F2A44;box-shadow:0 2px 8px #0001}.kt span{font-size:40px;line-height:1}.kt.clsnow{outline:4px solid #F2A900;animation:pulse 1.6s infinite}.kt.sm{min-height:80px;font-size:14px;background:#F4F6FA}.kt.sm span{font-size:28px}
 .live{display:block;margin:14px auto 4px;background:#6B3FD9;color:#fff;border:0;border-radius:26px;padding:13px 26px;font-size:19px;font-weight:800;box-shadow:0 4px 14px #6B3FD955}.live.on{background:#C62828}
 .mic{width:110px;height:110px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 0 0 12px #D5E2FB}
 .mic.listen{animation:pulse 1.2s infinite}.mic.sleep{background:#9AA3B5;box-shadow:0 0 0 12px #E6E9EF}
@@ -56,7 +56,7 @@ label{font-weight:700;font-size:14px;color:var(--muted);display:flex;flex-direct
 </style>
 </head>
 <body>
-<header><button class="ghost hidden" id="backBtn" aria-label="Back" onclick="goBack()">&#8592;</button><b id="appTitle">YD Technologies</b><span class="muted" id="todayLbl"></span><span id="kidBadge" class="hidden" aria-label="Whose screen"></span><button class="green hidden" id="askFab" aria-label="Ask for a change" onclick="askOpen()" style="min-height:40px;font-size:14px;padding:0 12px">&#10022;</button></header>
+<header><button class="ghost hidden" id="backBtn" aria-label="Back" onclick="goBack()">&#8592;</button><b id="appTitle">YD Technologies</b><span class="muted" id="todayLbl"></span><span id="kidBadge" class="hidden" aria-label="Whose screen"></span><button class="ghost" id="tmBtn" aria-label="Timer and stopwatch" onclick="tmOpen()" style="min-height:40px;font-size:20px;padding:0 10px">⏱</button><button class="green hidden" id="askFab" aria-label="Ask for a change" onclick="askOpen()" style="min-height:40px;font-size:14px;padding:0 12px">&#10022;</button></header>
 <div id="askPanel" class="hidden" style="position:fixed;left:12px;right:12px;top:70px;z-index:20;background:#fff;border-radius:20px;padding:16px;box-shadow:0 8px 30px rgba(31,42,68,.25);max-width:520px;margin:0 auto"></div>
 <main id="app"></main>
 
@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v44 · Thu 12/11 22:30';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v45 · Fri 13/11 17:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -109,7 +109,7 @@ async function start(){const jm=(location.hash||'').match(/join=([a-f0-9]{20})/)
  restoreNav()}
 function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children.find(c=>c.id===n.id);
  if(kid&&kid.introDone===false&&n.v==='talk')n.v='child';
- if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='games')return openGames();if(n.v==='base')return openBase(n.tab);if(n.v==='dtb')return openBubbles();if(n.v==='dtc')return openColourMatch();if(n.v==='dtr')return openRacer();if(['lvl','lvedit','lvplay'].indexOf(n.v)>=0)return kid.id==='ditya'?lvShared('ditya'):openLevels();if(n.v==='learn')return openLearn();if(n.v==='learnSec')return openLearnSec(n.sec);if(n.v==='learnItem')return openLearnItem(n.sec,n.i);if(n.v==='quiz')return openQuiz(n.kind==='actionsKid'?'actions':n.kind||'groups');if(n.v==='colour')return openColour(n.i||0)}
+ if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='class')return openClass(n.which||'morning');if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='games')return openGames();if(n.v==='base')return openBase(n.tab);if(n.v==='dtb')return openBubbles();if(n.v==='dtc')return openColourMatch();if(n.v==='dtr')return openRacer();if(['lvl','lvedit','lvplay'].indexOf(n.v)>=0)return kid.id==='ditya'?lvShared('ditya'):openLevels();if(n.v==='learn')return openLearn();if(n.v==='learnSec')return openLearnSec(n.sec);if(n.v==='learnItem')return openLearnItem(n.sec,n.i);if(n.v==='quiz')return openQuiz(n.kind==='actionsKid'?'actions':n.kind||'groups');if(n.v==='colour')return openColour(n.i||0)}
  if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
  goHome()}
 function showFab(){$('#askFab').classList.toggle('hidden',!ADMIN);if(ADMIN)updateDot()}
@@ -163,10 +163,12 @@ function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();+
  <div class="muted" id="micHint" style="text-align:center">Say "Hey ${esc(CHILD.helperName)}" or tap the mic</div>
  <div class="row"><input id="typeBox" placeholder="Or type here" style="flex:1"><button class="primary" onclick="sendTyped()">Send</button></div>`,true);
  if(mode==='morning')clockTick();
+ if(String(mode).indexOf('class|')===0)clsBar(String(mode).split('|')[1]);
  if(restored){$('#micHint').textContent='Tap the mic to start talking';return}
  Voice.begin(mode==='intro');
  {const my=NAVSEQ,m0=String(mode).split('|')[0];if(!restored&&mode!=='intro'&&!/^(homework|check|hwplan)$/.test(m0))setTimeout(()=>{if(my===NAVSEQ&&GEM&&!Live.on&&LIVE_FIRST.indexOf(m0)>=0)Live.start('start')},300)}
- if(mode==='intro')send('(child opened the app for the first time)')}
+ if(mode==='intro')send('(child opened the app for the first time)');
+ if(String(mode).indexOf('class|')===0){const my=NAVSEQ;setTimeout(()=>{if(my===NAVSEQ&&!Live.on&&$('#chat')&&!$('#chat').children.length)send('(the '+String(mode).split('|')[1]+' class has started – greet him warmly, say in one line where we stopped last time, then begin step 1)')},700)}}
 /* 12-hour times everywhere: 17:41 → 5:41 PM */
 function t12(x){return String(x==null?'':x).replace(/\b(\d{1,2}):(\d{2})\b/g,(z,h,m)=>{h=+h;if(h>23)return z;const ap=h>=12?'PM':'AM';return (h%12||12)+':'+m+' '+ap})}
 function clockTick(){const el=$('#clock');if(!el)return;const now=new Date(),[h,m]=BOOT.morningEnd.split(':');const end=new Date();end.setHours(+h,+m,0,0);const left=Math.max(0,Math.round((end-now)/60000));el.classList.remove('hidden');el.innerHTML=`<b>Minutes left: ${left}</b> <span class="muted">· ends ${t12(BOOT.morningEnd)}</span>`;setTimeout(clockTick,30000)}
@@ -372,9 +374,11 @@ const CH={VAL:{p:100,n:300,b:320,r:500,q:900,k:0},
  name:{p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'},
  sqName:sq=>String.fromCharCode(97+(sq&7))+(8-(sq>>3))};
 /* ---------- Yuvaan: home tiles, writing, typing, chess ---------- */
-function yuvaanHome(t,nowIdx){return `<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:26px;font-weight:800">Hi ${esc(CHILD.name)}! 🚀</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">⭐ ${t.starsApproved}</span></div>
+function yuvaanHome(t,nowIdx){setTimeout(clsPrefetch,400);const hr=new Date().getHours(),cNow=hr<12?'morning':hr>=15?'evening':'';return `<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:26px;font-weight:800">Hi ${esc(CHILD.name)}! 🚀</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">⭐ ${t.starsApproved}</span></div>
  ${CHILD.introDone?'':`<button class="card big" style="background:#FFF1C9" onclick="openTalk('intro')"><span style="font-size:34px">&#128075;</span><div><div style="font-size:19px;font-weight:800">Meet your helper</div></div></button>`}
  <div class="kgrid">
+ <button class="kt${cNow==='morning'?' clsnow':''}" style="background:#FFF4D6" onclick="openClass('morning')"><span>🌅</span>Morning class</button>
+ <button class="kt${cNow==='evening'?' clsnow':''}" style="background:#FFE6D9" onclick="openClass('evening')"><span>🌇</span>Evening class</button>
  <button class="kt" style="background:#E8F1FF" onclick="openTalk('${defaultMode(t)}')"><span>💬</span>Talk to ${esc(CHILD.helperName)}</button>
  <button class="kt" style="background:#EFEAFB" onclick="openHomework()"><span>📚</span>Homework</button>
  <button class="kt" style="background:#FFF1C9" onclick="openStars()"><span>⭐</span>My stars</button>
@@ -1607,7 +1611,7 @@ function colourDone(i){const t='What beautiful colouring! Super!';toast('⭐ '+t
 const LIVE_FIRST=['story','tellstory','speakEn','speakHi','morning','fact','chat','homework','check','hwplan'];let QUICK=0,LASTREPLY=0;
 async function micStart(){Wake.stop();const m=$('#micBtn');QUICK=0;const ok=await Ears.start(onKidSpeech,'#micHint');if(ok&&m){m.classList.remove('sleep');m.classList.add('listen')}}
 function noteKidTurn(){const quick=LASTREPLY&&Date.now()-LASTREPLY<25000;QUICK=quick?QUICK+1:0;
- if(QUICK>=3&&GEM&&!Live.on&&String(MODE).split('|')[0]!=='check'){QUICK=0;return true}return false}
+ if(QUICK>=3&&GEM&&!Live.on&&!/^(check|class)$/.test(String(MODE).split('|')[0])){QUICK=0;return true}return false}
 const Voice={
  begin(wake){if(GEM){if(wake)this.toggle();else{const h=$('#micHint');if(h)h.textContent='Mic off – tap the mic to talk'}}else VoiceOld.begin(wake)},
  async toggle(){if(Live.on)return Live.stop();if(!GEM)return VoiceOld.toggle();const m=$('#micBtn');
@@ -1633,11 +1637,11 @@ function localCommand(said){const s=said.toLowerCase();
  if(/timer|టైమర్/.test(s)){const n=numIn(s);if(!n){Voice.speak('How many minutes should I set the timer for?','en');return true}const sec=/sec|సెకన్/.test(s)?n:n*60;startTimer(sec);return true}
  if(/what.*time|time now|టైం ఎంత|ఎన్ని గంటలు|సమయం ఎంత/.test(s)){const d=new Date();const hm=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),h=d.getHours(),part=h<12?'in the morning':h<16?'in the afternoon':h<19?'in the evening':'at night',say=CHILD&&CHILD.id==='ditya'?'It is '+t12(hm).replace(/ (AM|PM)$/,'')+' '+part:'It is '+t12(hm);addBubble('helper',say);Voice.speak(say,'en');return true}
  return false}
-function bigBox(html){let b=$('#bigTimer');if(!b){b=document.createElement('div');b.id='bigTimer';b.style.cssText='position:fixed;top:64px;left:16px;right:16px;background:#1F2A44;color:#fff;border-radius:20px;padding:16px;text-align:center;z-index:8;font-size:44px;font-weight:800';document.body.appendChild(b)}b.innerHTML=html}
+function bigBox(html){let b=$('#bigTimer');if(!b){b=document.createElement('div');b.id='bigTimer';b.style.cssText='position:fixed;top:62px;right:12px;background:#1F2A44;color:#fff;border-radius:16px;padding:8px 16px;text-align:center;z-index:8;font-size:30px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer';b.onclick=tmOpen;document.body.appendChild(b)}b.innerHTML=html}
 function mmss(s){s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
-function startStopwatch(){const t0=Date.now();clearInterval(SW&&SW.i);SW={t0:t0,i:setInterval(()=>bigBox(mmss((Date.now()-t0)/1000)+'<div style="font-size:15px">stopwatch · say "stop" or tap</div>'),500)};$('#bigTimer')||bigBox('0:00');$('#bigTimer').onclick=stopStopwatch;Voice.speak('Stopwatch started!','en')}
+function startStopwatch(){const t0=Date.now();clearInterval(SW&&SW.i);SW={t0:t0,i:setInterval(()=>bigBox(mmss((Date.now()-t0)/1000)+'<div style="font-size:13px">⏱ stopwatch · tap</div>'),500)};$('#bigTimer')||bigBox('0:00');Voice.speak('Stopwatch started!','en')}
 function stopStopwatch(){if(!SW)return;const sec=(Date.now()-SW.t0)/1000;clearInterval(SW.i);SW=null;bigBox(mmss(sec)+'<div style="font-size:15px">done</div>');setTimeout(()=>{const b=$('#bigTimer');b&&b.remove()},4000);if(CHILD)api('logTimer',CHILD.id,'stopwatch','',Math.round(sec));Voice.speak(Math.floor(sec/60)+' minutes '+Math.round(sec%60)+' seconds in total. Nice!','en')}
-function startTimer(sec,quiet){clearInterval(TM&&TM.i);const end=Date.now()+sec*1000;TM={sec:sec,end:end,i:setInterval(()=>{const left=(end-Date.now())/1000;bigBox(mmss(left)+'<div style="font-size:15px">timer</div>');if(left<=0){clearInterval(TM.i);TM=null;const b=$('#bigTimer');b&&b.remove();if(CHILD)api('logTimer',CHILD.id,'timer','',sec);Voice.speak('Time is up! How much is done? How much more time do you need?','en')}},500)};if(!quiet)Voice.speak('Timer set for '+Math.round(sec/60)+' minutes.','en')}
+function startTimer(sec,quiet){clearInterval(TM&&TM.i);const end=Date.now()+sec*1000;TM={sec:sec,end:end,i:setInterval(()=>{const left=(end-Date.now())/1000;bigBox(mmss(left)+'<div style="font-size:13px">⏲ timer · tap</div>');if(left<=0){clearInterval(TM.i);TM=null;const b=$('#bigTimer');b&&b.remove();if(CHILD)api('logTimer',CHILD.id,'timer','',sec);Voice.speak('Time is up! How much is done? How much more time do you need?','en')}},500)};if(!quiet)Voice.speak('Timer set for '+Math.round(sec/60)+' minutes.','en')}
 function pauseTimer(){if(!TM||TM.paused!=null)return;clearInterval(TM.i);TM.paused=Math.max(0,(TM.end-Date.now())/1000);bigBox(mmss(TM.paused)+'<div style="font-size:15px">paused</div>');Voice.speak('Timer paused. Tell me when to start again.','en')}
 function resumeTimer(){if(!TM||TM.paused==null)return;startTimer(TM.paused,true);Voice.speak('Timer started again.','en')}
 function stopTimer(){if(!TM)return;clearInterval(TM.i);TM=null;const b=$('#bigTimer');b&&b.remove();Voice.speak('Timer is off.','en')}
@@ -1717,8 +1721,8 @@ let HWR=null;
 function hwrIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function hwrDay(iso){const d=new Date(iso+'T12:00:00');return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+d.getDate()+'/'+(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(2)}
 function hwrBody(){setTimeout(hwrLoad,30);return `<div class="card"><b>📝 Homework report</b><div class="muted">Pick a day. Every homework item shows time, questions, hints, wrong ones and what happens to them.</div><label>Date<input id="hwrDate" type="date" value="${hwrIso(new Date())}" max="${hwrIso(new Date())}" onchange="hwrLoad()"></label></div><div id="hwrOut"></div>`}
-async function hwrLoad(){const el=$('#hwrOut'),inp=$('#hwrDate');if(!el||!inp)return;el.innerHTML='<div class="card muted">Preparing the report… the first time for a day can take up to a minute.</div>';
- try{HWR=await api('adminHwReport',ADMIN.token,inp.value);if($('#hwrOut'))$('#hwrOut').innerHTML=hwrHtml(HWR)}catch(e){if($('#hwrOut'))$('#hwrOut').innerHTML='<div class="card">Could not load the report. Please try again.</div>'}}
+async function hwrLoad(){const el=$('#hwrOut'),inp=$('#hwrDate');if(!el||!inp)return;const d=inp.value;let c=null;try{c=JSON.parse(localStorage.getItem(hwrKey(d))||'null')}catch(e){}
+ if(c){HWR=c;el.innerHTML=hwrHtml(c)}else el.innerHTML='<div class="card muted">Opening…</div>';hwrFetch(d,true)}
 function hwrSpeed(s){if(s==null)return '';return s<=20?'⚡ Fast':s<=45?'👍 OK':'🐢 Slow'}
 function hwrPct(it){const r=it.rep;return r&&r.total?Math.round((r.rightOwn||0)/r.total*100):null}
 function hwrHtml(R){if(!R||!R.items.length)return `<div class="card muted">No homework on ${hwrDay(R?R.date:hwrIso(new Date()))}.</div>`;
@@ -1727,7 +1731,7 @@ function hwrHtml(R){if(!R||!R.items.length)return `<div class="card muted">No ho
   const tm=`<b style="color:${over?'#C62828':'#1F2A44'}">${it.minutes||0} min</b>${it.plannedMin?` <span class="muted">of ${it.plannedMin} min target${over?' · over by '+(it.minutes-it.plannedMin)+' min':''}</span>`:''}${it.startedAt?` <span class="muted">(${esc(it.startedAt)}${it.finishedAt?' – '+esc(it.finishedAt):''})</span>`:''}`;
   const st=it.status==='done'?'✅ Done':it.status==='started'?'🟧 Started':it.status==='pending'?'⏳ Later':'⬜ Not started';
   let inner='';
-  if(!r)inner=`<div class="muted" style="margin-top:6px">${it.turns?'Report not ready – tap the date again in a minute.':'No homework talk saved for this item.'}</div>`;
+  if(!r)inner=`<div class="muted" style="margin-top:6px">${it.turns?'⏳ Report being prepared – it appears here by itself.':'No homework talk saved for this item.'}</div>`;
   else{const prog=p==null?'':(it.prevPct==null?`${p}% right on own (first report for ${esc(it.subject)})`:`${p}% right on own · earlier days ${it.prevPct}% → ${p>it.prevPct?'⬆ better':p<it.prevPct?'⬇ lower':'same'}`);
    inner=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;text-align:center">
     <div style="background:#E9F6EC;border-radius:10px;padding:6px"><b>${r.rightOwn||0}</b><div class="muted" style="font-size:11px">right on own</div></div>
@@ -1770,8 +1774,8 @@ function hwrImg(){const R=HWR;if(!R)return;const W=900,pad=28,cv=document.create
  let y=pad;lines.forEach(([k,l,red])=>{if(k==='k'){y+=12;x.fillStyle='#EEF3FF';x.fillRect(pad-8,y,W-2*pad+16,lh.k);}x.font=F[k];x.fillStyle=red?'#C62828':k==='h'?'#1F2A44':k==='w'?'#555':'#1F2A44';x.textBaseline='top';x.fillText(l,pad+(k==='w'||k==='t'?14:0),y+6);y+=lh[k]});
  const url=cv.toDataURL('image/png');const o=document.createElement('div');o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;gap:10px';
  o.innerHTML=`<img src="${url}" style="max-width:100%;max-height:75vh;border-radius:8px;background:#fff"><div class="row" style="gap:10px"><a download="Homework-report-${R.date}.png" href="${url}"><button class="green">Download image</button></a><button onclick="this.closest('div').parentNode.remove()">Close</button></div>`;document.body.appendChild(o)}
-const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['hwr','📝 HW report'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','&#10022; Ask'],['use','📊 Usage'],['quest','🎮 Game time'],['lvl','🛠️ Levels']];
-async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
+const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr','Instruction'],['hw','Homework'],['hwr','📝 HW report'],['cls','🌅 Class report'],['tt','Timetable'],['vid','Videos'],['music','Music'],['ask','&#10022; Ask'],['use','📊 Usage'],['quest','🎮 Game time'],['lvl','🛠️ Levels']];
+async function adminHome(tab){adminPrefetch();const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
  const d=await api('adminToday',ADMIN.token);let body='';
  const kidOpts=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
  if(tab==='today'){body=['yuvaan','ditya'].map(k=>{const t=d[k];const n=d.children.find(c=>c.id===k);return `<div class="card"><b>${esc(n.name)}</b> <span class="muted">helper: ${esc(n.helperName)}${n.nameChosenOn?' (chosen '+esc(n.nameChosenOn)+')':''}</span><div class="muted">Stars today: ${t.starsApproved} approved, ${t.starsWaiting} waiting</div></div>`}).join('')+
@@ -1782,6 +1786,7 @@ async function adminHome(tab){const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PEN
  if(tab==='instr'){body=`<div class="card"><label>Child<select id="iKid">${kidOpts}</select></label><label>What<select id="iKind"><option value="read">Read</option><option value="questions">Ask questions</option><option value="video">Show video</option><option value="task">Task</option></select></label><label>Details<textarea id="iText"></textarea></label><label>Time<input id="iTime" type="time"></label><label>Date<input id="iDate" type="date"></label><button class="green" style="margin-top:8px" onclick="addInstr()">Save</button></div>`}
  if(tab==='hw'){HWFILES=[];const L=await api('adminHomework',ADMIN.token);body=hwAdminForm()+hwAdminList(L)}
  if(tab==='hwr'){body=hwrBody()}
+ if(tab==='cls'){body=clrBody()}
  if(tab==='tt'){const rows=await api('adminGetTimetable',ADMIN.token,'yuvaan');body=`<div class="card"><b>Yuvaan – timetable</b>${rows.map(r=>`<div class="row" style="justify-content:space-between;border-bottom:1px solid #EEF1F7;padding:8px 0"><span><b>${esc(t12(r.time))}</b> ${esc(r.activity)}</span><span class="muted">${esc(r.days)}</span></div>`).join('')}</div>
   <div class="card"><b>Add a slot</b><label>Child<select id="tKid">${kidOpts}</select></label><label>Days<input id="tDays" value="Mon,Tue,Wed,Thu,Fri"></label><label>Time<input id="tTime" type="time"></label><label>Activity<input id="tAct"></label><button class="green" style="margin-top:8px" onclick="addSlot()">Save slot</button></div>`}
  if(tab==='vid'){body=`<div class="card"><label>Child<select id="vKid">${kidOpts}</select></label><label>Title<input id="vTitle"></label><label>Facebook link or Google Drive link<input id="vLink" placeholder="Paste link"></label><button class="green" style="margin-top:8px" onclick="addVid()">Save video</button><div class="muted" style="margin-top:8px">Facebook links play inside the app. To make questions from a reel, upload the saved video to Drive – it is processed from Karthik's side.</div></div>`}
@@ -1885,6 +1890,98 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
 async function checkUpdate(){try{if(Live.on||Ears.on||PLAYING||(getNav()||{}).v==='talk')return;const t=await (await fetch('index.html?u='+Date.now(),{cache:'no-store'})).text();const m=/APPVER='([^']+)'/.exec(t);if(m&&m[1]!==APPVER)location.reload()}catch(e){}}
 setInterval(checkUpdate,3*60000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdate()});
 start();
+/* ---------- 🌅 Morning class / 🌇 Evening class (continues from his memory and earlier classes) ---------- */
+function clsDay(){return hwrIso(new Date())}
+function clsKey(w){return 'ydCP_'+clsDay()+'_'+w}
+function clsGet(w){try{return JSON.parse(localStorage.getItem(clsKey(w))||'null')}catch(e){return null}}
+function clsPut(w,p){try{localStorage.setItem(clsKey(w),JSON.stringify(p))}catch(e){}}
+let CLSLOAD={};
+function clsLoad(w){if(clsGet(w))return Promise.resolve(clsGet(w));if(CLSLOAD[w])return CLSLOAD[w];
+ CLSLOAD[w]=net('classPlan',['yuvaan',w]).then(p=>{clsPut(w,p);return p}).finally(()=>{delete CLSLOAD[w]});return CLSLOAD[w]}
+function clsPrefetch(){if(!CHILD||CHILD.id!=='yuvaan')return;const h=new Date().getHours();const w=h<12?'morning':'evening';if(!clsGet(w))clsLoad(w).catch(()=>{})}
+function clsStartKey(w){return 'ydCS_'+clsDay()+'_'+w}
+async function openClass(w){if(CHILD&&RESTING[CHILD.id])return showRest();const SEQ=++NAVSEQ;Voice.stop();setNav({v:'class',id:CHILD.id,which:w});
+ const T=w==='morning'?'🌅 Morning class':'🌇 Evening class';
+ let p=clsGet(w);
+ if(!p){render(`<b style="font-size:22px">${T}</b><div class="card" style="text-align:center;padding:26px"><div style="font-size:54px">${w==='morning'?'🌅':'🌇'}</div><div style="font-size:19px;font-weight:800;margin-top:6px">Getting today's class ready…</div><div class="muted">Just a few seconds</div></div>`,true);
+  try{p=await clsLoad(w)}catch(e){if(SEQ===NAVSEQ)render(`<b style="font-size:22px">${T}</b><div class="card">Could not get the class ready. Please check the internet and tap again.</div><button class="primary" onclick="openClass('${w}')">Try again</button>`,true);return}}
+ if(SEQ!==NAVSEQ)return;
+ const started=localStorage.getItem(clsStartKey(w));
+ render(`<b style="font-size:22px">${T}</b>
+ <div class="card" style="background:#FFFBEF"><div class="muted" style="font-weight:800">TODAY WE WILL DO</div>${(p.steps||[]).map((s,i)=>`<div style="padding:6px 0;font-size:17px;border-bottom:1px solid #F1E6C8">${i+1}. ${esc(s.title)}</div>`).join('')}
+ <div class="muted" style="margin-top:8px">⏱ About ${p.minutes||20} minutes</div></div>
+ <button class="primary" style="min-height:64px;font-size:20px;width:100%" onclick="clsGo('${w}')">${started?'▶ Continue the class':'▶ Start the class'}</button>`,true)}
+function clsGo(w){const k=clsStartKey(w);if(!localStorage.getItem(k))try{localStorage.setItem(k,String(Date.now()))}catch(e){}openTalk('class|'+w)}
+let CLSTICK=null;
+function clsBar(w){const p=clsGet(w)||{minutes:w==='morning'?20:30,steps:[]};const app=$('#app');if(!app)return;
+ const bar=document.createElement('div');bar.id='clsBar';bar.className='card';bar.style.cssText='background:#FFFBEF;display:flex;align-items:center;justify-content:space-between;gap:8px';
+ bar.innerHTML=`<div><div style="font-weight:800">${w==='morning'?'🌅 Morning class':'🌇 Evening class'}</div><div id="clsTime" style="font-size:22px;font-weight:800"></div></div><button class="green" style="min-height:48px" onclick="clsFinish('${w}')">✅ Finish class</button>`;
+ app.insertBefore(bar,app.firstChild);
+ const plan=document.createElement('details');plan.className='card';plan.innerHTML=`<summary style="font-weight:800">📋 Today's steps</summary>${(p.steps||[]).map((s,i)=>`<div style="padding:4px 0">${i+1}. ${esc(s.title)}</div>`).join('')}`;app.insertBefore(plan,bar.nextSibling);
+ clearInterval(CLSTICK);const t0=+localStorage.getItem(clsStartKey(w))||Date.now(),tgt=(p.minutes||20)*60;
+ const tick=()=>{const el=$('#clsTime');if(!el){clearInterval(CLSTICK);return}const sec=(Date.now()-t0)/1000;el.innerHTML=sec<=tgt?`${mmss(sec)} <span class="muted" style="font-size:14px">of ${p.minutes||20} min</span>`:`<span style="color:#C62828">${p.minutes||20}:00 +${mmss(sec-tgt)}</span>`};tick();CLSTICK=setInterval(tick,1000)}
+function clsFinish(w){clearInterval(CLSTICK);try{Voice.stop()}catch(e){}try{if(Live.on)Live.stop()}catch(e){}
+ net('classEnd',['yuvaan',w]).catch(()=>{});toast('⭐ Super class today! See you '+(w==='morning'?'in the evening':'tomorrow')+'!');sayFree('Super class today! Well done, Yuvaan!','en');openChild('yuvaan')}
+
+/* ---------- ⏱ Timer / stopwatch on every screen (free, no AI) ---------- */
+function tmClose(){const p=$('#tmPanel');p&&p.remove()}
+function tmOpen(){tmClose();const d=document.createElement('div');d.id='tmPanel';d.style.cssText='position:fixed;inset:0;background:#0007;z-index:20;display:flex;align-items:flex-start;justify-content:center;padding-top:70px';
+ const run=TM?(TM.paused!=null?`<button onclick="resumeTimer();tmClose()">▶ Start again</button>`:`<button onclick="pauseTimer();tmClose()">⏸ Pause</button>`)+`<button onclick="stopTimer();tmClose()">⏹ Stop timer</button>`:'';
+ d.innerHTML=`<div class="card" style="width:min(420px,92vw);max-height:80vh;overflow:auto" onclick="event.stopPropagation()">
+ <div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">⏱ Timer & stopwatch</b><button class="ghost" onclick="tmClose()">✕</button></div>
+ ${TM?`<div class="card" style="background:#EEF3FF"><b>Timer running</b><div class="grid2" style="margin-top:6px">${run}</div></div>`:''}
+ ${SW?`<div class="card" style="background:#EEF3FF"><b>Stopwatch running</b><button style="width:100%;margin-top:6px" onclick="stopStopwatch();tmClose()">⏹ Stop stopwatch</button></div>`:''}
+ <div class="muted" style="font-weight:800;margin-top:6px">TIMER – pick minutes</div>
+ <div class="kgrid">${[1,2,5,10,15,20,30,45,60].map(m=>`<button class="kt sm" onclick="tmStart(${m})"><span>⏲</span>${m} min</button>`).join('')}</div>
+ <div class="row" style="margin-top:8px"><input id="tmMin" type="number" min="1" max="240" placeholder="Other minutes" style="flex:1"><button class="primary" onclick="tmStart(+$('#tmMin').value)">Start</button></div>
+ <div class="muted" style="font-weight:800;margin-top:12px">STOPWATCH</div>
+ <button class="green" style="width:100%;min-height:52px" onclick="startStopwatch();tmClose()">▶ Start stopwatch</button></div>`;
+ d.onclick=tmClose;document.body.appendChild(d)}
+function tmStart(m){m=Math.round(+m);if(!(m>0&&m<=240))return toast('Type the minutes (1 to 240)');tmClose();startTimer(m*60)}
+
+/* ---------- Admin → 🌅 Class report: saved reports open at once; missing ones are made in the background ---------- */
+let CLR=null;
+function clrKey(d){return 'ydCLR_'+d}
+function clrBody(){setTimeout(clrLoad,30);return `<div class="card"><b>🌅 Class report</b><div class="muted">What Yuvaan learned in the morning and evening class: strong and weak points, questions to revise, what carries forward.</div><label>Date<input id="clrDate" type="date" value="${hwrIso(new Date())}" max="${hwrIso(new Date())}" onchange="clrLoad()"></label></div><div id="clrOut"></div>`}
+function clrShow(R){CLR=R;const el=$('#clrOut');if(el&&$('#clrDate')&&$('#clrDate').value===R.date)el.innerHTML=clrHtml(R)}
+async function clrLoad(){const inp=$('#clrDate');if(!inp)return;const d=inp.value;let c=null;try{c=JSON.parse(localStorage.getItem(clrKey(d))||'null')}catch(e){}
+ if(c)clrShow(c);else $('#clrOut').innerHTML='<div class="card muted">Opening…</div>';clrFetch(d,true)}
+async function clrFetch(d,show){let R;try{R=await net('adminClassReport',[ADMIN.token,d,true])}catch(e){return}
+ try{localStorage.setItem(clrKey(d),JSON.stringify(R))}catch(e){}if(show)clrShow(R);
+ const st=R.items.filter(i=>i.stale);if(!st.length)return;
+ await Promise.all(st.map(i=>net('adminClassReport',[ADMIN.token,d,true,i.child,i.which]).then(R2=>{R=R2;try{localStorage.setItem(clrKey(d),JSON.stringify(R2))}catch(e){}if($('#clrOut'))clrShow(R2)}).catch(()=>{})));
+ if(!$('#clrOut'))toast('🌅 Class report ready')}
+function clrHtml(R){if(!R||!R.items.length)return `<div class="card muted">No class on ${hwrDay(R?R.date:hwrIso(new Date()))}.</div>`;
+ const L=(t,v)=>v?`<div style="margin-top:6px"><b>${t}</b> ${esc(v)}</div>`:'';
+ return R.items.map(it=>{const r=it.rep,p=it.plan||{steps:[]},done=(r&&r.stepsDone)||[];
+  const head=`<div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:18px">${it.which==='morning'?'🌅 Morning':'🌇 Evening'} class · ${esc(it.childName)}</b><span class="muted">${hwrDay(R.date)}</span></div>`;
+  if(!r)return `<div class="card">${head}<div class="muted" style="margin-top:6px">${it.turns?'⏳ Report being prepared – it appears here by itself.':'Class not started yet.'}</div></div>`;
+  return `<div class="card">${head}
+  <div class="muted" style="margin-top:4px">${r.minutes||0} min · ${r.turns||0} answers${r.mood?' · mood: '+esc(r.mood):''}${it.stale?' · ⏳ updating':''}</div>
+  ${L('📒',r.line)}
+  ${r.learned&&r.learned.length?`<div style="margin-top:8px"><b>✅ Learned</b>${r.learned.map(x=>`<div>• ${esc(x)}</div>`).join('')}</div>`:''}
+  ${L('💪 Strong:',r.strong)}${L('🧩 Hard:',r.weak)}
+  ${r.revise&&r.revise.length?`<div style="margin-top:8px;background:#FFF6DD;border-radius:10px;padding:8px"><b>🔁 Revise next class</b>${r.revise.map(x=>`<div>• ${esc(x.q)} <span class="muted">(${esc(x.a)})</span></div>`).join('')}</div>`:''}
+  ${L('📰 News:',r.news)}${L('📖 Story:',r.story)}${L('🇮🇳 GK:',r.gk)}${L('🗣️ Hindi:',r.hindi)}${L('📚 Book:',r.book)}${L('✍️ English:',r.english)}
+  ${r.carry&&r.carry.length?`<div style="margin-top:8px;background:#EEF3FF;border-radius:10px;padding:8px"><b>➡️ Carries to next class</b>${r.carry.map(x=>`<div>• ${esc(x)}</div>`).join('')}</div>`:''}
+  ${L('❓ Wants to know:',r.tomorrow)}
+  <details style="margin-top:8px"><summary class="muted">Plan steps</summary>${(p.steps||[]).map(s=>`<div>${done.some(x=>String(x).toLowerCase().indexOf(String(s.title).toLowerCase().replace(/[^a-z ]/g,'').trim().slice(0,12))>=0)?'✅':'⬜'} ${esc(s.title)}</div>`).join('')}</details></div>`}).join('')+
+ `<div class="card"><b>Share</b><div class="grid2" style="margin-top:8px"><button onclick="clrCopy()">📋 Copy text</button><button class="green" onclick="clrWa()">Open in WhatsApp</button></div></div>`}
+function clrText(){const R=CLR;if(!R)return '';return ['🌅 *Class report – '+hwrDay(R.date)+'*'].concat(R.items.filter(i=>i.rep).map(i=>{const r=i.rep;return '\n*'+(i.which==='morning'?'Morning':'Evening')+' class – '+i.childName+'* ('+(r.minutes||0)+' min)\n'+(r.line||'')+(r.learned&&r.learned.length?'\n✅ Learned: '+r.learned.join('; '):'')+(r.weak?'\n🧩 Hard: '+r.weak:'')+(r.revise&&r.revise.length?'\n🔁 Revise: '+r.revise.map(x=>x.q).join('; '):'')+(r.carry&&r.carry.length?'\n➡️ Next class: '+r.carry.join('; '):'')})).join('\n')}
+function clrCopy(){navigator.clipboard.writeText(clrText()).then(()=>toast('Copied – paste in WhatsApp')).catch(()=>toast('Could not copy'))}
+function clrWa(){window.open('https://wa.me/?text='+encodeURIComponent(clrText()),'_blank')}
+
+/* ---------- 📝 HW report: kept on the phone, opens at once; missing parts are made in the background ---------- */
+function hwrKey(d){return 'ydHWR_'+d}
+let HWRBUSY={};
+async function hwrFetch(d,show){if(HWRBUSY[d])return;HWRBUSY[d]=1;try{let R;try{R=await net('adminHwReport',[ADMIN.token,d,true])}catch(e){if(show&&$('#hwrOut')&&!HWR)$('#hwrOut').innerHTML='<div class="card">Could not load the report. Please try again.</div>';return}
+ {let old=null;try{old=JSON.parse(localStorage.getItem(hwrKey(d))||'null')}catch(e){}if(old)R.items.forEach(x=>{if(!x.rep){const o=old.items.find(y=>y.id===x.id);if(o&&o.rep)x.rep=o.rep}})}
+ const save=()=>{try{localStorage.setItem(hwrKey(d),JSON.stringify(R))}catch(e){}if($('#hwrOut')&&$('#hwrDate')&&$('#hwrDate').value===d){HWR=R;$('#hwrOut').innerHTML=hwrHtml(R)}};save();
+ const st=R.items.filter(i=>i.stale&&i.turns);if(!st.length)return;
+ await Promise.all(st.map(i=>net('adminHwReport',[ADMIN.token,d,false,i.id]).then(R2=>{const n=R2.items.find(x=>x.id===i.id);if(n){R.items=R.items.map(x=>x.id===i.id?n:x)}save()}).catch(()=>{})));
+ if(!$('#hwrOut'))toast('📝 Homework report ready')}finally{delete HWRBUSY[d]}}
+function adminPrefetch(){if(!ADMIN||window.__APF)return;window.__APF=1;const d=hwrIso(new Date());setTimeout(()=>{hwrFetch(d,false);clrFetch(d,false)},1500)}
+
 </script>
 </body>
 </html>
