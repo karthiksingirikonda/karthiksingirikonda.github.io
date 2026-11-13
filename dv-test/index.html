@@ -52,11 +52,11 @@ details summary{cursor:pointer;color:var(--parb);font-size:14px;margin-top:8px}
 </style>
 </head>
 <body>
-<header><button id="back" onclick="history.back()" style="display:none">‹</button><h1 id="ttl"></h1><button id="info" onclick="go('info')">ⓘ</button></header>
+<header><button id="back" onclick="history.back()" style="display:none">‹</button><div style="flex:1;min-width:0"><h1 id="ttl"></h1><div id="sub" style="font-size:11.5px;opacity:.9;font-style:italic;display:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Offered as a seva by Karthik Singirikonda &amp; family</div></div><button id="info" onclick="go('info')">ⓘ</button></header>
 <main id="app"></main>
 <div class="bar" id="bar"><span id="barT"></span><button onclick="stopAll()">■ Stop</button></div>
 <script>
-const APPVER='dv1 · Fri 13/11/26 (test)';
+const APPVER='dv2 · Fri 13/11/26 (test)';
 const COUNTER_URL='';
 const BRAND='DHARMA VAANI',BRAND_TE='ధర్మ వాణి',OFFER='Offered as a seva by Karthik Singirikonda &amp; family';
 /* Only ready books are listed. A new book is added here when it is fully written. */
@@ -93,6 +93,7 @@ function splash(){const d=document.createElement('div');d.className='splash';d.i
  const close=()=>{d.remove();let seen=null;try{seen=localStorage.getItem('dvIntro')}catch(e){}if(!seen&&!location.hash){try{localStorage.setItem('dvIntro','1')}catch(e){}go('info')}};
  d.onclick=close;document.body.appendChild(d);setTimeout(()=>{if(d.isConnected)close()},4000)}
 
+function setTtl(t){$('#ttl').textContent=t;$('#sub').style.display=/DHARMA VAANI/.test(t)?'':'none'}
 async function route(){const h=location.hash.slice(1).split('/').filter(Boolean);$('#back').style.display=h.length?'':'none';window.scrollTo(0,0);
  if(!h.length)return home();if(h[0]==='info')return info();
  const b=BOOKS.find(x=>x.id===h[0]);if(!b)return home();
@@ -106,16 +107,16 @@ function newsBanner(){let seen=[];try{seen=JSON.parse(localStorage.getItem('dvSe
  return n.map(x=>`<div class="newb">${esc(tx(x))}<button class="play" style="padding:4px 12px;font-size:14px" onclick="seeNews('${x.id}')">${LANG==='hi'?'देखें':LANG==='en'?'Open':'చూడండి'}</button></div>`).join('')}
 function seeNews(id){let seen=[];try{seen=JSON.parse(localStorage.getItem('dvSeen')||'[]')}catch(e){}seen.push(id);try{localStorage.setItem('dvSeen',JSON.stringify(seen))}catch(e){}go(id)}
 
-function home(){$('#ttl').textContent=BRAND;CUR=null;
+function home(){setTtl(BRAND);CUR=null;
  app.innerHTML=`<div class="row" style="justify-content:center;margin:6px 0 10px">${langSeg()}</div>`+newsBanner()+voiceWarn()+
  `<div style="font-weight:800;margin:14px 2px 8px">${T('pinned')}</div><div class="pins">`+
  BOOKS.map(b=>`<button class="pin" onclick="go('${b.id}')"><div class="ico">${b.ico}</div><div style="font-size:19px;font-weight:800">${b[LANG]||b.en}</div><div class="muted" style="font-size:12.5px">${b.note[LANG]}</div></button>`).join('')+
  `</div><div class="card muted" style="text-align:center">${T('more')}</div><div class="foot">${OFFER}<br>${APPVER}</div>`}
 
 /* ---------- Gita-style book: chapters → verses ---------- */
-function flatList(b,d){$('#ttl').textContent=b[LANG]||b.en;CUR=null;
+function flatList(b,d){setTtl(b[LANG]||b.en);CUR=null;
  app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn()+d.chapters.map(c=>`<button class="card tap" onclick="go('${b.id}/${c.n}')"><div class="ico" style="font-weight:800;color:#8A2E0B">${c.n}</div><div><div style="font-weight:800">${esc(c[LANG]||c.en)}</div><div class="muted">${c.verses.length} ${T('verses')}</div></div></button>`).join('')}
-function flatChapter(b,d,n){const c=d.chapters.find(x=>x.n===n);if(!c)return flatList(b,d);const name=c[LANG]||c.en;$('#ttl').textContent=`${n}. ${name}`;ping('chapter',b.id+'/'+n);
+function flatChapter(b,d,n){const c=d.chapters.find(x=>x.n===n);if(!c)return flatList(b,d);const name=c[LANG]||c.en;setTtl(`${n}. ${name}`);ping('chapter',b.id+'/'+n);
  const sum=LANG==='te'?c.ste:(LANG==='hi'?(c.shi||c.sen):c.sen);
  CUR={list:c.verses,label:v=>`${n}.${v.v}`,intro:sum,ref:v=>b.id+'/'+n+'.'+v.v};
  app.innerHTML=`<div class="card"><div style="font-weight:800;font-size:20px">${n}. ${esc(name)}</div><div class="mean">${esc(sum)}</div>
@@ -123,12 +124,12 @@ function flatChapter(b,d,n){const c=d.chapters.find(x=>x.n===n);if(!c)return fla
  nav(n>1?`${b.id}/${n-1}`:'',n<d.chapters.length?`${b.id}/${n+1}`:'',`‹ ${T('ch')} ${n-1}`,`${T('ch')} ${n+1} ›`)}
 
 /* ---------- Ramayana-style book: kandas → sargas → verses ---------- */
-function kandaList(b,idx){$('#ttl').textContent=b[LANG]||b.en;CUR=null;
+function kandaList(b,idx){setTtl(b[LANG]||b.en);CUR=null;
  app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+voiceWarn()+idx.kandas.map(k=>`<button class="card tap" onclick="go('${b.id}/${k.n}')"><div class="ico" style="font-weight:800;color:#8A2E0B">${k.n}</div><div><div style="font-weight:800">${esc(k[LANG]||k.en)}</div><div class="muted">${k.sargas.length} ${T('sargas')} · ${k.sargas.reduce((a,s)=>a+s.c,0).toLocaleString('en-IN')} ${T('verses')}</div></div></button>`).join('')}
-function sargaList(b,idx,k){const K=idx.kandas.find(x=>x.n===k);if(!K)return kandaList(b,idx);$('#ttl').textContent=K[LANG]||K.en;CUR=null;
+function sargaList(b,idx,k){const K=idx.kandas.find(x=>x.n===k);if(!K)return kandaList(b,idx);setTtl(K[LANG]||K.en);CUR=null;
  app.innerHTML=`<div class="row" style="justify-content:center">${langSeg()}</div>`+K.sargas.map(s=>`<button class="card tap" style="padding:10px 14px" onclick="go('${b.id}/${k}/${s.n}')"><div class="ico" style="font-weight:800;color:#8A2E0B;width:40px;height:40px;font-size:16px">${s.n}</div><div><div style="font-weight:700">${esc(tx(s.t))}</div><div class="muted">${s.c} ${T('verses')}</div></div></button>`).join('')}
 async function sargaPage(b,idx,k,n){const K=idx.kandas.find(x=>x.n===k);if(!K)return kandaList(b,idx);
- const d=await getJ(`data/${b.id}/${k}_${String(n).padStart(3,'0')}.json`);const kn=K[LANG]||K.en;$('#ttl').textContent=`${kn} · ${n}`;ping('chapter',b.id+'/'+k+'.'+n);
+ const d=await getJ(`data/${b.id}/${k}_${String(n).padStart(3,'0')}.json`);const kn=K[LANG]||K.en;setTtl(`${kn} · ${n}`);ping('chapter',b.id+'/'+k+'.'+n);
  CUR={list:d.verses,label:v=>`${k}.${n}.${v.v}`,intro:tx(d.s),ref:v=>b.id+'/'+k+'.'+n+'.'+v.v};
  const i=K.sargas.findIndex(s=>s.n===n),prev=i>0?K.sargas[i-1]:null,next=i<K.sargas.length-1?K.sargas[i+1]:null;
  app.innerHTML=`<div class="card"><div class="muted">${esc(kn)} · ${T('sarga')} ${n}</div><div style="font-weight:800;font-size:20px">${esc(tx(d.t))}</div>
@@ -145,7 +146,7 @@ function verseCards(){return CUR.list.map((v,i)=>{const m=mean(v),kd=kidT(v),p=p
 function nav(a,b,la,lb){return `<div class="row" style="justify-content:space-between;margin-top:14px">${a?`<button class="card tap" style="width:48%" onclick="go('${a}')">${la}</button>`:'<span></span>'}${b?`<button class="card tap" style="width:48%;justify-content:flex-end" onclick="go('${b}')">${lb}</button>`:''}</div>`}
 
 /* ---------- info / how to install (first open + ⓘ) ---------- */
-function info(){$('#ttl').textContent='ⓘ '+BRAND;CUR=null;const t=(te,en,hi)=>LANG==='hi'?hi:LANG==='en'?en:te;
+function info(){setTtl('ⓘ '+BRAND);CUR=null;const t=(te,en,hi)=>LANG==='hi'?hi:LANG==='en'?en:te;
  app.innerHTML=`<div class="brand" style="text-align:center;padding:10px 0"><div style="font-size:32px;font-weight:900;letter-spacing:.12em;color:#8A2E0B">${BRAND}</div><div class="muted" style="font-style:italic">${OFFER}</div></div>
  <div class="row" style="justify-content:center">${langSeg()}</div>
  <div class="card"><b>🙏 ${t('ఇందులో ఏముంది','What is inside','इसमें क्या है')}</b><div class="mean">${t('భగవద్గీత, రామాయణం – ప్రతి శ్లోకం సంస్కృతంలో, దాని అర్థం తెలుగు, హిందీ, ఇంగ్లీష్‌లో, వినే సౌకర్యంతో. పిల్లలకు ఉపయోగపడే చోట ఆకుపచ్చ పెట్టెలో చిన్న ఉదాహరణతో నీతి. మరిన్ని గ్రంథాలు ఒక్కొక్కటిగా వస్తాయి.','Bhagavad Gita and Ramayana – every verse in Sanskrit with its meaning in Telugu, Hindi and English, with voice. Where useful for children, a green box gives the lesson with a small example. More scriptures will come one by one.','भगवद्गीता और रामायण – हर श्लोक संस्कृत में, अर्थ तेलुगु, हिंदी और अंग्रेज़ी में, सुनने की सुविधा के साथ। बच्चों के लिए हरे बॉक्स में छोटे उदाहरण के साथ सीख। और ग्रंथ एक-एक करके आएँगे।')}</div>
