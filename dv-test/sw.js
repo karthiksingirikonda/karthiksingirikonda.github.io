@@ -1,5 +1,5 @@
 // Always try the newest copy first (no stale versions); keep a saved copy for offline use.
-const C='dv-test-3';
+const C='dv-test-4';
 self.addEventListener('install',e=>self.skipWaiting());
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET'||new URL(r.url).origin!==location.origin)return;

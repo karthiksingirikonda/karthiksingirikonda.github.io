@@ -56,7 +56,7 @@ details summary{cursor:pointer;color:var(--parb);font-size:14px;margin-top:8px}
 <main id="app"></main>
 <div class="bar" id="bar"><span id="barT"></span><button onclick="stopAll()">■ Stop</button></div>
 <script>
-const APPVER='dv3 · Fri 13/11/26 (test)';
+const APPVER='dv4 · Fri 13/11/26 (test)';
 const COUNTER_URL='';
 const BRAND='DHARMA VAANI',BRAND_TE='ధర్మ వాణి',OFFER='Offered as a seva by Karthik Singirikonda &amp; family';
 /* Only ready books are listed. A new book is added here when it is fully written. */
@@ -93,7 +93,7 @@ function splash(){const t=(te,en,hi)=>LANG==='hi'?hi:LANG==='en'?en:te;const d=d
  d.innerHTML=`<div class="t">${BRAND}</div><div class="te">${BRAND_TE}</div><div class="s">${OFFER}</div>
  <div style="margin-top:22px;font-size:16px;max-width:420px;line-height:1.6">${t('మన గ్రంథాలను చదవాలనుకునే, వినాలనుకునే ప్రతి కుటుంబం కోసం – తెలుగు, హిందీ, ఇంగ్లీష్‌లో.','For every family that wants to read and listen to our scriptures – in Telugu, Hindi and English.','हमारे ग्रंथ पढ़ना और सुनना चाहने वाले हर परिवार के लिए – तेलुगु, हिंदी और अंग्रेज़ी में।')}</div>
  <button id="spNext" style="margin-top:34px;background:#fff;color:#8A2E0B;border:0;border-radius:28px;padding:12px 34px;font-size:18px;font-weight:800">${t('తర్వాత','Next','आगे')} ›</button>`;
- d.querySelector('#spNext').onclick=()=>{d.remove();let seen=null;try{seen=localStorage.getItem('dvIntro')}catch(e){}if(!seen&&!location.hash){try{localStorage.setItem('dvIntro','1')}catch(e){}go('info')}};
+ d.querySelector('#spNext').onclick=()=>{d.remove();let seen=null;try{seen=localStorage.getItem('dvIntro3')}catch(e){}if(!seen&&!location.hash){try{localStorage.setItem('dvIntro3','1')}catch(e){}go('info')}};
  document.body.appendChild(d)}
 
 function setTtl(t){$('#ttl').textContent=t;$('#sub').style.display=/DHARMA VAANI/.test(t)?'':'none'}
