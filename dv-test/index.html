@@ -43,7 +43,7 @@ main{padding:12px;max-width:760px;margin:0 auto 120px}
 details summary{cursor:pointer;color:var(--parb);font-size:14px;margin-top:8px}
 .brand{text-align:center;padding:18px 8px 6px}.brand .t{font-size:34px;font-weight:900;letter-spacing:.14em;color:#8A2E0B;line-height:1.1}.brand .s{font-size:13px;color:var(--mut);margin-top:6px;font-style:italic}.guide summary{font-weight:800;color:var(--ink);font-size:16px;margin:0}.guide ol{margin:6px 0 0;padding-left:20px}.guide li{margin:4px 0;font-size:15px}.ok{background:#E9F6EC;border:1px solid #A9D8B6;border-radius:12px;padding:10px;font-size:14.5px;margin-top:8px}.foot{text-align:center;color:var(--mut);font-size:12px;margin-top:20px}
 .splash{position:fixed;inset:0;z-index:20;background:linear-gradient(160deg,#8A2E0B,#B5480F 55%,#F4A11A);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;cursor:pointer}
-.splash .t{font-size:44px;font-weight:900;letter-spacing:.12em;line-height:1.1}.splash .te{font-size:22px;margin-top:6px;opacity:.95}.splash .s{font-size:14px;margin-top:18px;font-style:italic;opacity:.9}.splash .go{margin-top:40px;font-size:14px;opacity:.8;animation:blink 1.6s infinite}
+.splash .t{font-size:44px;font-weight:900;letter-spacing:.12em;line-height:1.1}.splash .te{font-size:22px;margin-top:6px;opacity:.95}.splash .s{font-size:17px;margin-top:18px;font-style:italic;background:rgba(0,0,0,.18);padding:8px 16px;border-radius:24px}.kn{font-style:normal;font-weight:800;color:#8A2E0B}.splash .kn,header .kn{color:#FFE08A;font-size:1.08em}.splash .go{margin-top:40px;font-size:14px;opacity:.8;animation:blink 1.6s infinite}
 @keyframes blink{50%{opacity:.35}}
 .pin{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px 8px;font:inherit;color:inherit;cursor:pointer;text-align:center}
 .pin .ico{width:56px;height:56px;font-size:30px}.pins{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -52,13 +52,13 @@ details summary{cursor:pointer;color:var(--parb);font-size:14px;margin-top:8px}
 </style>
 </head>
 <body>
-<header><button id="back" onclick="history.back()" style="display:none">‹</button><div style="flex:1;min-width:0"><h1 id="ttl"></h1><div id="sub" style="font-size:11.5px;opacity:.9;font-style:italic;display:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Offered as a seva by Karthik Singirikonda &amp; family</div></div><button id="info" onclick="go('info')">ⓘ</button></header>
+<header><button id="back" onclick="history.back()" style="display:none">‹</button><div style="flex:1;min-width:0"><h1 id="ttl"></h1><div id="sub" style="font-size:12px;font-style:italic;display:none;line-height:1.3">Offered as a seva by <b class="kn">Karthik Singirikonda</b> &amp; family</div></div><button id="info" onclick="go('info')">ⓘ</button></header>
 <main id="app"></main>
 <div class="bar" id="bar"><span id="barT"></span><button onclick="stopAll()">■ Stop</button></div>
 <script>
-const APPVER='dv4 · Fri 13/11/26 (test)';
+const APPVER='dv5 · Fri 13/11/26 (test)';
 const COUNTER_URL='';
-const BRAND='DHARMA VAANI',BRAND_TE='ధర్మ వాణి',OFFER='Offered as a seva by Karthik Singirikonda &amp; family';
+const BRAND='DHARMA VAANI',BRAND_TE='ధర్మ వాణి',OFFER='Offered as a seva by <b class="kn">Karthik Singirikonda</b> &amp; family';
 /* Only ready books are listed. A new book is added here when it is fully written. */
 const BOOKS=[
  {id:'gita',te:'భగవద్గీత',en:'Bhagavad Gita',hi:'भगवद्गीता',ico:'🪔',kind:'flat',note:{te:'18 అధ్యాయాలు · 700 శ్లోకాలు',en:'18 chapters · 700 verses',hi:'18 अध्याय · 700 श्लोक'}},
@@ -93,7 +93,7 @@ function splash(){const t=(te,en,hi)=>LANG==='hi'?hi:LANG==='en'?en:te;const d=d
  d.innerHTML=`<div class="t">${BRAND}</div><div class="te">${BRAND_TE}</div><div class="s">${OFFER}</div>
  <div style="margin-top:22px;font-size:16px;max-width:420px;line-height:1.6">${t('మన గ్రంథాలను చదవాలనుకునే, వినాలనుకునే ప్రతి కుటుంబం కోసం – తెలుగు, హిందీ, ఇంగ్లీష్‌లో.','For every family that wants to read and listen to our scriptures – in Telugu, Hindi and English.','हमारे ग्रंथ पढ़ना और सुनना चाहने वाले हर परिवार के लिए – तेलुगु, हिंदी और अंग्रेज़ी में।')}</div>
  <button id="spNext" style="margin-top:34px;background:#fff;color:#8A2E0B;border:0;border-radius:28px;padding:12px 34px;font-size:18px;font-weight:800">${t('తర్వాత','Next','आगे')} ›</button>`;
- d.querySelector('#spNext').onclick=()=>{d.remove();let seen=null;try{seen=localStorage.getItem('dvIntro3')}catch(e){}if(!seen&&!location.hash){try{localStorage.setItem('dvIntro3','1')}catch(e){}go('info')}};
+ d.querySelector('#spNext').onclick=()=>{d.remove();let seen=null;try{seen=localStorage.getItem('dvIntro3')}catch(e){}if(!seen){try{localStorage.setItem('dvIntro3','1')}catch(e){}go('info')}};
  document.body.appendChild(d)}
 
 function setTtl(t){$('#ttl').textContent=t;$('#sub').style.display=/DHARMA VAANI/.test(t)?'':'none'}
