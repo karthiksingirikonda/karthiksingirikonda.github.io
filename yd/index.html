@@ -66,7 +66,7 @@ const $=s=>document.querySelector(s);
 let FTOK=null;try{FTOK=localStorage.getItem('ydFam')}catch(e){}
 const EXEC='https://script.google.com/macros/s/AKfycbzlbBcB1A44zfK6o79kL52P6fLARg079FUkOJohUEW68c3diEe0JzLLyGw1zfl_sLRN/exec';
 async function post(body){const r=await fetch(EXEC,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});return r.json()}
-const net=(fn,args)=>post({tok:FTOK,name:fn,args:args}).then(j=>{if(!j.ok)throw new Error(j.error);return j.data}).catch(e=>{if(/FAMILY_CODE/.test(e.message)){try{localStorage.removeItem('ydFam')}catch(x){}FTOK=null;familyScreen()}else toast(/Failed to fetch|NetworkError|Load failed/.test(e.message)?'No internet – please try again':e.message);throw e});
+const net=(fn,args)=>post({tok:FTOK,name:fn,args:args}).then(j=>{if(!j.ok)throw new Error(j.error);return j.data}).catch(e=>{if(/FAMILY_CODE/.test(e.message)){try{localStorage.removeItem('ydFam')}catch(x){}FTOK=null;familyScreen()}else toast(/Failed to fetch|NetworkError|Load failed/.test(e.message)?'No internet – please try again':((typeof onKidView==='function'&&onKidView())||/402|depleted|billing|quota/i.test(e.message)?'Sorry, please say that again':String(e.message).replace(/ai ?studio|gemini|google|claude|anthropic|openai/gi,'service')));throw e});
 /* ---------- speed: phone-side copy of everything, refreshed quietly ---------- */
 const READS=new Set(['getBoot','getToday','getHomework','getStars','getVideos','getRoutine','adminToday','adminGetTimetable','adminRequests','adminThread']);
 const QUIET_WRITES=new Set(['homeworkUpdate','claimStar','markVideoShown','logTimer']);
@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v45 · Fri 13/11 17:30';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v46 · Sat 14/11 20:10';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -103,7 +103,7 @@ function render(html,showBack){RENDERSEQ=NAVSEQ;LASTVIEW=PENDINGVIEW;PENDINGVIEW
 
 /* ---------- home ---------- */
 async function start(){const jm=(location.hash||'').match(/join=([a-f0-9]{20})/);if(jm){history.replaceState(null,'',location.pathname);if(!FTOK){try{const j=await post({fn:'familyJoin',code:jm[1]});const r=j&&j.data;if(r&&r.ok){FTOK=r.token;try{localStorage.setItem('ydFam',FTOK)}catch(e){}}else return familyScreen(r?r.msg:'Link not valid')}catch(e){return familyScreen('No internet – please try again')}}}
- if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini);0}).catch(()=>{});if(!window.WARM)window.WARM=setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)net('voiceReady',[]).catch(()=>{})},240000);BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
+ if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini)&&PAIDVOICE();0}).catch(()=>{});if(!window.WARM)window.WARM=setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)net('voiceReady',[]).catch(()=>{})},240000);BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
  let t=null;try{t=JSON.parse(localStorage.getItem('ydAdmin')||'null')}catch(e){}
  if(t&&t.token){ADMIN=t;showFab();api('adminCheckToken',t.token).then(c=>{if(!c.ok){ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();const n=getNav();if(n&&n.v==='admin')goHome()}else pollThread()}).catch(()=>{})}
  restoreNav()}
@@ -191,7 +191,7 @@ const MIC_ERR={'no-speech':'Didn\'t hear anything – tap the mic and speak','ne
 function micReason(code){return MIC_ERR[code]||('Mic stopped ('+code+')')}
 const VoiceOld=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
  let rec=null,active=false,paused=false,running=false,got='',err='';
- const langFor=()=>({homework:'en-IN',check:'en-IN',olympiad:'en-IN',hindi:'hi-IN'}[MODE]||'te-IN');
+ const langFor=()=>{const m0=String(MODE||'').split('|')[0];if(m0==='speakHi'||m0==='hindi')return 'hi-IN';if(CHILD&&CHILD.id==='ditya'&&/^(chat|intro|story|tellstory)$/.test(m0))return 'te-IN';return 'en-IN'};
  function status(t){const h=$('#micHint');if(h)h.textContent=t}
  function live(t){const l=$('#liveText');if(l)l.textContent=t}
  function setMic(){const m=$('#micBtn');if(!m)return;m.classList.toggle('listen',running);m.classList.toggle('sleep',!running)}
@@ -221,7 +221,8 @@ const VoiceOld=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecog
   resume(){paused=false;if(active)listenOnce();else status('Mic off – tap the mic to talk')},
   stop(){active=false;paused=false;abort();if(window.speechSynthesis)speechSynthesis.cancel()},speak}})();
 /* ---------- voice mode: the app's own ears (records, notices start/stop of speech) + natural voice ---------- */
-let GEM=null; // true when the Google voice key is set in the back office
+let GEM=null; // true only when the paid natural voice is switched on (Admin) – free phone voice otherwise
+function PAIDVOICE(){try{return localStorage.getItem('ydPaidVoice')==='1'}catch(e){return false}}
 function pcmToWavUrl(b64,rate){const pcm=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));const buf=new ArrayBuffer(44+pcm.length),v=new DataView(buf);
  const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};w(0,'RIFF');v.setUint32(4,36+pcm.length,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,pcm.length,true);new Uint8Array(buf,44).set(pcm);
  return URL.createObjectURL(new Blob([buf],{type:'audio/wav'}))}
@@ -1778,7 +1779,7 @@ const ATABS=[['today','Today'],['live','Live control'],['stars','Stars'],['instr
 async function adminHome(tab){adminPrefetch();const SEQ=++NAVSEQ;setNav({v:'admin',tab:tab});PENDINGVIEW=()=>adminHome(tab);const tabs=`<div class="tabs">${ATABS.map(t=>`<button class="${t[0]===tab?'on':''}" onclick="adminHome('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
  const d=await api('adminToday',ADMIN.token);let body='';
  const kidOpts=`<option value="yuvaan">Yuvaan</option><option value="ditya">Ditya Sree</option><option value="both">Both</option>`;
- if(tab==='today'){body=['yuvaan','ditya'].map(k=>{const t=d[k];const n=d.children.find(c=>c.id===k);return `<div class="card"><b>${esc(n.name)}</b> <span class="muted">helper: ${esc(n.helperName)}${n.nameChosenOn?' (chosen '+esc(n.nameChosenOn)+')':''}</span><div class="muted">Stars today: ${t.starsApproved} approved, ${t.starsWaiting} waiting</div></div>`}).join('')+
+ if(tab==='today'){body=voiceCard()+['yuvaan','ditya'].map(k=>{const t=d[k];const n=d.children.find(c=>c.id===k);return `<div class="card"><b>${esc(n.name)}</b> <span class="muted">helper: ${esc(n.helperName)}${n.nameChosenOn?' (chosen '+esc(n.nameChosenOn)+')':''}</span><div class="muted">Stars today: ${t.starsApproved} approved, ${t.starsWaiting} waiting</div></div>`}).join('')+
   `<div class="card"><b>Yuvaan's homework</b>${d.homework.map(h=>`<div class="row" style="justify-content:space-between"><span>${esc(h.subject)}</span><span class="muted">${esc(h.status)} ${h.minutes?h.minutes+' min':''}</span></div>`).join('')||'<div class="muted">None added</div>'}</div>`+securityCard()}
  if(tab==='live'){const L=await api('adminLive',ADMIN.token);body=liveCards(L);setTimeout(()=>{const n=getNav()||{};if(n.v==='admin'&&n.tab==='live'&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#app textarea,#app input')))adminHome('live')},15000)}
  if(tab==='stars'){body=(d.waitingStars.map(s=>`<div class="card"><b>${esc(s.child)}</b> · ${esc(s.item)} <div class="muted">${esc(s.date)} ${esc(s.proof)}</div><div class="grid2" style="margin-top:10px"><button class="green" onclick="decide('${s.id}',true)">Approve</button><button class="danger" onclick="decide('${s.id}',false)">No</button></div></div>`).join('')||'<div class="card muted">No stars waiting.</div>')+
@@ -1982,6 +1983,9 @@ async function hwrFetch(d,show){if(HWRBUSY[d])return;HWRBUSY[d]=1;try{let R;try{
  if(!$('#hwrOut'))toast('📝 Homework report ready')}finally{delete HWRBUSY[d]}}
 function adminPrefetch(){if(!ADMIN||window.__APF)return;window.__APF=1;const d=hwrIso(new Date());setTimeout(()=>{hwrFetch(d,false);clrFetch(d,false)},1500)}
 
+
+function voiceCard(){const paid=PAIDVOICE();return `<div class="card"><b>🔊 Voice on this device</b><div class="muted">${paid?'Paid natural voice (costs money; Live talk on)':'Free phone voice and mic (₹0) – Buddy reads with the phone\'s voice'}</div><button style="margin-top:6px" onclick="setPaidVoice(${paid?0:1})">${paid?'Switch to free voice':'Use paid natural voice'}</button></div>`}
+function setPaidVoice(on){try{localStorage.setItem('ydPaidVoice',on?'1':'0')}catch(e){}toast(on?'Paid voice on – reloading':'Free voice on – reloading');setTimeout(()=>location.reload(),900)}
 </script>
 </body>
 </html>
