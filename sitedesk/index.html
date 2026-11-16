@@ -16,6 +16,6 @@ function fix(h){return String(h).replace('<head>',HEAD).replace('<base target="_
 function put(h){document.open();document.write(fix(h));document.close()}
 var c=null;try{c=localStorage.getItem('sd_page')}catch(e){}
 var f=fetch(U,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:'page',args:[]}),credentials:'omit',redirect:'follow'}).then(function(r){return r.json()}).then(function(j){if(!j.ok)throw new Error(j.err||'');try{localStorage.setItem('sd_page',j.res)}catch(e){}return j.res});
-if(c){put(c)}else{f.then(put).catch(function(){document.getElementById('m').innerHTML='<div>No internet or server busy.</div><button onclick="location.reload()">Try again</button>'})}
+if(c){setTimeout(function(){put(c)},0)}else{f.then(put).catch(function(){document.getElementById('m').innerHTML='<div>No internet or server busy.</div><button onclick="location.reload()">Try again</button>'})}
 })();
 </script></body></html>
