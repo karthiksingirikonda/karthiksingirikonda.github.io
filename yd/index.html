@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v48 · Mon 16/11 18:00';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v49 · Mon 16/11 18:05';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -214,15 +214,30 @@ const VoiceOld=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecog
   if(localCommand(said)){status('Mic off – tap the mic to talk');return}
   send(said)}
  let warned={};
- function pickVoice(L){const vs=speechSynthesis.getVoices();const n=x=>String(x.lang).replace('_','-').toLowerCase();const want=L.toLowerCase(),base=want.slice(0,2);return vs.find(x=>n(x)===want&&/natural|online|google/i.test(x.name))||vs.find(x=>n(x)===want)||vs.find(x=>n(x).startsWith(base))}
- function speak(text,lang){return new Promise(res=>{if(!window.speechSynthesis||!text)return res();speechSynthesis.cancel();lang=voiceLang(text,lang);const L={te:'te-IN',en:'en-IN',hi:'hi-IN'}[lang]||'te-IN';const v=pickVoice(L);
-  if(!v&&L!=='en-IN'){if(!warned[L]){warned[L]=1;toast((L==='te-IN'?'Telugu':'Hindi')+' voice is not on this device – on the laptop, open YD in Edge to hear it')}return res()}
-  const u=new SpeechSynthesisUtterance(text);u.lang=L;if(v)u.voice=v;u.rate=.95;u.onend=res;u.onerror=res;const h=$('#micHint');if(h&&paused)h.textContent='🔊 Speaking…';speechSynthesis.speak(u)})}
+ function pickVoice(L){const vs=speechSynthesis.getVoices();const n=x=>String(x.lang).replace('_','-').toLowerCase();const want=L.toLowerCase(),base=want.slice(0,2);
+  return vs.find(x=>n(x)===want&&x.localService)||vs.find(x=>n(x)===want&&/natural|online|google/i.test(x.name))||vs.find(x=>n(x)===want)||vs.find(x=>n(x).startsWith(base)&&x.localService)||vs.find(x=>n(x).startsWith(base))}
+ // Laptop Chrome drops speech that starts right after a stop, has an empty voice list at first, and cuts long text – so: wait, load voices, speak sentence by sentence, retry once, never fail silently.
+ let spkTok=0,talking=false,KEEP=[];const nap=ms=>new Promise(r=>setTimeout(r,ms));
+ function voicesReady(){return new Promise(r=>{try{if(speechSynthesis.getVoices().length)return r();const t=setTimeout(r,1500);speechSynthesis.addEventListener('voiceschanged',()=>{clearTimeout(t);r()},{once:true})}catch(e){r()}})}
+ function say1(t,L,v,tok){return new Promise(res=>{const u=new SpeechSynthesisUtterance(t);u.lang=L;if(v)u.voice=v;u.rate=.95;KEEP.push(u);let done=false,started=false;const t0=Date.now();
+  const fin=x=>{if(done)return;done=true;clearTimeout(g);KEEP=KEEP.filter(z=>z!==u);res(tok!==spkTok?'stop':x)};
+  const g=setTimeout(()=>{if(!started){try{speechSynthesis.cancel()}catch(e){}fin('retry')}},3500);
+  u.onstart=()=>{started=true};u.onend=()=>fin(Date.now()-t0<150?'retry':'ok');u.onerror=e=>fin((e.error==='interrupted'||e.error==='canceled')?'retry':(e.error||'error'));
+  try{speechSynthesis.resume()}catch(e){}speechSynthesis.speak(u)})}
+ async function speak(text,lang){if(!window.speechSynthesis||!text)return;const tok=++spkTok;
+  if(speechSynthesis.speaking||speechSynthesis.pending){speechSynthesis.cancel();await nap(180)}
+  lang=voiceLang(text,lang);const L={te:'te-IN',en:'en-IN',hi:'hi-IN'}[lang]||'te-IN';await voicesReady();if(tok!==spkTok)return;const v=pickVoice(L);
+  if(!v&&L!=='en-IN'){if(!warned[L]){warned[L]=1;toast((L==='te-IN'?'Telugu':'Hindi')+' voice is not on this device – on the laptop, open YD in Edge to hear it')}return}
+  talking=true;try{Wake.stop()}catch(e){}const h=$('#micHint');if(h)h.textContent='🔊 Speaking…';
+  const parts=(String(text).match(/[^.!?।]+[.!?।]*["')]*\s*/g)||[String(text)]).map(x=>x.trim()).filter(Boolean);
+  try{for(const p of parts){if(tok!==spkTok)break;let r=await say1(p,L,v,tok);if(r==='retry'&&tok===spkTok){await nap(250);r=await say1(p,L,v,tok)}
+   if(r==='stop')break;if(r!=='ok'){toast('Voice error: '+r+' – check the laptop sound / open YD in Edge');break}}}
+  finally{if(tok===spkTok)talking=false}}
  return{begin(wake){active=true;paused=false;if(wake)listenOnce();else status('Mic off – tap the mic to talk')},
   toggle(){if(running){userOff=true;abort();status('Mic off – tap the mic to talk');return}active=true;paused=false;listenOnce()},
   pause(){paused=true;abort();live('');status('💭 Thinking…')},
   resume(){paused=false;if(active)listenOnce();else status('Mic off – tap the mic to talk')},
-  stop(){active=false;paused=false;userOff=true;abort();if(window.speechSynthesis)speechSynthesis.cancel()},speak,get busy(){return running}}})();
+  stop(){active=false;paused=false;userOff=true;abort();spkTok++;talking=false;if(window.speechSynthesis)speechSynthesis.cancel()},speak,get busy(){return running||talking}}})();
 /* ---------- voice mode: the app's own ears (records, notices start/stop of speech) + natural voice ---------- */
 let GEM=null; // true only when the paid natural voice is switched on (Admin) – free phone voice otherwise
 function PAIDVOICE(){try{return localStorage.getItem('ydPaidVoice')==='1'}catch(e){return false}}
