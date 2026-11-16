@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Design Interio Site Desk</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1b6fae">
+<link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<style>body{margin:0;font:15px -apple-system,Segoe UI,Roboto,sans-serif;background:#f4f7fb;color:#1f3550;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center}button{margin-top:12px;padding:10px 18px;border:0;border-radius:10px;background:#1b6fae;color:#fff;font-size:15px}</style>
+</head><body><div id="m"><img src="icon-192.png" width="72" height="72" style="border-radius:16px"><div style="margin-top:10px">Opening Site Desk…</div></div>
+<script>
+window.__bip=null;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__bip=e});
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){})}
+var EXEC='https://script.google.com/macros/s/AKfycbxciQ37esclQ1xDQYJkmMxbO-HnWVnRE9FnnxHLo9uc874JAT68OJlVNxM3RR7-KgjtsQ/exec';
+function go(){fetch(EXEC,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:'page',args:[]}),credentials:'omit',redirect:'follow'})
+.then(function(r){return r.json()}).then(function(j){if(!j.ok)throw new Error(j.err||'');
+var h=String(j.res).replace('<head>','<head><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#1b6fae"><link rel="icon" href="icon-192.png"><title>Design Interio Site Desk</title>').replace('<base target="_top">','');
+document.open();document.write(h);document.close();
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__bip=e});})
+.catch(function(){document.getElementById('m').innerHTML='<div>No internet or server busy.</div><button onclick="location.reload()">Try again</button>'})}
+go();
+</script></body></html>
