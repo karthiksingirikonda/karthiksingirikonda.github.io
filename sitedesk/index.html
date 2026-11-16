@@ -10,12 +10,12 @@
 <script>
 window.__bip=null;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__bip=e});
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){})}
-var EXEC='https://script.google.com/macros/s/AKfycbxciQ37esclQ1xDQYJkmMxbO-HnWVnRE9FnnxHLo9uc874JAT68OJlVNxM3RR7-KgjtsQ/exec';
-function go(){fetch(EXEC,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:'page',args:[]}),credentials:'omit',redirect:'follow'})
+(function(){var U='https://script.google.com/macros/s/AKfycbxciQ37esclQ1xDQYJkmMxbO-HnWVnRE9FnnxHLo9uc874JAT68OJlVNxM3RR7-KgjtsQ/exec';
+function go(){fetch(U,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:'page',args:[]}),credentials:'omit',redirect:'follow'})
 .then(function(r){return r.json()}).then(function(j){if(!j.ok)throw new Error(j.err||'');
 var h=String(j.res).replace('<head>','<head><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#1b6fae"><link rel="icon" href="icon-192.png"><title>Design Interio Site Desk</title>').replace('<base target="_top">','');
 document.open();document.write(h);document.close();
 window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__bip=e});})
 .catch(function(){document.getElementById('m').innerHTML='<div>No internet or server busy.</div><button onclick="location.reload()">Try again</button>'})}
-go();
+go();})();
 </script></body></html>
