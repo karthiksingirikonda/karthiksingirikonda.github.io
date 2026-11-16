@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v46 · Sat 14/11 20:10';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v47 · Mon 16/11 17:55';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -190,22 +190,25 @@ async function showOnScreen(show){const box=$('#screenShow');if(!box||!show)retu
 const MIC_ERR={'no-speech':'Didn\'t hear anything – tap the mic and speak','network':'Voice needs internet – check the connection','language-not-supported':'This phone can\'t listen in this language – open the phone voice settings and add Telugu','audio-capture':'Microphone busy or not found – close other apps using the mic','service-not-allowed':'Voice typing is turned off on this phone','bad-grammar':'Voice error – try again'};
 function micReason(code){return MIC_ERR[code]||('Mic stopped ('+code+')')}
 const VoiceOld=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
- let rec=null,active=false,paused=false,running=false,got='',err='';
+ let rec=null,active=false,paused=false,running=false,got='',err='',until=0,again=null,userOff=false;
  const langFor=()=>{const m0=String(MODE||'').split('|')[0];if(m0==='speakHi'||m0==='hindi')return 'hi-IN';if(CHILD&&CHILD.id==='ditya'&&/^(chat|intro|story|tellstory)$/.test(m0))return 'te-IN';return 'en-IN'};
  function status(t){const h=$('#micHint');if(h)h.textContent=t}
  function live(t){const l=$('#liveText');if(l)l.textContent=t}
  function setMic(){const m=$('#micBtn');if(!m)return;m.classList.toggle('listen',running);m.classList.toggle('sleep',!running)}
- function abort(){try{rec&&rec.abort()}catch(e){}running=false;setMic()}
- // One listening turn: opens once, waits for the child, closes when they finish. Never loops.
- function listenOnce(){if(!SR){status('This browser can\'t listen – open YD from Chrome');return}
-  if(running||paused)return;got='';err='';
+ function abort(){clearTimeout(again);again=null;try{rec&&rec.abort()}catch(e){}running=false;setMic()}
+ // One listening turn: keeps the mic open (up to 20 s of silence) until the child has spoken; the phone often closes it early, so we quietly reopen it.
+ function listenOnce(fresh){if(!SR){status('This browser can\'t listen – open YD from Chrome');return}
+  if(fresh!==false){until=Date.now()+20000;userOff=false}
+  clearTimeout(again);again=null;if(running||paused)return;got='';err='';try{Wake.stop()}catch(e){}
   rec=new SR();rec.lang=langFor();rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
   rec.onstart=()=>{running=true;setMic();status('🎤 Listening… speak now')};
-  rec.onresult=e=>{let fin='',inter='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t;else inter+=t}got=fin||got;live((fin||inter).trim())};
-  rec.onerror=e=>{if(e.error==='aborted')return;err=e.error;if(e.error==='not-allowed'){active=false;micHelp();status('Microphone not allowed');return}status(micReason(e.error))};
-  rec.onend=()=>{running=false;setMic();const t=(got||'').trim();live('');
-   if(t){process(t)}else if(!paused&&!err)status('Mic off – tap the mic to talk')};
-  try{rec.start()}catch(e){running=false;status('Tap the mic again')}}
+  rec.onresult=e=>{let fin='',inter='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t;else inter+=t}got=fin||got;until=Math.max(until,Date.now()+8000);live((fin||inter).trim());if(!fin&&inter&&e.target)e.target._inter=inter};
+  rec.onerror=e=>{if(e.error==='aborted'||e.error==='no-speech')return;err=e.error;if(e.error==='not-allowed'){active=false;micHelp();status('Microphone not allowed');return}status(micReason(e.error))};
+  rec.onend=()=>{const r0=rec;running=false;const t=((got||'')||(r0&&r0._inter)||'').trim();live('');
+   if(t){setMic();process(t);return}
+   if(!userOff&&!paused&&active&&!err&&Date.now()<until){running=true;setMic();status('🎤 Listening… speak now');again=setTimeout(()=>{running=false;again=null;if(!userOff&&!paused&&active)listenOnce(false);else{setMic();status('Mic off – tap the mic to talk')}},300);return}
+   setMic();if(!paused&&!err)status('Mic off – tap the mic to talk')};
+  try{rec.start()}catch(e){running=false;setMic();status('Tap the mic again')}}
  function process(said){const low=said.toLowerCase();
   if(/^(bye|బై)\b/i.test(low)){active=false;speak('Okay, call me again!','en');status('Mic off – tap the mic to talk');return}
   if(localCommand(said)){status('Mic off – tap the mic to talk');return}
@@ -216,10 +219,10 @@ const VoiceOld=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecog
   if(!v&&L!=='en-IN'){if(!warned[L]){warned[L]=1;toast((L==='te-IN'?'Telugu':'Hindi')+' voice is not installed on this device – reading on screen only')}return res()}
   const u=new SpeechSynthesisUtterance(text);u.lang=L;if(v)u.voice=v;u.rate=.95;u.onend=res;u.onerror=res;const h=$('#micHint');if(h&&paused)h.textContent='🔊 Speaking…';speechSynthesis.speak(u)})}
  return{begin(wake){active=true;paused=false;if(wake)listenOnce();else status('Mic off – tap the mic to talk')},
-  toggle(){if(running){abort();status('Mic off – tap the mic to talk');return}active=true;paused=false;listenOnce()},
+  toggle(){if(running){userOff=true;abort();status('Mic off – tap the mic to talk');return}active=true;paused=false;listenOnce()},
   pause(){paused=true;abort();live('');status('💭 Thinking…')},
   resume(){paused=false;if(active)listenOnce();else status('Mic off – tap the mic to talk')},
-  stop(){active=false;paused=false;abort();if(window.speechSynthesis)speechSynthesis.cancel()},speak}})();
+  stop(){active=false;paused=false;userOff=true;abort();if(window.speechSynthesis)speechSynthesis.cancel()},speak,get busy(){return running}}})();
 /* ---------- voice mode: the app's own ears (records, notices start/stop of speech) + natural voice ---------- */
 let GEM=null; // true only when the paid natural voice is switched on (Admin) – free phone voice otherwise
 function PAIDVOICE(){try{return localStorage.getItem('ydPaidVoice')==='1'}catch(e){return false}}
@@ -1475,7 +1478,7 @@ function chime(){try{const c=new AudioContext(),o=c.createOscillator(),g=c.creat
 async function woke(rest){chime();const n=getNav()||{};if(n.v!=='talk'){const d=new Date();openTalk(defaultMode({now:String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}),true)}
  if(rest&&rest.length>2){if(localCommand(rest))return;send(rest);return}
  await Voice.toggle()}
-setInterval(()=>{if(!DESKTOP||!Wake.ok)return;const idle=document.visibilityState==='visible'&&onKidView()&&!Ears.on&&!Live.on&&!PLAYING&&!(CHILD&&RESTING[CHILD.id]);if(idle)Wake.start();else if(Wake.on)Wake.stop()},2500);
+setInterval(()=>{if(!DESKTOP||!Wake.ok)return;const idle=document.visibilityState==='visible'&&onKidView()&&!Ears.on&&!Live.on&&!VoiceOld.busy&&!PLAYING&&!(CHILD&&RESTING[CHILD.id]);if(idle)Wake.start();else if(Wake.on)Wake.stop()},2500);
 /* ---------- parents' side locks itself after 10 idle minutes ---------- */
 let LASTTOUCH=Date.now();['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{LASTTOUCH=Date.now()},true));
 setInterval(()=>{if(ADMIN&&Date.now()-LASTTOUCH>10*60000){try{askClose()}catch(e){}ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();if((getNav()||{}).v==='admin')goHome()}},30000);
