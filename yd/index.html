@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v47 · Mon 16/11 17:55';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v48 · Mon 16/11 18:00';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -215,8 +215,8 @@ const VoiceOld=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecog
   send(said)}
  let warned={};
  function pickVoice(L){const vs=speechSynthesis.getVoices();const n=x=>String(x.lang).replace('_','-').toLowerCase();const want=L.toLowerCase(),base=want.slice(0,2);return vs.find(x=>n(x)===want&&/natural|online|google/i.test(x.name))||vs.find(x=>n(x)===want)||vs.find(x=>n(x).startsWith(base))}
- function speak(text,lang){return new Promise(res=>{if(!window.speechSynthesis||!text)return res();speechSynthesis.cancel();const L={te:'te-IN',en:'en-IN',hi:'hi-IN'}[lang]||'te-IN';const v=pickVoice(L);
-  if(!v&&L!=='en-IN'){if(!warned[L]){warned[L]=1;toast((L==='te-IN'?'Telugu':'Hindi')+' voice is not installed on this device – reading on screen only')}return res()}
+ function speak(text,lang){return new Promise(res=>{if(!window.speechSynthesis||!text)return res();speechSynthesis.cancel();lang=voiceLang(text,lang);const L={te:'te-IN',en:'en-IN',hi:'hi-IN'}[lang]||'te-IN';const v=pickVoice(L);
+  if(!v&&L!=='en-IN'){if(!warned[L]){warned[L]=1;toast((L==='te-IN'?'Telugu':'Hindi')+' voice is not on this device – on the laptop, open YD in Edge to hear it')}return res()}
   const u=new SpeechSynthesisUtterance(text);u.lang=L;if(v)u.voice=v;u.rate=.95;u.onend=res;u.onerror=res;const h=$('#micHint');if(h&&paused)h.textContent='🔊 Speaking…';speechSynthesis.speak(u)})}
  return{begin(wake){active=true;paused=false;if(wake)listenOnce();else status('Mic off – tap the mic to talk')},
   toggle(){if(running){userOff=true;abort();status('Mic off – tap the mic to talk');return}active=true;paused=false;listenOnce()},
@@ -237,7 +237,8 @@ function splitFirst(t){t=String(t||'').trim();const re=/^[\s\S]*?[.!?।]+(?=\s|
 // Voice in two pieces: the first sentence plays at once while the rest is being made.
 // Fixed app lines (games, writing, typing, chess, timers, screen time) use the device's own free voice.
 function sayFree(text,lang){return VoiceOld.speak(text,lang||'en')}
-async function speakReply(text,lang,pre){if(!text)return;const my=++SPKSEQ;const h=$('#micHint');if(h)h.textContent='🔊 Speaking…';lang=lang||'te';
+function voiceLang(text,lang){lang=lang||'te';if(lang==='hi')return 'hi';if(CHILD&&CHILD.id==='yuvaan')return 'en';if(lang==='te'&&!/[\u0c00-\u0c7f]/.test(String(text||'')))return 'en';return lang}
+async function speakReply(text,lang,pre){if(!text)return;const my=++SPKSEQ;const h=$('#micHint');if(h)h.textContent='🔊 Speaking…';lang=voiceLang(text,lang);
  if(GEM){try{let first,rest;
   if(pre&&pre.voice){first=Promise.resolve(pre.voice);rest=pre.rest||''}
   else{const p=splitFirst(text);first=net('speakText',[p[0],lang,CHILD&&CHILD.id,MODE]).then(r=>r&&r.pcm?r:null);rest=p[1]}
