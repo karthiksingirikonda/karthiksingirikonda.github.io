@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v52 · Wed 18/11 07:00';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v53 · Wed 18/11 07:05';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -1694,8 +1694,10 @@ async function openRoutine(name){const SEQ=++NAVSEQ;setNav({v:'child',id:CHILD.i
  <div class="card"><b>Music</b> <span class="muted">${r.music?esc(r.music.title):'Not chosen yet – Amma adds the list'}</span>
  ${r.options.length>1?`<select onchange="api('chooseMusic',CHILD.id,'${name}',this.value).then(()=>openRoutine('${name}'))" style="margin-top:8px"><option>Change my music…</option>${r.options.map(o=>`<option value="${o.id}">${esc(o.title)}</option>`).join('')}</select>`:''}<div id="rtMusic"></div></div>
  ${name==='exercise'?`<div class="card" style="text-align:center"><div id="camBox" class="hidden" style="position:relative;max-width:360px;margin:0 auto"><video id="camVid" playsinline muted style="width:100%;border-radius:12px;transform:scaleX(-1)"></video><canvas id="camCv" style="position:absolute;left:0;top:0;width:100%;height:100%;transform:scaleX(-1)"></canvas></div><div id="camMsg" class="muted" style="font-size:17px;margin-top:6px"></div><button class="ghost" id="camBtn" style="margin-top:6px" onclick="camToggle()">📷 Check me with camera</button></div>`:''}
+ <div class="row hidden" id="rtNav" style="gap:8px"><button class="ghost" style="flex:1;min-height:52px;font-size:18px" onclick="rtJump(-1)">⏮ Back</button><button class="ghost" style="flex:1;min-height:52px;font-size:18px" onclick="rtJump(1)">⏭ Skip</button></div>
  <button class="primary" id="rtGo" style="min-height:64px;font-size:20px" onclick="rtStart()">Start</button>`,true)}
-async function rtStart(){$('#rtGo').classList.add('hidden');try{if(navigator.wakeLock)RT.lock=await navigator.wakeLock.request('screen')}catch(e){}
+function rtJump(d){if(!RT)return;clearInterval(RT.timer);RT.waiting=0;clearInterval(RT.reask);rtEarsStop();RT.readyDone=0;$('#rtStep').textContent='';RT.i=Math.max(0,RT.i+d);rtStep()}
+async function rtStart(){$('#rtGo').classList.add('hidden');const nv=$('#rtNav');if(nv)nv.classList.remove('hidden');try{if(navigator.wakeLock)RT.lock=await navigator.wakeLock.request('screen')}catch(e){}
  if(RT.music){const m=RT.music;if(m.kind==='youtube'){const id=(m.link.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/)||[])[1];if(id)$('#rtMusic').innerHTML=`<iframe width="100%" height="90" style="border:0;border-radius:12px;margin-top:8px" src="https://www.youtube.com/embed/${id}?autoplay=1&loop=1&playlist=${id}" allow="autoplay"></iframe>`}
   else{const id=(m.link.match(/\/d\/([^/]+)/)||m.link.match(/id=([^&]+)/)||[])[1];const a=new Audio(id?'https://drive.google.com/uc?export=download&id='+id:m.link);a.loop=true;a.play().catch(()=>{});RT.audio=a}}
  rtStep()}
@@ -1762,7 +1764,7 @@ function camCheck(p,st,s,who){const pre=who?who+', ':'';
  st.prev=p.map(q=>({x:q.x,y:q.y}));
  if(Date.now()-st.lastMove>6000){camSay(st,(who?who:(CHILD&&CHILD.id==='ditya'?'Ditya':'Yuvaan'))+', keep moving!');st.lastMove=Date.now();return 'keep moving!'}
  return 'moving ✅'}
-function rtEnd(){clearInterval(RT.timer);RT.waiting=0;clearInterval(RT.reask);rtEarsStop();camStop();if(RT.audio)RT.audio.pause();$('#rtMusic').innerHTML='';try{RT.lock&&RT.lock.release()}catch(e){}
+function rtEnd(){clearInterval(RT.timer);const nv=$('#rtNav');if(nv)nv.classList.add('hidden');RT.waiting=0;clearInterval(RT.reask);rtEarsStop();camStop();if(RT.audio)RT.audio.pause();$('#rtMusic').innerHTML='';try{RT.lock&&RT.lock.release()}catch(e){}
  $('#rtTitle').textContent='All done!';$('#rtText').textContent='Great job – Amma will check your star.';$('#rtCount').textContent='★';$('#rtPic').innerHTML='';
  api('claimStar',CHILD.id,'Routine: '+RT.name,'');api('logTimer',CHILD.id,'routine',RT.name,RT.steps.reduce((a,s)=>a+s.seconds,0));Voice.speak('Super! You did really well!','en')}
 
