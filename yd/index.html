@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v51 · Wed 18/11 06:55';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v52 · Wed 18/11 07:00';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -1721,7 +1721,7 @@ function rtEarsStop(){if(RT&&RT.ears){const r=RT.ears;RT.ears=null;try{r.abort()
 function rtGoReady(){if(!RT||!RT.waiting)return;RT.waiting=0;clearInterval(RT.reask);rtEarsStop();$('#rtStep').textContent='';Voice.speak(CHILD&&CHILD.id==='ditya'?'సూపర్! మొదలుపెడదాం!':'Great! Let\'s start!',CHILD&&CHILD.id==='ditya'?'te':'en');setTimeout(()=>{if(document.getElementById('rtCount'))rtStep()},1500)}
 /* W35 – camera check: free pose tracking on the phone itself; video never leaves the phone, nothing saved */
 const CAM={on:false,lm:null,vid:null,stream:null,s:null,n:0,phase:'up',minA:180,lastSay:0,lastMove:Date.now(),prev:null,last:0,
- reset(s){this.s=s;this.st=null;this.n=0;this.phase='up';this.minA=180;this.prev=null;this.lastMove=Date.now();this.msg(this.on?'Watching: '+(s?s.title:''):'')},
+ reset(s){this.s=s;this.st=null;this.seen=Date.now();this.n=0;this.phase='up';this.minA=180;this.prev=null;this.lastMove=Date.now();this.msg(this.on?'Watching: '+(s?s.title:''):'')},
  msg(t){const m=$('#camMsg');if(m)m.textContent=t},
  say(t,force){if(!force&&Date.now()-this.lastSay<5000)return;this.lastSay=Date.now();Voice.speak(t,'en')}};
 async function camToggle(){if(CAM.on)return camStop();const b=$('#camBtn');if(b)b.textContent='Starting camera…';
@@ -1739,7 +1739,8 @@ function camLoop(){if(!CAM.on)return;if(!document.getElementById('camVid')){camS
  const cv=$('#camCv');if(cv){cv.width=CAM.vid.videoWidth;cv.height=CAM.vid.videoHeight;const g=cv.getContext('2d');g.clearRect(0,0,cv.width,cv.height);g.lineWidth=5;
   ps.forEach((p,k)=>{g.strokeStyle=k?'#E0559A':'#2EC27E';[[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]].forEach(([a,b])=>{g.beginPath();g.moveTo(p[a].x*cv.width,p[a].y*cv.height);g.lineTo(p[b].x*cv.width,p[b].y*cv.height);g.stroke()})})}
  const s=CAM.s;if(!s||!RT||RT.waiting)return;
- if(!ps.length){CAM.msg('I can’t see anyone – stand in front of the camera');CAM.say('I can\'t see you. Stand in front of the camera.');return}
+ if(!ps.length){const gone=Date.now()-(CAM.seen||Date.now()),wait=s.pic==='walk'?25000:6000;if(gone>wait){CAM.msg('I can’t see anyone – stand in front of the camera');if(Date.now()-(CAM.goneSaid||0)>20000){CAM.goneSaid=Date.now();Voice.speak('I can\'t see you. Stand in front of the camera.','en')}}return}
+ CAM.seen=Date.now();
  if(!CAM.st||CAM.st.sk!==s)CAM.st={sk:s,list:[camNew(),camNew()]};
  const two=ps.length>1,out=[];ps.forEach((p,k)=>out.push((two?(k?'Right':'Left')+': ':'')+camCheck(p,CAM.st.list[k],s,two?(k?'Right side':'Left side'):'')));
  CAM.msg(out.join(' · '))}
