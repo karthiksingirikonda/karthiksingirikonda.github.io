@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v49 · Mon 16/11 18:05';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v50 · Wed 18/11 07:30';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -1693,17 +1693,65 @@ async function openRoutine(name){const SEQ=++NAVSEQ;setNav({v:'child',id:CHILD.i
  <div id="rtCount" style="font-size:52px;font-weight:800;color:#2A5FD6;margin-top:6px">0:00</div><div id="rtStep" class="muted"></div></div>
  <div class="card"><b>Music</b> <span class="muted">${r.music?esc(r.music.title):'Not chosen yet – Amma adds the list'}</span>
  ${r.options.length>1?`<select onchange="api('chooseMusic',CHILD.id,'${name}',this.value).then(()=>openRoutine('${name}'))" style="margin-top:8px"><option>Change my music…</option>${r.options.map(o=>`<option value="${o.id}">${esc(o.title)}</option>`).join('')}</select>`:''}<div id="rtMusic"></div></div>
+ ${name==='exercise'?`<div class="card" style="text-align:center"><div id="camBox" class="hidden" style="position:relative;max-width:360px;margin:0 auto"><video id="camVid" playsinline muted style="width:100%;border-radius:12px;transform:scaleX(-1)"></video><canvas id="camCv" style="position:absolute;left:0;top:0;width:100%;height:100%;transform:scaleX(-1)"></canvas></div><div id="camMsg" class="muted" style="font-size:17px;margin-top:6px"></div><button class="ghost" id="camBtn" style="margin-top:6px" onclick="camToggle()">📷 Check me with camera</button></div>`:''}
  <button class="primary" id="rtGo" style="min-height:64px;font-size:20px" onclick="rtStart()">Start</button>`,true)}
 async function rtStart(){$('#rtGo').classList.add('hidden');try{if(navigator.wakeLock)RT.lock=await navigator.wakeLock.request('screen')}catch(e){}
  if(RT.music){const m=RT.music;if(m.kind==='youtube'){const id=(m.link.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/)||[])[1];if(id)$('#rtMusic').innerHTML=`<iframe width="100%" height="90" style="border:0;border-radius:12px;margin-top:8px" src="https://www.youtube.com/embed/${id}?autoplay=1&loop=1&playlist=${id}" allow="autoplay"></iframe>`}
   else{const id=(m.link.match(/\/d\/([^/]+)/)||m.link.match(/id=([^&]+)/)||[])[1];const a=new Audio(id?'https://drive.google.com/uc?export=download&id='+id:m.link);a.loop=true;a.play().catch(()=>{});RT.audio=a}}
  rtStep()}
-function rtStep(){const s=RT.steps[RT.i];if(!s)return rtEnd();$('#rtPic').innerHTML=picSvg(s.pic);$('#rtTitle').textContent=s.title;$('#rtText').textContent=s.screenEn+(s.reps?' · '+s.reps+' times':'');$('#rtStep').textContent='Step '+(RT.i+1)+' of '+RT.steps.length;
+function rtStep(){const s=RT.steps[RT.i];if(!s)return rtEnd();
+ if(RT.name==='exercise'&&rtNeedsSetup(s,RT.steps[RT.i-1])&&!RT.readyDone){RT.readyDone=1;return rtAskReady(s)}RT.readyDone=0;CAM.reset(s);$('#rtPic').innerHTML=picSvg(s.pic);$('#rtTitle').textContent=s.title;$('#rtText').textContent=s.screenEn+(s.reps?' · '+s.reps+' times':'');$('#rtStep').textContent='Step '+(RT.i+1)+' of '+RT.steps.length;
  Voice.speak(s.cueTe,'te');const end=Date.now()+s.seconds*1000;const said={};
  clearInterval(RT.timer);RT.timer=setInterval(()=>{const left=Math.ceil((end-Date.now())/1000);$('#rtCount').textContent=mmss(left);
   if(s.hint)[30,20,10].forEach(x=>{if(left===x&&!said[x]){said[x]=1;Voice.speak(x+' seconds left!','en')}});
   if(left<=0){clearInterval(RT.timer);RT.i++;rtStep()}},250)}
-function rtEnd(){clearInterval(RT.timer);if(RT.audio)RT.audio.pause();$('#rtMusic').innerHTML='';try{RT.lock&&RT.lock.release()}catch(e){}
+/* W34 – "Are you ready?" before exercises that need moving or setting something up (pull-ups, dips, chair, bar, wall, mat) */
+const RT_SETUP=/pull|hang|bar|dip|chair|bench|wall|mat|stool|rod/i;
+function rtSetupKey(s){if(!s)return '';if(s.pic==='hang')return 'hang';if(s.pic==='dips')return 'dips';const m=String((s.title||'')+' '+(s.screenEn||'')).match(RT_SETUP);return m?m[0].toLowerCase():''}
+function rtNeedsSetup(s,prev){const k=rtSetupKey(s);return !!k&&k!==rtSetupKey(prev)}
+function rtAskReady(s){clearInterval(RT.timer);const kid=CHILD&&CHILD.id==='ditya';const my=++RT.askSeq||(RT.askSeq=1);RT.waiting=my;
+ $('#rtPic').innerHTML=picSvg(s.pic);$('#rtTitle').textContent='Next: '+s.title;$('#rtText').textContent=kid?'Go to the place and get ready. Say “ready” or tap the button.':'Go to your place, set it up and say “ready” – or tap the button.';$('#rtCount').textContent='⏸';$('#rtStep').innerHTML='<button class="green" id="rtReadyBtn" style="min-height:64px;font-size:22px;width:100%;margin-top:8px" onclick="rtGoReady()">✅ Ready</button>';
+ const say=kid?'తర్వాత '+s.title+'. ఆ చోటికి వెళ్ళి రెడీ అవ్వు. దిత్యా, రెడీనా?':'Next is '+s.title+'. Go to your place and set it up. Yuvaan, are you ready?';
+ const ask=async()=>{if(RT.waiting!==my||!document.getElementById('rtReadyBtn'))return;rtEarsStop();try{await Promise.race([Voice.speak(say,kid?'te':'en'),new Promise(r=>setTimeout(r,9000))])}catch(e){}if(RT.waiting===my)rtEars(my)};
+ ask();RT.reask=setInterval(()=>{if(RT.waiting!==my||!document.getElementById('rtReadyBtn')){clearInterval(RT.reask);rtEarsStop();return}ask()},20000)}
+function rtEars(my){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;rtEarsStop();try{const r=new SR();r.lang='en-IN';r.continuous=true;r.interimResults=true;RT.ears=r;
+ r.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){const t=String(e.results[i][0].transcript||'').toLowerCase();if(/ready|redy|reddy|yes|start|ok|okay|done|రెడీ|అయ్యా|సిద్ధం/.test(t)){rtGoReady();return}}};
+ r.onend=()=>{if(RT&&RT.ears===r){RT.ears=null;if(RT.waiting===my&&document.getElementById('rtReadyBtn'))setTimeout(()=>{if(RT.waiting===my&&!RT.ears)rtEars(my)},400)}};r.onerror=()=>{};r.start()}catch(e){}}
+function rtEarsStop(){if(RT&&RT.ears){const r=RT.ears;RT.ears=null;try{r.abort()}catch(e){}}}
+function rtGoReady(){if(!RT||!RT.waiting)return;RT.waiting=0;clearInterval(RT.reask);rtEarsStop();$('#rtStep').textContent='';Voice.speak(CHILD&&CHILD.id==='ditya'?'సూపర్! మొదలుపెడదాం!':'Great! Let\'s start!',CHILD&&CHILD.id==='ditya'?'te':'en');setTimeout(()=>{if(document.getElementById('rtCount'))rtStep()},1500)}
+/* W35 – camera check: free pose tracking on the phone itself; video never leaves the phone, nothing saved */
+const CAM={on:false,lm:null,vid:null,stream:null,s:null,n:0,phase:'up',minA:180,lastSay:0,lastMove:Date.now(),prev:null,last:0,
+ reset(s){this.s=s;this.n=0;this.phase='up';this.minA=180;this.prev=null;this.lastMove=Date.now();this.msg(this.on?'Watching: '+(s?s.title:''):'')},
+ msg(t){const m=$('#camMsg');if(m)m.textContent=t},
+ say(t,force){if(!force&&Date.now()-this.lastSay<5000)return;this.lastSay=Date.now();Voice.speak(t,'en')}};
+async function camToggle(){if(CAM.on)return camStop();const b=$('#camBtn');if(b)b.textContent='Starting camera…';
+ try{CAM.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:640,height:480},audio:false})}catch(e){if(b)b.textContent='📷 Check me with camera';return toast('Camera not allowed – allow camera for this app and try again')}
+ const v=$('#camVid');v.srcObject=CAM.stream;await v.play().catch(()=>{});$('#camBox').classList.remove('hidden');CAM.vid=v;
+ if(!CAM.lm){CAM.msg('Getting the body tracker ready (first time only)…');try{const V=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs');const f=await V.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+  CAM.lm=await V.PoseLandmarker.createFromOptions(f,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',delegate:'GPU'},runningMode:'VIDEO',numPoses:1})}catch(e){CAM.msg('Body tracker could not load – check internet');camStop(true);return}}
+ CAM.on=true;if(b)b.textContent='⏹ Stop camera';CAM.reset(RT&&RT.steps[RT.i]);camLoop()}
+function camStop(keep){CAM.on=false;try{CAM.stream&&CAM.stream.getTracks().forEach(t=>t.stop())}catch(e){}CAM.stream=null;const bx=$('#camBox');if(bx)bx.classList.add('hidden');const b=$('#camBtn');if(b)b.textContent='📷 Check me with camera';if(!keep)CAM.msg('')}
+function camAng(a,b,c){const r=Math.atan2(c.y-b.y,c.x-b.x)-Math.atan2(a.y-b.y,a.x-b.x);let d=Math.abs(r*180/Math.PI);return d>180?360-d:d}
+function camLoop(){if(!CAM.on)return;if(!document.getElementById('camVid')){camStop();return}requestAnimationFrame(camLoop);const now=performance.now();if(now-CAM.last<66)return;CAM.last=now;
+ let res;try{res=CAM.lm.detectForVideo(CAM.vid,now)}catch(e){return}const p=res&&res.landmarks&&res.landmarks[0];const cv=$('#camCv');if(cv){cv.width=CAM.vid.videoWidth;cv.height=CAM.vid.videoHeight;const g=cv.getContext('2d');g.clearRect(0,0,cv.width,cv.height);
+  if(p){g.strokeStyle='#2EC27E';g.lineWidth=5;[[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]].forEach(([a,b])=>{g.beginPath();g.moveTo(p[a].x*cv.width,p[a].y*cv.height);g.lineTo(p[b].x*cv.width,p[b].y*cv.height);g.stroke()})}}
+ const s=CAM.s;if(!s||!RT||RT.waiting)return;if(!p){CAM.msg('I can’t see you – stand in front of the camera');CAM.say('I can\'t see you. Stand in front of the camera.');return}
+ const vis=[0,11,12,13,14,15,16].every(i=>(p[i].visibility||0)>0.5);if(!vis){CAM.msg('Step back – I need to see your head and both arms');CAM.say('Step back a little, I need to see your arms.');return}
+ const el=(camAng(p[11],p[13],p[15])+camAng(p[12],p[14],p[16]))/2;
+ if(s.pic==='dips'){CAM.minA=Math.min(CAM.minA,el);
+  if(CAM.phase==='up'&&el<100){CAM.phase='down'}
+  else if(CAM.phase==='up'&&el>150&&CAM.minA<135&&CAM.minA>=100){CAM.say('Go a little lower.');CAM.minA=180}
+  else if(CAM.phase==='down'&&el>150){CAM.phase='up';CAM.n++;CAM.minA=180;CAM.say(String(CAM.n),true)}
+  CAM.msg('Dips seen: '+CAM.n+(CAM.phase==='down'?' · push up':''));return}
+ if(s.pic==='hang'){const wy=(p[15].y+p[16].y)/2,up=p[0].y<wy+0.02;CAM.minA=Math.min(CAM.minA,el);
+  if(CAM.phase==='up'&&up){CAM.phase='top'}
+  else if(CAM.phase==='top'&&el>150){CAM.phase='up';CAM.n++;CAM.minA=180;CAM.say(String(CAM.n),true)}
+  else if(CAM.phase==='up'&&el>150&&CAM.minA<120){CAM.say('Pull higher – chin over your hands.');CAM.minA=180}
+  CAM.msg('Pull-ups seen: '+CAM.n+(CAM.phase==='top'?' · now go down slowly':''));return}
+ // other exercises: check he keeps moving
+ if(CAM.prev){const mv=[0,13,14,15,16].reduce((a,i)=>a+Math.abs(p[i].x-CAM.prev[i].x)+Math.abs(p[i].y-CAM.prev[i].y),0);if(mv>0.03)CAM.lastMove=Date.now()}
+ CAM.prev=p.map(q=>({x:q.x,y:q.y}));if(Date.now()-CAM.lastMove>6000){CAM.msg('Keep moving!');CAM.say('Keep moving, '+(CHILD&&CHILD.id==='ditya'?'Ditya':'Yuvaan')+'!');CAM.lastMove=Date.now()}else CAM.msg('Good – I can see you moving ✅')}
+function rtEnd(){clearInterval(RT.timer);RT.waiting=0;clearInterval(RT.reask);rtEarsStop();camStop();if(RT.audio)RT.audio.pause();$('#rtMusic').innerHTML='';try{RT.lock&&RT.lock.release()}catch(e){}
  $('#rtTitle').textContent='All done!';$('#rtText').textContent='Great job – Amma will check your star.';$('#rtCount').textContent='★';$('#rtPic').innerHTML='';
  api('claimStar',CHILD.id,'Routine: '+RT.name,'');api('logTimer',CHILD.id,'routine',RT.name,RT.steps.reduce((a,s)=>a+s.seconds,0));Voice.speak('Super! You did really well!','en')}
 
