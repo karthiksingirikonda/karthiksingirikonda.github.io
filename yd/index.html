@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v53 · Wed 18/11 07:05';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v54 · Wed 18/11 07:15';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -1684,10 +1684,46 @@ const PICS={ // simple stick-figure pictures, drawn here (no copyright issues)
  tongue:'<path d="M30 50q30 20 60 0"/><path d="M45 56q15 50 30 0"/>',
  rinse:'<path d="M40 30h40l-6 80H46z"/><path d="M44 50h32" stroke-dasharray="3 3"/>',
  washroom:'<rect x="30" y="20" width="60" height="96" rx="6"/><circle cx="80" cy="70" r="4"/>',
- ready:'<path d="M40 30l20-10 20 10 14 18-12 8v52H38V56l-12-8z"/>'};
+ ready:'<path d="M40 30l20-10 20 10 14 18-12 8v52H38V56l-12-8z"/>',
+ headUD:'<circle cx="60" cy="36" r="16"/><path d="M60 52v44M40 70h40M60 96l-14 30M60 96l14 30M92 20v34M86 26l6-6 6 6M86 48l6 6 6-6"/>',
+ headSide:'<circle cx="60" cy="36" r="16"/><path d="M60 52v44M40 70h40M60 96l-14 30M60 96l14 30M24 14h24M30 8l-6 6 6 6M72 14h24M90 8l6 6-6 6"/>',
+ waist:'<circle cx="60" cy="24" r="13"/><path d="M60 37v48M60 85l-16 40M60 85l16 40M60 52l-16 20 16 10M60 52l16 20-16 10"/><path d="M28 86q32 18 64 0" stroke-dasharray="4 3"/>',
+ toe:'<circle cx="34" cy="78" r="12"/><path d="M44 70l30-20M74 50l-6 76M74 50l8 76M50 66l-6 56M56 62l2 60"/>',
+ knee:'<circle cx="60" cy="22" r="12"/><path d="M60 34l4 40M64 74l-10 26 10 24M64 74l10 26-10 24M62 48l-8 30M62 48l14 30"/><circle cx="62" cy="100" r="14" stroke-dasharray="3 3"/>',
+ ankle:'<circle cx="54" cy="22" r="12"/><path d="M54 34v50M54 84l-8 40M54 84l26 18M54 50l-22 14M54 50l22 14"/><circle cx="86" cy="106" r="10" stroke-dasharray="3 3"/>',
+ jack:'<circle cx="60" cy="22" r="12"/><path d="M60 34v50M60 84l-26 40M60 84l26 40M60 46l-30-30M60 46l30-30"/>',
+ squat:'<circle cx="58" cy="30" r="12"/><path d="M58 42l6 34M64 76l-24 4 4 40M64 76l24 4-4 40M60 54l34 0M60 58l34 4"/>'};
+/* W36 – full-body warm-up, 15–20 min: the voice counts every round at a set pace; kids follow the count and the picture */
+const TE_CNT=['','ఒకటి','రెండు','మూడు','నాలుగు','ఐదు','ఆరు','ఏడు','ఎనిమిది','తొమ్మిది','పది','పదకొండు','పన్నెండు','పదమూడు','పద్నాలుగు','పదిహేను','పదహారు','పదిహేడు','పద్దెనిమిది','పందొమ్మిది','ఇరవై'];
+function exPlan(kid){const d=kid==='ditya';
+ // [pic, title, how (English), how (Telugu), count, seconds per count, setup]
+ const L=[['walk','Walking in a circle','Walk around the circle. One round on each count.','వృత్తంలో నడువు. ఒక్కో కౌంట్‌కి ఒక రౌండ్.',20,5],
+  ['headUD','Head up and down','Slowly look up, then down. One on each count.','నెమ్మదిగా పైకి చూడు, తర్వాత కిందకి.',10,3],
+  ['headSide','Head side to side','Slowly turn your head left, then right.','నెమ్మదిగా తల ఎడమకి, తర్వాత కుడికి తిప్పు.',10,3],
+  ['head','Head rotation – one way','Turn your head in a slow, full circle.','తలని నెమ్మదిగా పూర్తి గుండ్రంగా తిప్పు.',5,4],
+  ['head','Head rotation – other way','Now the other way, slowly.','ఇప్పుడు ఇంకో వైపు, నెమ్మదిగా.',5,4],
+  ['shoulder','Shoulder rotation – forward','Roll both shoulders forward.','రెండు భుజాలు ముందుకి తిప్పు.',10,3],
+  ['shoulder','Shoulder rotation – backward','Now roll them backward.','ఇప్పుడు వెనక్కి తిప్పు.',10,3],
+  ['jack','Big arm circles – forward','Arms straight out, make big circles forward.','చేతులు చాచి ముందుకి పెద్ద గుండ్రాలు.',10,3],
+  ['jack','Big arm circles – backward','Now big circles backward.','ఇప్పుడు వెనక్కి పెద్ద గుండ్రాలు.',10,3],
+  ['wrist','Wrist rotation – one way','Turn both wrists in circles.','రెండు మణికట్లు గుండ్రంగా తిప్పు.',10,2],
+  ['wrist','Wrist rotation – other way','Now the other way.','ఇప్పుడు ఇంకో వైపు.',10,2],
+  ['waist','Waist rotation – one way','Hands on your hips, turn your waist in a big circle.','చేతులు నడుము మీద పెట్టి, నడుము గుండ్రంగా తిప్పు.',10,4],
+  ['waist','Waist rotation – other way','Now the other way.','ఇప్పుడు ఇంకో వైపు.',10,4],
+  ['toe','Toe touch','Bend down slowly, touch your toes, stand up.','నెమ్మదిగా వంగి కాలి వేళ్ళు తాకు, లేచి నిలబడు.',10,4],
+  ['knee','Knee rotation – one way','Knees together, hands on knees, turn in circles.','మోకాళ్ళు కలిపి, చేతులు వాటి మీద పెట్టి గుండ్రంగా తిప్పు.',10,3],
+  ['knee','Knee rotation – other way','Now the other way.','ఇప్పుడు ఇంకో వైపు.',10,3],
+  ['ankle','Ankle rotation – right foot','Lift your right foot a little, turn the ankle.','కుడి కాలు కొంచెం ఎత్తి చీలమండ తిప్పు.',10,2],
+  ['ankle','Ankle rotation – left foot','Now the left foot.','ఇప్పుడు ఎడమ కాలు.',10,2],
+  ['butterfly','Butterfly','Sit, feet together, flap your knees like wings.','కూర్చుని, పాదాలు కలిపి, మోకాళ్ళు రెక్కల్లా ఆడించు.',20,2],
+  ['jack','Jumping jacks','Jump, open arms and legs, jump back.','దూకి, చేతులు కాళ్ళు తెరిచి, మళ్ళీ మూసి.',d?15:20,2],
+  ['squat','Squats','Sit down like on a chair, back straight, stand up.','కుర్చీలో కూర్చున్నట్టు కిందకి, వీపు నిటారుగా, లేచి.',10,4]];
+ if(!d)L.push(['dips','Chair dips','Hands on the chair behind you, bend your elbows, push up.','',10,4,1],['hang','Pull-ups','Hold the bar, pull your chin over your hands, go down slowly.','',5,6,1]);
+ L.push(['breath','Slow breathing','Breathe in slowly through your nose, breathe out slowly.','ముక్కుతో నెమ్మదిగా గాలి పీల్చు, నెమ్మదిగా వదులు.',10,6]);
+ return L.map(x=>{const beat=x[5]+(d?1:0);return{pic:x[0],title:x[1],screenEn:x[2],cue:d?x[1]+'. '+x[3]:x[1]+'. '+x[2],cueLang:d?'te':'en',count:x[4],beat:beat,intro:8,seconds:8+x[4]*beat,setup:!!x[6]}})}
 function picSvg(k){return `<svg viewBox="0 0 120 130" width="100%" height="200" fill="none" stroke="#2A5FD6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="${esc(k)}">${PICS[k]||PICS.rest}</svg>`}
 let RT=null;
-async function openRoutine(name){const SEQ=++NAVSEQ;setNav({v:'child',id:CHILD.id});Voice.stop();const r=await api('getRoutine',CHILD.id,name);RT={name:name,steps:r.steps,music:r.music,i:0,timer:null};
+async function openRoutine(name){const SEQ=++NAVSEQ;setNav({v:'child',id:CHILD.id});Voice.stop();const r=await api('getRoutine',CHILD.id,name);RT={name:name,steps:name==='exercise'?exPlan(CHILD.id):r.steps,music:r.music,i:0,timer:null};
  if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800;text-transform:capitalize">${esc(name)}</div>
  <div class="card" style="text-align:center"><div id="rtPic"></div><div id="rtTitle" style="font-size:24px;font-weight:800"></div><div id="rtText" class="muted" style="font-size:17px"></div>
  <div id="rtCount" style="font-size:52px;font-weight:800;color:#2A5FD6;margin-top:6px">0:00</div><div id="rtStep" class="muted"></div></div>
@@ -1703,13 +1739,15 @@ async function rtStart(){$('#rtGo').classList.add('hidden');const nv=$('#rtNav')
  rtStep()}
 function rtStep(){const s=RT.steps[RT.i];if(!s)return rtEnd();
  if(RT.name==='exercise'&&rtNeedsSetup(s,RT.steps[RT.i-1])&&!RT.readyDone){RT.readyDone=1;return rtAskReady(s)}RT.readyDone=0;CAM.reset(s);$('#rtPic').innerHTML=picSvg(s.pic);$('#rtTitle').textContent=s.title;$('#rtText').textContent=s.screenEn+(s.reps?' · '+s.reps+' times':'');$('#rtStep').textContent='Step '+(RT.i+1)+' of '+RT.steps.length;
- Voice.speak(s.cueTe,'te');const end=Date.now()+s.seconds*1000;const said={};
+ Voice.speak(s.cue||s.cueTe,s.cueLang||'te');const t0=Date.now(),end=t0+s.seconds*1000;const said={};let cnt=0;
+ if(s.count)$('#rtText').textContent=s.screenEn+' · '+s.count+' counts';
  clearInterval(RT.timer);RT.timer=setInterval(()=>{const left=Math.ceil((end-Date.now())/1000);$('#rtCount').textContent=mmss(left);
   if(s.hint)[30,20,10].forEach(x=>{if(left===x&&!said[x]){said[x]=1;Voice.speak(x+' seconds left!','en')}});
+  if(s.count){const k=Math.floor((Date.now()-t0-s.intro*1000)/(s.beat*1000))+1;if(k>cnt&&k<=s.count&&Date.now()-t0>=s.intro*1000){cnt=k;const dk=CHILD&&CHILD.id==='ditya';Voice.speak(dk?TE_CNT[k]||String(k):String(k),dk?'te':'en');$('#rtStep').textContent='Count '+k+' of '+s.count+' · step '+(RT.i+1)+' of '+RT.steps.length}}
   if(left<=0){clearInterval(RT.timer);RT.i++;rtStep()}},250)}
 /* W34 – "Are you ready?" before exercises that need moving or setting something up (pull-ups, dips, chair, bar, wall, mat) */
 const RT_SETUP=/pull|hang|bar|dip|chair|bench|wall|mat|stool|rod/i;
-function rtSetupKey(s){if(!s)return '';if(s.pic==='hang')return 'hang';if(s.pic==='dips')return 'dips';const m=String((s.title||'')+' '+(s.screenEn||'')).match(RT_SETUP);return m?m[0].toLowerCase():''}
+function rtSetupKey(s){if(!s)return '';if('setup' in s)return s.setup?s.pic:'';if(s.setup||s.pic==='hang'||s.pic==='dips')return s.pic;const m=String((s.title||'')+' '+(s.screenEn||'')).match(RT_SETUP);return m?m[0].toLowerCase():''}
 function rtNeedsSetup(s,prev){const k=rtSetupKey(s);return !!k&&k!==rtSetupKey(prev)}
 function rtAskReady(s){clearInterval(RT.timer);const kid=CHILD&&CHILD.id==='ditya';const my=++RT.askSeq||(RT.askSeq=1);RT.waiting=my;
  $('#rtPic').innerHTML=picSvg(s.pic);$('#rtTitle').textContent='Next: '+s.title;$('#rtText').textContent=kid?'Go to the place and get ready. Say “ready” or tap the button.':'Go to your place, set it up and say “ready” – or tap the button.';$('#rtCount').textContent='⏸';$('#rtStep').innerHTML='<button class="green" id="rtReadyBtn" style="min-height:64px;font-size:22px;width:100%;margin-top:8px" onclick="rtGoReady()">✅ Ready</button>';
