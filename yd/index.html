@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v50 · Wed 18/11 07:30';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v51 · Wed 18/11 06:55';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -1721,36 +1721,46 @@ function rtEarsStop(){if(RT&&RT.ears){const r=RT.ears;RT.ears=null;try{r.abort()
 function rtGoReady(){if(!RT||!RT.waiting)return;RT.waiting=0;clearInterval(RT.reask);rtEarsStop();$('#rtStep').textContent='';Voice.speak(CHILD&&CHILD.id==='ditya'?'సూపర్! మొదలుపెడదాం!':'Great! Let\'s start!',CHILD&&CHILD.id==='ditya'?'te':'en');setTimeout(()=>{if(document.getElementById('rtCount'))rtStep()},1500)}
 /* W35 – camera check: free pose tracking on the phone itself; video never leaves the phone, nothing saved */
 const CAM={on:false,lm:null,vid:null,stream:null,s:null,n:0,phase:'up',minA:180,lastSay:0,lastMove:Date.now(),prev:null,last:0,
- reset(s){this.s=s;this.n=0;this.phase='up';this.minA=180;this.prev=null;this.lastMove=Date.now();this.msg(this.on?'Watching: '+(s?s.title:''):'')},
+ reset(s){this.s=s;this.st=null;this.n=0;this.phase='up';this.minA=180;this.prev=null;this.lastMove=Date.now();this.msg(this.on?'Watching: '+(s?s.title:''):'')},
  msg(t){const m=$('#camMsg');if(m)m.textContent=t},
  say(t,force){if(!force&&Date.now()-this.lastSay<5000)return;this.lastSay=Date.now();Voice.speak(t,'en')}};
 async function camToggle(){if(CAM.on)return camStop();const b=$('#camBtn');if(b)b.textContent='Starting camera…';
  try{CAM.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:640,height:480},audio:false})}catch(e){if(b)b.textContent='📷 Check me with camera';return toast('Camera not allowed – allow camera for this app and try again')}
  const v=$('#camVid');v.srcObject=CAM.stream;await v.play().catch(()=>{});$('#camBox').classList.remove('hidden');CAM.vid=v;
  if(!CAM.lm){CAM.msg('Getting the body tracker ready (first time only)…');try{const V=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs');const f=await V.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
-  CAM.lm=await V.PoseLandmarker.createFromOptions(f,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',delegate:'GPU'},runningMode:'VIDEO',numPoses:1})}catch(e){CAM.msg('Body tracker could not load – check internet');camStop(true);return}}
+  CAM.lm=await V.PoseLandmarker.createFromOptions(f,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',delegate:'GPU'},runningMode:'VIDEO',numPoses:2})}catch(e){CAM.msg('Body tracker could not load – check internet');camStop(true);return}}
  CAM.on=true;if(b)b.textContent='⏹ Stop camera';CAM.reset(RT&&RT.steps[RT.i]);camLoop()}
 function camStop(keep){CAM.on=false;try{CAM.stream&&CAM.stream.getTracks().forEach(t=>t.stop())}catch(e){}CAM.stream=null;const bx=$('#camBox');if(bx)bx.classList.add('hidden');const b=$('#camBtn');if(b)b.textContent='📷 Check me with camera';if(!keep)CAM.msg('')}
 function camAng(a,b,c){const r=Math.atan2(c.y-b.y,c.x-b.x)-Math.atan2(a.y-b.y,a.x-b.x);let d=Math.abs(r*180/Math.PI);return d>180?360-d:d}
 function camLoop(){if(!CAM.on)return;if(!document.getElementById('camVid')){camStop();return}requestAnimationFrame(camLoop);const now=performance.now();if(now-CAM.last<66)return;CAM.last=now;
- let res;try{res=CAM.lm.detectForVideo(CAM.vid,now)}catch(e){return}const p=res&&res.landmarks&&res.landmarks[0];const cv=$('#camCv');if(cv){cv.width=CAM.vid.videoWidth;cv.height=CAM.vid.videoHeight;const g=cv.getContext('2d');g.clearRect(0,0,cv.width,cv.height);
-  if(p){g.strokeStyle='#2EC27E';g.lineWidth=5;[[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]].forEach(([a,b])=>{g.beginPath();g.moveTo(p[a].x*cv.width,p[a].y*cv.height);g.lineTo(p[b].x*cv.width,p[b].y*cv.height);g.stroke()})}}
- const s=CAM.s;if(!s||!RT||RT.waiting)return;if(!p){CAM.msg('I can’t see you – stand in front of the camera');CAM.say('I can\'t see you. Stand in front of the camera.');return}
- const vis=[0,11,12,13,14,15,16].every(i=>(p[i].visibility||0)>0.5);if(!vis){CAM.msg('Step back – I need to see your head and both arms');CAM.say('Step back a little, I need to see your arms.');return}
+ let res;try{res=CAM.lm.detectForVideo(CAM.vid,now)}catch(e){return}
+ // up to 2 children; sorted by where they stand on the screen (camera is mirrored, so screen-left = larger x)
+ const ps=((res&&res.landmarks)||[]).slice(0,2).sort((u,v)=>((v[11].x+v[12].x)-(u[11].x+u[12].x)));
+ const cv=$('#camCv');if(cv){cv.width=CAM.vid.videoWidth;cv.height=CAM.vid.videoHeight;const g=cv.getContext('2d');g.clearRect(0,0,cv.width,cv.height);g.lineWidth=5;
+  ps.forEach((p,k)=>{g.strokeStyle=k?'#E0559A':'#2EC27E';[[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]].forEach(([a,b])=>{g.beginPath();g.moveTo(p[a].x*cv.width,p[a].y*cv.height);g.lineTo(p[b].x*cv.width,p[b].y*cv.height);g.stroke()})})}
+ const s=CAM.s;if(!s||!RT||RT.waiting)return;
+ if(!ps.length){CAM.msg('I can’t see anyone – stand in front of the camera');CAM.say('I can\'t see you. Stand in front of the camera.');return}
+ if(!CAM.st||CAM.st.sk!==s)CAM.st={sk:s,list:[camNew(),camNew()]};
+ const two=ps.length>1,out=[];ps.forEach((p,k)=>out.push((two?(k?'Right':'Left')+': ':'')+camCheck(p,CAM.st.list[k],s,two?(k?'Right side':'Left side'):'')));
+ CAM.msg(out.join(' · '))}
+function camNew(){return{n:0,phase:'up',minA:180,prev:null,lastMove:Date.now(),lastSay:0}}
+function camIn(q){return q&&q.x>-0.05&&q.x<1.05&&q.y>-0.05&&q.y<1.05&&(!(q.visibility>0)||q.visibility>0.2)}
+function camSay(st,t,force){if(!force&&Date.now()-st.lastSay<6000)return;st.lastSay=Date.now();Voice.speak(t,'en')}
+function camCheck(p,st,s,who){const pre=who?who+', ':'';
+ const arms=camIn(p[13])&&camIn(p[14])&&camIn(p[15])&&camIn(p[16]);
  const el=(camAng(p[11],p[13],p[15])+camAng(p[12],p[14],p[16]))/2;
- if(s.pic==='dips'){CAM.minA=Math.min(CAM.minA,el);
-  if(CAM.phase==='up'&&el<100){CAM.phase='down'}
-  else if(CAM.phase==='up'&&el>150&&CAM.minA<135&&CAM.minA>=100){CAM.say('Go a little lower.');CAM.minA=180}
-  else if(CAM.phase==='down'&&el>150){CAM.phase='up';CAM.n++;CAM.minA=180;CAM.say(String(CAM.n),true)}
-  CAM.msg('Dips seen: '+CAM.n+(CAM.phase==='down'?' · push up':''));return}
- if(s.pic==='hang'){const wy=(p[15].y+p[16].y)/2,up=p[0].y<wy+0.02;CAM.minA=Math.min(CAM.minA,el);
-  if(CAM.phase==='up'&&up){CAM.phase='top'}
-  else if(CAM.phase==='top'&&el>150){CAM.phase='up';CAM.n++;CAM.minA=180;CAM.say(String(CAM.n),true)}
-  else if(CAM.phase==='up'&&el>150&&CAM.minA<120){CAM.say('Pull higher – chin over your hands.');CAM.minA=180}
-  CAM.msg('Pull-ups seen: '+CAM.n+(CAM.phase==='top'?' · now go down slowly':''));return}
- // other exercises: check he keeps moving
- if(CAM.prev){const mv=[0,13,14,15,16].reduce((a,i)=>a+Math.abs(p[i].x-CAM.prev[i].x)+Math.abs(p[i].y-CAM.prev[i].y),0);if(mv>0.03)CAM.lastMove=Date.now()}
- CAM.prev=p.map(q=>({x:q.x,y:q.y}));if(Date.now()-CAM.lastMove>6000){CAM.msg('Keep moving!');CAM.say('Keep moving, '+(CHILD&&CHILD.id==='ditya'?'Ditya':'Yuvaan')+'!');CAM.lastMove=Date.now()}else CAM.msg('Good – I can see you moving ✅')}
+ if(s.pic==='dips'||s.pic==='hang'){if(!arms){camSay(st,pre+'step back a little so I can see your hands.');return 'show me your hands'}
+  st.minA=Math.min(st.minA,el);
+  if(s.pic==='dips'){if(st.phase==='up'&&el<100)st.phase='down';else if(st.phase==='up'&&el>150&&st.minA<135&&st.minA>=100){camSay(st,pre+'go a little lower.');st.minA=180}else if(st.phase==='down'&&el>150){st.phase='up';st.n++;st.minA=180;camSay(st,(who?who+' ':'')+st.n,true)}return 'dips '+st.n+(st.phase==='down'?' (push up)':'')}
+  const wy=(p[15].y+p[16].y)/2,up=p[0].y<wy+0.02;
+  if(st.phase==='up'&&up)st.phase='top';else if(st.phase==='top'&&el>150){st.phase='up';st.n++;st.minA=180;camSay(st,(who?who+' ':'')+st.n,true)}else if(st.phase==='up'&&el>150&&st.minA<120){camSay(st,pre+'pull higher, chin over your hands.');st.minA=180}
+  return 'pull-ups '+st.n+(st.phase==='top'?' (go down slowly)':'')}
+ // other exercises: check that this child keeps moving (uses whatever body parts are in view)
+ const pts=[0,11,12,13,14,15,16,25,26,27,28].filter(i=>camIn(p[i]));
+ if(st.prev){const mv=pts.reduce((a,i)=>a+Math.abs(p[i].x-st.prev[i].x)+Math.abs(p[i].y-st.prev[i].y),0)/Math.max(1,pts.length);if(mv>0.004)st.lastMove=Date.now()}
+ st.prev=p.map(q=>({x:q.x,y:q.y}));
+ if(Date.now()-st.lastMove>6000){camSay(st,(who?who:(CHILD&&CHILD.id==='ditya'?'Ditya':'Yuvaan'))+', keep moving!');st.lastMove=Date.now();return 'keep moving!'}
+ return 'moving ✅'}
 function rtEnd(){clearInterval(RT.timer);RT.waiting=0;clearInterval(RT.reask);rtEarsStop();camStop();if(RT.audio)RT.audio.pause();$('#rtMusic').innerHTML='';try{RT.lock&&RT.lock.release()}catch(e){}
  $('#rtTitle').textContent='All done!';$('#rtText').textContent='Great job – Amma will check your star.';$('#rtCount').textContent='★';$('#rtPic').innerHTML='';
  api('claimStar',CHILD.id,'Routine: '+RT.name,'');api('logTimer',CHILD.id,'routine',RT.name,RT.steps.reduce((a,s)=>a+s.seconds,0));Voice.speak('Super! You did really well!','en')}
