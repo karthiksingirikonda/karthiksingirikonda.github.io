@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v58 · Wed 18/11 19:30';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v59 · Wed 18/11 20:05';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -94,8 +94,10 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 function familyScreen(msg){$('#backBtn').classList.add('hidden');$('#app').innerHTML=`<div class="card" style="text-align:center;margin-top:30px"><div style="font-size:40px">&#128274;</div><div style="font-size:22px;font-weight:800">Family code</div><div class="muted">Type the 6-number family code once. This phone will remember it.</div>
  <input id="famCode" type="password" inputmode="numeric" maxlength="6" style="text-align:center;font-size:26px;letter-spacing:8px;margin-top:12px"><div id="famMsg" class="muted" style="color:#A12828;min-height:20px">${msg?esc(msg):''}</div><button class="primary" style="width:100%" onclick="famGo()">Open</button></div>`}
 function famGo(){const c=$('#famCode').value.trim();post({fn:'familyUnlock',code:c}).then(j=>{if(!j.ok)return familyScreen(j.error);const r=j.data;if(!r.ok)return familyScreen(r.msg);FTOK=r.token;try{localStorage.setItem('ydFam',FTOK)}catch(e){}start()}).catch(e=>familyScreen('No internet – please try again'))}
+// W141: 'not-allowed' after the mic re-opens on its own is a phone limit, not a permission problem – only show the help when the site is really blocked.
+function micBlocked(auto,soft){if(auto){soft&&soft();return}try{navigator.permissions.query({name:'microphone'}).then(p=>{if(p.state==='denied')micHelp();else{let n=0;try{n=+sessionStorage.getItem('ydMicNA')||0;sessionStorage.setItem('ydMicNA',n+1)}catch(e){}if(n>=2)micHelp();else soft&&soft()}}).catch(()=>micHelp())}catch(e){micHelp()}}
 function micHelp(){const p=$('#askPanel');p.classList.remove('hidden');p.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center"><b>&#127908; Turn on the microphone</b><button class="ghost" aria-label="Close" onclick="$('#askPanel').classList.add('hidden')">&#10005;</button></div>
- <ol style="padding-left:20px;line-height:1.6;margin:8px 0"><li>At the top, tap the small icon on the left of the web address (lock or sliders).</li><li>Tap <b>Permissions</b> or <b>Site settings</b> &#8594; <b>Microphone</b> &#8594; <b>Allow</b>.</li><li>If there is no Microphone there: phone <b>Settings &#8594; Apps &#8594; Chrome &#8594; Permissions &#8594; Microphone &#8594; Allow</b>.</li><li>Come back and reload this page.</li></ol><div class="muted">You can also type in the box instead.</div>`}
+ <ol style="padding-left:20px;line-height:1.6;margin:8px 0"><li>At the top, tap the small icon on the left of the web address (lock or sliders).</li><li>Tap <b>Permissions</b> or <b>Site settings</b> &#8594; <b>Microphone</b> &#8594; <b>Allow</b>.</li><li>If there is no Microphone there: phone <b>Settings &#8594; Apps &#8594; Chrome &#8594; Permissions &#8594; Microphone &#8594; Allow</b>.</li><li>Chrome already allowed? Listening is done by the phone's voice typing: <b>Settings &#8594; Apps &#8594; Google</b> (and <b>Speech Services by Google</b>, if it is there) <b>&#8594; Permissions &#8594; Microphone &#8594; Allow</b>.</li><li>Come back, close YD fully and open it again.</li></ol><div class="muted">You can also type in the box instead.</div>`}
 function toast(m){const d=document.createElement('div');d.textContent=m;d.style.cssText='position:fixed;bottom:20px;left:16px;right:16px;background:#1F2A44;color:#fff;padding:12px 14px;border-radius:14px;z-index:9';document.body.appendChild(d);setTimeout(()=>d.remove(),3500)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 let RENDERSEQ=0;
@@ -198,12 +200,12 @@ const VoiceOld=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecog
  function abort(){clearTimeout(again);again=null;try{rec&&rec.abort()}catch(e){}running=false;setMic()}
  // One listening turn: keeps the mic open (up to 20 s of silence) until the child has spoken; the phone often closes it early, so we quietly reopen it.
  function listenOnce(fresh){if(!SR){status('This browser can\'t listen – open YD from Chrome');return}
-  if(fresh!==false){until=Date.now()+20000;userOff=false}
+  if(fresh!==false){until=Date.now()+20000;userOff=false}const auto=fresh===false;
   clearTimeout(again);again=null;if(running||paused)return;got='';err='';try{Wake.stop()}catch(e){}
   rec=new SR();rec.lang=langFor();rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
   rec.onstart=()=>{running=true;setMic();status('🎤 Listening… speak now')};
   rec.onresult=e=>{let fin='',inter='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t;else inter+=t}got=fin||got;until=Math.max(until,Date.now()+8000);live((fin||inter).trim());if(!fin&&inter&&e.target)e.target._inter=inter};
-  rec.onerror=e=>{if(e.error==='aborted'||e.error==='no-speech')return;err=e.error;if(e.error==='not-allowed'){active=false;micHelp();status('Microphone not allowed');return}status(micReason(e.error))};
+  rec.onerror=e=>{if(e.error==='aborted'||e.error==='no-speech')return;err=e.error;if(e.error==='not-allowed'){active=false;micBlocked(auto,()=>status('🎤 Tap the mic to talk'));status('🎤 Tap the mic to talk');return}status(micReason(e.error))};
   rec.onend=()=>{const r0=rec;running=false;const t=((got||'')||(r0&&r0._inter)||'').trim();live('');
    if(t){setMic();process(t);return}
    if(!userOff&&!paused&&active&&!err&&Date.now()<until){running=true;setMic();status('🎤 Listening… speak now');again=setTimeout(()=>{running=false;again=null;if(!userOff&&!paused&&active)listenOnce(false);else{setMic();status('Mic off – tap the mic to talk')}},300);return}
@@ -2027,7 +2029,7 @@ function askMicOld(){const SR=window.SpeechRecognition||window.webkitSpeechRecog
  const box=$('#askBox');const base=box.value;const r=new SR();ASKREC={r:r,keep:false};r.lang='te-IN';r.continuous=true;r.interimResults=true;
  $('#askMic').innerHTML='&#9632; Stop';let fin='';
  r.onresult=e=>{let inter='';fin='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t+' ';else inter+=t}box.value=(base+' '+fin+inter).trim()};
- r.onerror=e=>{if(e.error==='aborted')return;if(e.error==='not-allowed'){askClose();micHelp();return}toast(micReason(e.error))};
+ r.onerror=e=>{if(e.error==='aborted')return;if(e.error==='not-allowed'){micBlocked(false,()=>toast('Tap 🎤 Speak again'));return}toast(micReason(e.error))};
  r.onend=()=>{ASKREC=null;const b=$('#askMic');if(b)b.innerHTML='&#127908; Speak';box.value=(base+' '+fin).trim()};
  try{r.start()}catch(e){ASKREC=null;toast('Tap Speak again')}}
 function adminLock(){askClose();ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();goHome()}
