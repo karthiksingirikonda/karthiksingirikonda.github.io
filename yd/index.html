@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v54 · Wed 18/11 07:15';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v55 · Wed 18/11 07:20';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -1695,7 +1695,7 @@ const PICS={ // simple stick-figure pictures, drawn here (no copyright issues)
  squat:'<circle cx="58" cy="30" r="12"/><path d="M58 42l6 34M64 76l-24 4 4 40M64 76l24 4-4 40M60 54l34 0M60 58l34 4"/>'};
 /* W36 – full-body warm-up, 15–20 min: the voice counts every round at a set pace; kids follow the count and the picture */
 const TE_CNT=['','ఒకటి','రెండు','మూడు','నాలుగు','ఐదు','ఆరు','ఏడు','ఎనిమిది','తొమ్మిది','పది','పదకొండు','పన్నెండు','పదమూడు','పద్నాలుగు','పదిహేను','పదహారు','పదిహేడు','పద్దెనిమిది','పందొమ్మిది','ఇరవై'];
-function exPlan(kid){const d=kid==='ditya';
+function exPlan(kid){const d=kid==='ditya'; // same plan for both children (they exercise together)
  // [pic, title, how (English), how (Telugu), count, seconds per count, setup]
  const L=[['walk','Walking in a circle','Walk around the circle. One round on each count.','వృత్తంలో నడువు. ఒక్కో కౌంట్‌కి ఒక రౌండ్.',20,5],
   ['headUD','Head up and down','Slowly look up, then down. One on each count.','నెమ్మదిగా పైకి చూడు, తర్వాత కిందకి.',10,3],
@@ -1716,11 +1716,11 @@ function exPlan(kid){const d=kid==='ditya';
   ['ankle','Ankle rotation – right foot','Lift your right foot a little, turn the ankle.','కుడి కాలు కొంచెం ఎత్తి చీలమండ తిప్పు.',10,2],
   ['ankle','Ankle rotation – left foot','Now the left foot.','ఇప్పుడు ఎడమ కాలు.',10,2],
   ['butterfly','Butterfly','Sit, feet together, flap your knees like wings.','కూర్చుని, పాదాలు కలిపి, మోకాళ్ళు రెక్కల్లా ఆడించు.',20,2],
-  ['jack','Jumping jacks','Jump, open arms and legs, jump back.','దూకి, చేతులు కాళ్ళు తెరిచి, మళ్ళీ మూసి.',d?15:20,2],
+  ['jack','Jumping jacks','Jump, open arms and legs, jump back.','దూకి, చేతులు కాళ్ళు తెరిచి, మళ్ళీ మూసి.',20,3],
   ['squat','Squats','Sit down like on a chair, back straight, stand up.','కుర్చీలో కూర్చున్నట్టు కిందకి, వీపు నిటారుగా, లేచి.',10,4]];
- if(!d)L.push(['dips','Chair dips','Hands on the chair behind you, bend your elbows, push up.','',10,4,1],['hang','Pull-ups','Hold the bar, pull your chin over your hands, go down slowly.','',5,6,1]);
+ L.push(['dips','Chair dips','Hands on the chair behind you, bend your elbows, push up.','చేతులు వెనక కుర్చీ మీద పెట్టి, మోచేతులు వంచి, పైకి లేవు.',10,4,1],['hang','Pull-ups','Hold the bar, pull your chin over your hands, go down slowly.','బార్ పట్టుకుని, గడ్డం చేతుల పైకి వచ్చేలా లాగు, నెమ్మదిగా దిగు.',5,6,1]);
  L.push(['breath','Slow breathing','Breathe in slowly through your nose, breathe out slowly.','ముక్కుతో నెమ్మదిగా గాలి పీల్చు, నెమ్మదిగా వదులు.',10,6]);
- return L.map(x=>{const beat=x[5]+(d?1:0);return{pic:x[0],title:x[1],screenEn:x[2],cue:d?x[1]+'. '+x[3]:x[1]+'. '+x[2],cueLang:d?'te':'en',count:x[4],beat:beat,intro:8,seconds:8+x[4]*beat,setup:!!x[6]}})}
+ return L.map(x=>{const beat=Math.max(3,x[5]);/* medium speed for both */return{pic:x[0],title:x[1],screenEn:x[2],cue:d?x[1]+'. '+x[3]:x[1]+'. '+x[2],cueLang:d?'te':'en',count:x[4],beat:beat,intro:8,seconds:8+x[4]*beat,setup:!!x[6]}})}
 function picSvg(k){return `<svg viewBox="0 0 120 130" width="100%" height="200" fill="none" stroke="#2A5FD6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="${esc(k)}">${PICS[k]||PICS.rest}</svg>`}
 let RT=null;
 async function openRoutine(name){const SEQ=++NAVSEQ;setNav({v:'child',id:CHILD.id});Voice.stop();const r=await api('getRoutine',CHILD.id,name);RT={name:name,steps:name==='exercise'?exPlan(CHILD.id):r.steps,music:r.music,i:0,timer:null};
@@ -1751,7 +1751,7 @@ function rtSetupKey(s){if(!s)return '';if('setup' in s)return s.setup?s.pic:'';i
 function rtNeedsSetup(s,prev){const k=rtSetupKey(s);return !!k&&k!==rtSetupKey(prev)}
 function rtAskReady(s){clearInterval(RT.timer);const kid=CHILD&&CHILD.id==='ditya';const my=++RT.askSeq||(RT.askSeq=1);RT.waiting=my;
  $('#rtPic').innerHTML=picSvg(s.pic);$('#rtTitle').textContent='Next: '+s.title;$('#rtText').textContent=kid?'Go to the place and get ready. Say “ready” or tap the button.':'Go to your place, set it up and say “ready” – or tap the button.';$('#rtCount').textContent='⏸';$('#rtStep').innerHTML='<button class="green" id="rtReadyBtn" style="min-height:64px;font-size:22px;width:100%;margin-top:8px" onclick="rtGoReady()">✅ Ready</button>';
- const say=kid?'తర్వాత '+s.title+'. ఆ చోటికి వెళ్ళి రెడీ అవ్వు. దిత్యా, రెడీనా?':'Next is '+s.title+'. Go to your place and set it up. Yuvaan, are you ready?';
+ const say=kid?'తర్వాత '+s.title+'. ఆ చోటికి వెళ్ళి రెడీ అవ్వండి. యువాన్, దిత్యా, రెడీనా?':'Next is '+s.title+'. Go to your place and set it up. Yuvaan and Ditya, are you ready?';
  const ask=async()=>{if(RT.waiting!==my||!document.getElementById('rtReadyBtn'))return;rtEarsStop();try{await Promise.race([Voice.speak(say,kid?'te':'en'),new Promise(r=>setTimeout(r,9000))])}catch(e){}if(RT.waiting===my)rtEars(my)};
  ask();RT.reask=setInterval(()=>{if(RT.waiting!==my||!document.getElementById('rtReadyBtn')){clearInterval(RT.reask);rtEarsStop();return}ask()},20000)}
 function rtEars(my){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;rtEarsStop();try{const r=new SR();r.lang='en-IN';r.continuous=true;r.interimResults=true;RT.ears=r;
@@ -1800,7 +1800,7 @@ function camCheck(p,st,s,who){const pre=who?who+', ':'';
  const pts=[0,11,12,13,14,15,16,25,26,27,28].filter(i=>camIn(p[i]));
  if(st.prev){const mv=pts.reduce((a,i)=>a+Math.abs(p[i].x-st.prev[i].x)+Math.abs(p[i].y-st.prev[i].y),0)/Math.max(1,pts.length);if(mv>0.004)st.lastMove=Date.now()}
  st.prev=p.map(q=>({x:q.x,y:q.y}));
- if(Date.now()-st.lastMove>6000){camSay(st,(who?who:(CHILD&&CHILD.id==='ditya'?'Ditya':'Yuvaan'))+', keep moving!');st.lastMove=Date.now();return 'keep moving!'}
+ if(Date.now()-st.lastMove>6000){camSay(st,(who?who:'Come on')+', keep moving!');st.lastMove=Date.now();return 'keep moving!'}
  return 'moving ✅'}
 function rtEnd(){clearInterval(RT.timer);const nv=$('#rtNav');if(nv)nv.classList.add('hidden');RT.waiting=0;clearInterval(RT.reask);rtEarsStop();camStop();if(RT.audio)RT.audio.pause();$('#rtMusic').innerHTML='';try{RT.lock&&RT.lock.release()}catch(e){}
  $('#rtTitle').textContent='All done!';$('#rtText').textContent='Great job – Amma will check your star.';$('#rtCount').textContent='★';$('#rtPic').innerHTML='';
