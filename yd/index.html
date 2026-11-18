@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v59 · Wed 18/11 20:05';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v60 · Wed 18/11 20:15';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -279,11 +279,11 @@ const Ears=(()=>{let stream=null,ctx=null,an=null,data=null,timer=null,on=false,
    if(now-lastAny>120000){stop();status('Mic off – tap the mic to talk')}return}
   if(now-lastLoud>1300&&now-recStart>500)stopRec();else if(now-recStart>30000)stopRec()}
  async function start(done,lab){onDone=done;label=lab||'';if(on){hold=false;status('🎤 Listening… speak any time');return true}
-  try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})}catch(e){status(e&&e.name==='NotAllowedError'?'Microphone not allowed':'Microphone not available');if(e&&e.name==='NotAllowedError')micHelp();return false}
+  try{stream=(window.__ydMic&&window.__ydMic.getAudioTracks().some(t=>t.readyState==='live'))?window.__ydMic:await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});window.__ydMic=stream;clearTimeout(window.__ydMicT)}catch(e){status(e&&e.name==='NotAllowedError'?'Microphone not allowed':'Microphone not available');if(e&&e.name==='NotAllowedError'){status('🎤 Tap the mic to talk');micBlocked(false)}return false}
   ctx=new (window.AudioContext||window.webkitAudioContext)();const src=ctx.createMediaStreamSource(stream);an=ctx.createAnalyser();an.fftSize=1024;data=new Float32Array(an.fftSize);src.connect(an);
   on=true;hold=false;floor=[];lastAny=Date.now();timer=setInterval(tick,50);status('🎤 Listening… speak any time');
   try{if(navigator.wakeLock)Ears.lock=await navigator.wakeLock.request('screen')}catch(e){}return true}
- function stop(){on=false;clearInterval(timer);try{rec&&rec.stop()}catch(e){}rec=null;try{stream&&stream.getTracks().forEach(t=>t.stop())}catch(e){}try{ctx&&ctx.close()}catch(e){}stream=null;ctx=null;try{Ears.lock&&Ears.lock.release()}catch(e){}}
+ function stop(){on=false;clearInterval(timer);try{rec&&rec.stop()}catch(e){}rec=null;try{clearTimeout(window.__ydMicT);const st=stream;window.__ydMicT=setTimeout(()=>{try{st&&st.getTracks().forEach(t=>t.stop())}catch(e){}if(window.__ydMic===st)window.__ydMic=null},60000)}catch(e){}try{ctx&&ctx.close()}catch(e){}stream=null;ctx=null;try{Ears.lock&&Ears.lock.release()}catch(e){}}
  return{start,stop,pause(){hold=true;if(rec)stopRec()},resume(){hold=false;if(on)status('🎤 Listening… speak any time')},get on(){return on},finish(){if(rec)stopRec()}}})();
 // Kids' Talk screen: one voice session; each sentence goes to the helper and the reply is spoken.
 async function onKidSpeech(blob){const m=$('#micBtn');if(m){m.classList.remove('listen')}const goLive=noteKidTurn();
@@ -341,7 +341,7 @@ const Live=(()=>{let ws=null,mic=null,ctx=null,node=null,play=null,next=0,srcs=[
    ws.onclose=ev=>{if((on||busy)&&!userStop)reconnect()};
    idle=setInterval(()=>{if(!on)return;const n=Date.now();if(!srcs.length&&n-lastKid>(HWMODE()?300000:60000)&&n-lastAct>8000)return toMic();if(n>endAt&&!srcs.length&&n-lastAct>1500)reconnect()},4000);
    try{lock=await navigator.wakeLock.request('screen')}catch(e){}
-  }catch(e){busy=false;cleanup();ui('off');if(e&&e.name==='NotAllowedError')micHelp();else micStart()}}
+  }catch(e){busy=false;cleanup();ui('off');if(e&&e.name==='NotAllowedError')micBlocked(false,()=>micStart());else micStart()}}
  function cleanup(){clearInterval(idle);idle=null;try{ws&&ws.readyState<2&&ws.close()}catch(e){}ws=null;try{mic&&mic.getTracks().forEach(t=>t.stop())}catch(e){}mic=null;
   try{ctx&&ctx.close()}catch(e){}ctx=null;node=null;hush();const p=play;play=null;setTimeout(()=>{try{p&&p.close()}catch(e){}},300);try{lock&&lock.release()}catch(e){}lock=null}
  function stop(msg){userStop=true;const was=on;on=false;busy=false;cleanup();if(was){endTurn();save()}ui('off');const h=$('#micHint');if(h)h.textContent='Mic off – tap the mic to talk';if(msg)toast(msg)}
