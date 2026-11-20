@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v60 · Wed 18/11 20:15';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v61 · Fri 20/11 7:45';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -95,7 +95,11 @@ function familyScreen(msg){$('#backBtn').classList.add('hidden');$('#app').inner
  <input id="famCode" type="password" inputmode="numeric" maxlength="6" style="text-align:center;font-size:26px;letter-spacing:8px;margin-top:12px"><div id="famMsg" class="muted" style="color:#A12828;min-height:20px">${msg?esc(msg):''}</div><button class="primary" style="width:100%" onclick="famGo()">Open</button></div>`}
 function famGo(){const c=$('#famCode').value.trim();post({fn:'familyUnlock',code:c}).then(j=>{if(!j.ok)return familyScreen(j.error);const r=j.data;if(!r.ok)return familyScreen(r.msg);FTOK=r.token;try{localStorage.setItem('ydFam',FTOK)}catch(e){}start()}).catch(e=>familyScreen('No internet – please try again'))}
 // W141: 'not-allowed' after the mic re-opens on its own is a phone limit, not a permission problem – only show the help when the site is really blocked.
-function micBlocked(auto,soft){if(auto){soft&&soft();return}try{navigator.permissions.query({name:'microphone'}).then(p=>{if(p.state==='denied')micHelp();else{let n=0;try{n=+sessionStorage.getItem('ydMicNA')||0;sessionStorage.setItem('ydMicNA',n+1)}catch(e){}if(n>=2)micHelp();else soft&&soft()}}).catch(()=>micHelp())}catch(e){micHelp()}}
+// W142 (v61): help only when the site is really blocked; if the phone's own listening refuses, YD records the voice itself (recording mode, saved on this phone).
+function MICFB(){try{return localStorage.getItem('ydMicFB')==='1'}catch(e){return false}}
+function EARS(){return !!GEM||MICFB()}
+function releaseMic(){try{if(typeof Ears!=='undefined'&&Ears.on)return;clearTimeout(window.__ydMicT);const st=window.__ydMic;window.__ydMic=null;st&&st.getTracks().forEach(t=>t.stop())}catch(e){}}
+function micBlocked(auto,soft,fb){if(auto){soft&&soft();return}const go=()=>{if(fb){try{localStorage.setItem('ydMicFB','1')}catch(e){}fb()}else soft&&soft()};try{navigator.permissions.query({name:'microphone'}).then(p=>{if(p.state==='denied')micHelp();else go()}).catch(go)}catch(e){go()}}
 function micHelp(){const p=$('#askPanel');p.classList.remove('hidden');p.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center"><b>&#127908; Turn on the microphone</b><button class="ghost" aria-label="Close" onclick="$('#askPanel').classList.add('hidden')">&#10005;</button></div>
  <ol style="padding-left:20px;line-height:1.6;margin:8px 0"><li>At the top, tap the small icon on the left of the web address (lock or sliders).</li><li>Tap <b>Permissions</b> or <b>Site settings</b> &#8594; <b>Microphone</b> &#8594; <b>Allow</b>.</li><li>If there is no Microphone there: phone <b>Settings &#8594; Apps &#8594; Chrome &#8594; Permissions &#8594; Microphone &#8594; Allow</b>.</li><li>Chrome already allowed? Listening is done by the phone's voice typing: <b>Settings &#8594; Apps &#8594; Google</b> (and <b>Speech Services by Google</b>, if it is there) <b>&#8594; Permissions &#8594; Microphone &#8594; Allow</b>.</li><li>Come back, close YD fully and open it again.</li></ol><div class="muted">You can also type in the box instead.</div>`}
 function toast(m){const d=document.createElement('div');d.textContent=m;d.style.cssText='position:fixed;bottom:20px;left:16px;right:16px;background:#1F2A44;color:#fff;padding:12px 14px;border-radius:14px;z-index:9';document.body.appendChild(d);setTimeout(()=>d.remove(),3500)}
@@ -201,11 +205,11 @@ const VoiceOld=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecog
  // One listening turn: keeps the mic open (up to 20 s of silence) until the child has spoken; the phone often closes it early, so we quietly reopen it.
  function listenOnce(fresh){if(!SR){status('This browser can\'t listen – open YD from Chrome');return}
   if(fresh!==false){until=Date.now()+20000;userOff=false}const auto=fresh===false;
-  clearTimeout(again);again=null;if(running||paused)return;got='';err='';try{Wake.stop()}catch(e){}
+  clearTimeout(again);again=null;if(running||paused)return;got='';err='';try{Wake.stop()}catch(e){}releaseMic();
   rec=new SR();rec.lang=langFor();rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
   rec.onstart=()=>{running=true;setMic();status('🎤 Listening… speak now')};
   rec.onresult=e=>{let fin='',inter='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t;else inter+=t}got=fin||got;until=Math.max(until,Date.now()+8000);live((fin||inter).trim());if(!fin&&inter&&e.target)e.target._inter=inter};
-  rec.onerror=e=>{if(e.error==='aborted'||e.error==='no-speech')return;err=e.error;if(e.error==='not-allowed'){active=false;micBlocked(auto,()=>status('🎤 Tap the mic to talk'));status('🎤 Tap the mic to talk');return}status(micReason(e.error))};
+  rec.onerror=e=>{if(e.error==='aborted'||e.error==='no-speech')return;err=e.error;if(e.error==='not-allowed'||e.error==='service-not-allowed'||e.error==='audio-capture'){active=false;status('🎤 Tap the mic to talk');micBlocked(auto,()=>status('🎤 Tap the mic to talk'),()=>{status('🎤 Listening…');Voice.toggle()});return}status(micReason(e.error))};
   rec.onend=()=>{const r0=rec;running=false;const t=((got||'')||(r0&&r0._inter)||'').trim();live('');
    if(t){setMic();process(t);return}
    if(!userOff&&!paused&&active&&!err&&Date.now()<until){running=true;setMic();status('🎤 Listening… speak now');again=setTimeout(()=>{running=false;again=null;if(!userOff&&!paused&&active)listenOnce(false);else{setMic();status('Mic off – tap the mic to talk')}},300);return}
@@ -279,7 +283,7 @@ const Ears=(()=>{let stream=null,ctx=null,an=null,data=null,timer=null,on=false,
    if(now-lastAny>120000){stop();status('Mic off – tap the mic to talk')}return}
   if(now-lastLoud>1300&&now-recStart>500)stopRec();else if(now-recStart>30000)stopRec()}
  async function start(done,lab){onDone=done;label=lab||'';if(on){hold=false;status('🎤 Listening… speak any time');return true}
-  try{stream=(window.__ydMic&&window.__ydMic.getAudioTracks().some(t=>t.readyState==='live'))?window.__ydMic:await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});window.__ydMic=stream;clearTimeout(window.__ydMicT)}catch(e){status(e&&e.name==='NotAllowedError'?'Microphone not allowed':'Microphone not available');if(e&&e.name==='NotAllowedError'){status('🎤 Tap the mic to talk');micBlocked(false)}return false}
+  try{stream=(window.__ydMic&&window.__ydMic.getAudioTracks().some(t=>t.readyState==='live'))?window.__ydMic:await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});window.__ydMic=stream;clearTimeout(window.__ydMicT)}catch(e){status(e&&e.name==='NotAllowedError'?'Microphone not allowed':'Microphone not available');if(e&&e.name==='NotAllowedError'){status('🎤 Tap the mic to talk');micHelp()}return false}
   ctx=new (window.AudioContext||window.webkitAudioContext)();const src=ctx.createMediaStreamSource(stream);an=ctx.createAnalyser();an.fftSize=1024;data=new Float32Array(an.fftSize);src.connect(an);
   on=true;hold=false;floor=[];lastAny=Date.now();timer=setInterval(tick,50);status('🎤 Listening… speak any time');
   try{if(navigator.wakeLock)Ears.lock=await navigator.wakeLock.request('screen')}catch(e){}return true}
@@ -1549,7 +1553,7 @@ function hwAdminForm(){const kids=`<option value="yuvaan">Yuvaan</option><option
 function hwShowFiles(){const d=$('#hFiles');if(d)d.innerHTML=HWFILES.map((f,i)=>`<div class="row" style="justify-content:space-between">${f.mime==='application/pdf'?'&#128196;':'&#128444;'} ${esc(f.name)} <button class="ghost" onclick="HWFILES.splice(${i},1);hwShowFiles()">&#10005;</button></div>`).join('')}
 async function hwPick(inp){for(const f of [...inp.files]){try{HWFILES.push(f.type==='application/pdf'?{name:f.name,mime:f.type,b64:await blobB64(f)}:await shrinkImg(f))}catch(e){toast('Could not add '+f.name)}}inp.value='';hwShowFiles()}
 function shrinkImg(f){return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(f);img.onload=()=>{const k=Math.min(1,1600/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);res({name:f.name||'photo.jpg',mime:'image/jpeg',b64:c.toDataURL('image/jpeg',0.82).split(',')[1]})};img.onerror=rej;img.src=u})}
-function hwMic(){if(!GEM)return toast('Voice is not set up yet');if(Ears.on){Ears.finish();return}Voice.stop();const btn=$('#hwMicBtn');
+function hwMic(){if(!EARS())return toast('Voice is not set up yet');if(Ears.on){Ears.finish();return}Voice.stop();const btn=$('#hwMicBtn');
  Ears.start(async blob=>{Ears.stop();if(btn)btn.innerHTML='⏳ Writing…';try{const r=await net('adminTranscribe',[ADMIN.token,await blobB64(blob),blob.type]);const box=$('#hDet');if(box&&r.text)box.value=(box.value+' '+r.text).trim()}catch(e){}if(btn)btn.innerHTML='&#127908; Speak';$('#hwMicHint').textContent=''},'#hwMicHint').then(ok=>{if(ok&&btn)btn.innerHTML='&#9632; Done speaking'})}
 async function addHw(){const b=$('#hSave');if(b){b.disabled=true;b.textContent=HWFILES.length?'Saving and reading the pages…':'Saving…'}
  try{const r=await api('adminAddHomework',ADMIN.token,$('#hKid').value,$('#hSub').value,$('#hKind').value,$('#hDet').value,$('#hTime').value,$('#hMin').value,HWFILES);HWFILES=[];toast('Homework saved');
@@ -1635,13 +1639,13 @@ async function micStart(){Wake.stop();const m=$('#micBtn');QUICK=0;const ok=awai
 function noteKidTurn(){const quick=LASTREPLY&&Date.now()-LASTREPLY<25000;QUICK=quick?QUICK+1:0;
  if(QUICK>=3&&GEM&&!Live.on&&!/^(check|class)$/.test(String(MODE).split('|')[0])){QUICK=0;return true}return false}
 const Voice={
- begin(wake){if(GEM){if(wake)this.toggle();else{const h=$('#micHint');if(h)h.textContent='Mic off – tap the mic to talk'}}else VoiceOld.begin(wake)},
- async toggle(){if(Live.on)return Live.stop();if(!GEM)return VoiceOld.toggle();const m=$('#micBtn');
+ begin(wake){if(EARS()){if(wake)this.toggle();else{const h=$('#micHint');if(h)h.textContent='Mic off – tap the mic to talk'}}else VoiceOld.begin(wake)},
+ async toggle(){if(Live.on)return Live.stop();if(!EARS())return VoiceOld.toggle();const m=$('#micBtn');
   if(Ears.on){Ears.stop();m&&m.classList.remove('listen');m&&m.classList.add('sleep');const h=$('#micHint');if(h)h.textContent='Mic off – tap the mic to talk';return}
-  if(LIVE_FIRST.indexOf(String(MODE).split('|')[0])>=0)return Live.start('start');
+  if(GEM&&LIVE_FIRST.indexOf(String(MODE).split('|')[0])>=0)return Live.start('start');
   micStart()},
- pause(){if(GEM)Ears.pause();else VoiceOld.pause()},
- resume(){if(GEM){if(Ears.on){Ears.resume()}else{const h=$('#micHint');if(h)h.textContent='Mic off – tap the mic to talk'}}else VoiceOld.resume()},
+ pause(){if(EARS())Ears.pause();else VoiceOld.pause()},
+ resume(){if(EARS()){if(Ears.on){Ears.resume()}else{const h=$('#micHint');if(h)h.textContent='Mic off – tap the mic to talk'}}else VoiceOld.resume()},
  stop(){SPKSEQ++;if(Live.on)Live.stop();Ears.stop();VoiceOld.stop();if(PLAYING){try{PLAYING.pause()}catch(e){}PLAYING=null}},
  speak(t,l){return VoiceOld.speak(t,l)}};
 
@@ -1758,7 +1762,7 @@ function rtAskReady(s){clearInterval(RT.timer);const kid=CHILD&&CHILD.id==='dity
  const say=kid?'తర్వాత '+s.title+'. ఆ చోటికి వెళ్ళి రెడీ అవ్వండి. యువాన్, దిత్యా, రెడీనా?':'Next is '+s.title+'. Go to your place and set it up. Yuvaan and Ditya, are you ready?';
  const ask=async()=>{if(RT.waiting!==my||!document.getElementById('rtReadyBtn'))return;rtEarsStop();try{await Promise.race([Voice.speak(say,kid?'te':'en'),new Promise(r=>setTimeout(r,9000))])}catch(e){}if(RT.waiting===my)rtEars(my)};
  ask();RT.reask=setInterval(()=>{if(RT.waiting!==my||!document.getElementById('rtReadyBtn')){clearInterval(RT.reask);rtEarsStop();return}ask()},20000)}
-function rtEars(my){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;rtEarsStop();try{const r=new SR();r.lang='en-IN';r.continuous=true;r.interimResults=true;RT.ears=r;
+function rtEars(my){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;rtEarsStop();releaseMic();try{const r=new SR();r.lang='en-IN';r.continuous=true;r.interimResults=true;RT.ears=r;
  r.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){const t=String(e.results[i][0].transcript||'').toLowerCase();if(/ready|redy|reddy|yes|start|ok|okay|done|రెడీ|అయ్యా|సిద్ధం/.test(t)){rtGoReady();return}}};
  r.onend=()=>{if(RT&&RT.ears===r){RT.ears=null;if(RT.waiting===my&&document.getElementById('rtReadyBtn'))setTimeout(()=>{if(RT.waiting===my&&!RT.ears)rtEars(my)},400)}};r.onerror=()=>{};r.start()}catch(e){}}
 function rtEarsStop(){if(RT&&RT.ears){const r=RT.ears;RT.ears=null;try{r.abort()}catch(e){}}}
@@ -2019,21 +2023,21 @@ function nowPrompt(id){const m=(THREAD||[]).find(x=>x.request&&x.request.id===id
 async function okReq(id){if(KIDASK){const k=KIDASK;await api('kidApprove',k,id);const t=await api('kidThread',k);memPut(ckey('kidThread',[k]),t);drawThread(t,k);return}await api('adminApproveRequest',ADMIN.token,id);pollThread()}
 function askClose(){askStopMic();$('#askPanel').classList.add('hidden');KIDASK=null;updateDot()}
 function askStopMic(){if(ASKREC){ASKREC.keep=false;try{ASKREC.r.stop()}catch(e){}ASKREC=null;const b=$('#askMic');if(b)b.innerHTML='&#127908; Speak'}}
-function askMic(){if(!GEM)return askMicOld();
+function askMic(){if(!EARS()||!ADMIN)return askMicOld();
  if(Ears.on){Ears.finish();return}Voice.stop();const btn=$('#askMic');
  Ears.start(async blob=>{Ears.stop();if(btn)btn.innerHTML='⏳ Writing…';
   try{const b64=await blobB64(blob);const r=await net('adminTranscribe',[ADMIN.token,b64,blob.type]);const box=$('#askBox');if(box&&r.text)box.value=(box.value+' '+r.text).trim();if(!r.text)toast("Didn't catch that – try again")}catch(e){}
   if(btn)btn.innerHTML='&#127908; Speak'},'#askMicHint').then(ok=>{if(ok&&btn)btn.innerHTML='&#9632; Done speaking'})}
 function askMicOld(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('This browser can\'t listen – open YD from Chrome');
- if(ASKREC)return askStopMic();Voice.stop();
+ if(ASKREC)return askStopMic();Voice.stop();releaseMic();
  const box=$('#askBox');const base=box.value;const r=new SR();ASKREC={r:r,keep:false};r.lang='te-IN';r.continuous=true;r.interimResults=true;
  $('#askMic').innerHTML='&#9632; Stop';let fin='';
  r.onresult=e=>{let inter='';fin='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t+' ';else inter+=t}box.value=(base+' '+fin+inter).trim()};
- r.onerror=e=>{if(e.error==='aborted')return;if(e.error==='not-allowed'){micBlocked(false,()=>toast('Tap 🎤 Speak again'));return}toast(micReason(e.error))};
+ r.onerror=e=>{if(e.error==='aborted')return;if(e.error==='not-allowed'||e.error==='service-not-allowed'||e.error==='audio-capture'){ASKREC=null;micBlocked(false,()=>toast('Tap 🎤 Speak again'),ADMIN?()=>askMic():()=>toast('Voice typing is not working on this phone now – please type in the box'));return}toast(micReason(e.error))};
  r.onend=()=>{ASKREC=null;const b=$('#askMic');if(b)b.innerHTML='&#127908; Speak';box.value=(base+' '+fin).trim()};
  try{r.start()}catch(e){ASKREC=null;toast('Tap Speak again')}}
 function adminLock(){askClose();ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();goHome()}
-function dictate(id){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('Voice not supported');const r=new SR();r.lang='te-IN';r.onresult=e=>{$('#'+id).value+=(($('#'+id).value?' ':'')+e.results[0][0].transcript)};r.start()}
+function dictate(id){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('Voice not supported');releaseMic();const r=new SR();r.lang='te-IN';r.onresult=e=>{$('#'+id).value+=(($('#'+id).value?' ':'')+e.results[0][0].transcript)};r.start()}
 
 if(window.speechSynthesis)speechSynthesis.onvoiceschanged=()=>{};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
