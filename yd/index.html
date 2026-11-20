@@ -76,7 +76,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v61 · Fri 20/11 7:45';const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v62 · Fri 20/11 7:00 PM';const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -196,7 +196,7 @@ async function showOnScreen(show){const box=$('#screenShow');if(!box||!show)retu
 const MIC_ERR={'no-speech':'Didn\'t hear anything – tap the mic and speak','network':'Voice needs internet – check the connection','language-not-supported':'This phone can\'t listen in this language – open the phone voice settings and add Telugu','audio-capture':'Microphone busy or not found – close other apps using the mic','service-not-allowed':'Voice typing is turned off on this phone','bad-grammar':'Voice error – try again'};
 function micReason(code){return MIC_ERR[code]||('Mic stopped ('+code+')')}
 const VoiceOld=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
- let rec=null,active=false,paused=false,running=false,got='',err='',until=0,again=null,userOff=false;
+ let rec=null,active=false,paused=false,running=false,got='',err='',until=0,again=null,userOff=false,empty=0;
  const langFor=()=>{const m0=String(MODE||'').split('|')[0];if(m0==='speakHi'||m0==='hindi')return 'hi-IN';if(CHILD&&CHILD.id==='ditya'&&/^(chat|intro|story|tellstory)$/.test(m0))return 'te-IN';return 'en-IN'};
  function status(t){const h=$('#micHint');if(h)h.textContent=t}
  function live(t){const l=$('#liveText');if(l)l.textContent=t}
@@ -206,12 +206,14 @@ const VoiceOld=(()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecog
  function listenOnce(fresh){if(!SR){status('This browser can\'t listen – open YD from Chrome');return}
   if(fresh!==false){until=Date.now()+20000;userOff=false}const auto=fresh===false;
   clearTimeout(again);again=null;if(running||paused)return;got='';err='';try{Wake.stop()}catch(e){}releaseMic();
-  rec=new SR();rec.lang=langFor();rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
+  rec=new SR();rec.lang=langFor();rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;const heard=()=>{rec&&(rec._snd=1)};rec.onsoundstart=heard;rec.onspeechstart=heard;
   rec.onstart=()=>{running=true;setMic();status('🎤 Listening… speak now')};
-  rec.onresult=e=>{let fin='',inter='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t;else inter+=t}got=fin||got;until=Math.max(until,Date.now()+8000);live((fin||inter).trim());if(!fin&&inter&&e.target)e.target._inter=inter};
+  rec.onresult=e=>{empty=0;if(e.target)e.target._snd=1;let fin='',inter='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t;else inter+=t}got=fin||got;until=Math.max(until,Date.now()+8000);live((fin||inter).trim());if(!fin&&inter&&e.target)e.target._inter=inter};
   rec.onerror=e=>{if(e.error==='aborted'||e.error==='no-speech')return;err=e.error;if(e.error==='not-allowed'||e.error==='service-not-allowed'||e.error==='audio-capture'){active=false;status('🎤 Tap the mic to talk');micBlocked(auto,()=>status('🎤 Tap the mic to talk'),()=>{status('🎤 Listening…');Voice.toggle()});return}status(micReason(e.error))};
   rec.onend=()=>{const r0=rec;running=false;const t=((got||'')||(r0&&r0._inter)||'').trim();live('');
-   if(t){setMic();process(t);return}
+   if(t){empty=0;setMic();process(t);return}
+   // W143 (v62): phone listening opens and closes but hears nothing (no sound at all) twice → YD records the voice itself from now on.
+   if(!err&&!userOff&&!paused&&active&&!(r0&&r0._snd)&&++empty>=2){empty=0;active=false;setMic();try{localStorage.setItem('ydMicFB','1')}catch(e){}status('🎤 Listening… speak any time');Voice.toggle();return}
    if(!userOff&&!paused&&active&&!err&&Date.now()<until){running=true;setMic();status('🎤 Listening… speak now');again=setTimeout(()=>{running=false;again=null;if(!userOff&&!paused&&active)listenOnce(false);else{setMic();status('Mic off – tap the mic to talk')}},300);return}
    setMic();if(!paused&&!err)status('Mic off – tap the mic to talk')};
   try{rec.start()}catch(e){running=false;setMic();status('Tap the mic again')}}
