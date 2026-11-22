@@ -77,7 +77,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v64 · Sun 22/11 10:20 AM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v65 · Sun 22/11 10:25 AM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -168,7 +168,7 @@ function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();+
  <div id="micBtn" class="mic sleep" role="button" aria-label="Start talking" onclick="Voice.toggle()"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
   <div id="liveText" style="text-align:center;min-height:24px;font-size:17px;color:#2A5FD6"></div>
  <div class="muted" id="micHint" style="text-align:center">Say "Hey ${esc(CHILD.helperName)}" or tap the mic</div>
- <div class="row"><div style="flex:1;position:relative;display:flex"><input id="typeBox" placeholder="Or type here" style="flex:1${PHONE?'':';padding-right:52px'}">${PHONE?'':'<button id="typeMic" class="tmic" aria-label="Speak to type" title="Speak to type" onclick="typeMic()">&#127908;</button>'}</div><button class="primary" onclick="sendTyped()">Send</button></div>`,true);
+ <div class="row"><div style="flex:1;position:relative;display:flex"><input id="typeBox" placeholder="Or type here" style="flex:1;padding-right:52px"><button id="typeMic" class="tmic" aria-label="Speak to type" title="Speak to type" onclick="typeMic()">&#127908;</button></div><button class="primary" onclick="sendTyped()">Send</button></div>`,true);
  if(mode==='morning')clockTick();
  if(String(mode).indexOf('class|')===0)clsBar(String(mode).split('|')[1]);
  if(restored){$('#micHint').textContent='Tap the mic to start talking';return}
@@ -2040,7 +2040,7 @@ function askMicOld(){const SR=window.SpeechRecognition||window.webkitSpeechRecog
  r.onend=()=>{ASKREC=null;const b=$('#askMic');if(b)b.innerHTML='&#127908; Speak';box.value=(base+' '+fin).trim()};
  try{r.start()}catch(e){ASKREC=null;toast('Tap Speak again')}}
 function adminLock(){askClose();ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();goHome()}
-// W145 (v64): mic now sits inside the 'Or type here' box on the right. W144 (v63): small mic beside 'Or type here' on laptops and tablets (phones already have one on the keyboard) – speaks into the box, tap again to stop.
+// W146 (v65): box mic on every device (tablets were treated as phones). W145 (v64): mic now sits inside the 'Or type here' box on the right. W144 (v63): small mic beside 'Or type here' on laptops and tablets (phones already have one on the keyboard) – speaks into the box, tap again to stop.
 
 function typeMic(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const b=$('#typeMic'),box=$('#typeBox');if(!box)return;
  if(TYPEREC){try{TYPEREC.stop()}catch(e){}return}
