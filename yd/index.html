@@ -66,8 +66,15 @@ let BOOT=null, CHILD=null, ADMIN=null, MODE='chat';
 const $=s=>document.querySelector(s);
 let FTOK=null;try{FTOK=localStorage.getItem('ydFam')}catch(e){}
 const EXEC='https://script.google.com/macros/s/AKfycbzlbBcB1A44zfK6o79kL52P6fLARg079FUkOJohUEW68c3diEe0JzLLyGw1zfl_sLRN/exec';
-async function post(body){const r=await fetch(EXEC,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});return r.json()}
-const net=(fn,args)=>post({tok:FTOK,name:fn,args:args}).then(j=>{if(!j.ok)throw new Error(j.error);return j.data}).catch(e=>{if(/FAMILY_CODE/.test(e.message)){try{localStorage.removeItem('ydFam')}catch(x){}FTOK=null;familyScreen()}else toast(/Failed to fetch|NetworkError|Load failed/.test(e.message)?'No internet – please try again':((typeof onKidView==='function'&&onKidView())||/402|depleted|billing|quota/i.test(e.message)?'Sorry, please say that again':String(e.message).replace(/ai ?studio|gemini|google|claude|anthropic|openai/gi,'service')));throw e});
+// W150 (v69): the back office sometimes drops a call for a moment (most often while moving between screens). Safe calls are tried again quietly (up to 3 times);
+// calls running in the background never show a message; a message shows only when the child is waiting and every try failed.
+const NETERR=/Failed to fetch|NetworkError|Load failed|network|Unexpected token|JSON|timed? ?out|aborted/i;
+const RETRY_OK=n=>/^(get|adminGet|adminToday|adminRequests|adminThread|kidThread|kidPulse|voiceReady|gameLoad|gameSave|homeworkUpdate|markVideoShown|logTimer|classPlan|adminHwReport|adminClassReport|liveLog)/.test(n||'');
+const QUIET_FN=new Set(['getBundle','voiceReady','kidPulse','kidThread','adminThread','liveLog','gameSave','gameLoad','logTimer']);
+const nap0=ms=>new Promise(r=>setTimeout(r,ms));
+async function post1(body){const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),45000);try{const r=await fetch(EXEC,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:ctl.signal});const tx=await r.text();try{return JSON.parse(tx)}catch(e){throw new Error('Bad JSON from server')}}finally{clearTimeout(t)}}
+async function post(body){const tries=RETRY_OK(body.name||body.fn)?3:1;let last;for(let i=0;i<tries;i++){try{return await post1(body)}catch(e){last=e;if(!NETERR.test(String(e&&e.message||e))||i===tries-1)break;await nap0(i?2000:700)}}throw last}
+const net=(fn,args,quiet)=>post({tok:FTOK,name:fn,args:args}).then(j=>{if(!j.ok)throw new Error(j.error);return j.data}).catch(e=>{e=e instanceof Error?e:new Error(String(e));if(/FAMILY_CODE/.test(e.message)){try{localStorage.removeItem('ydFam')}catch(x){}FTOK=null;familyScreen()}else if(quiet||QUIET_FN.has(fn)){console.warn('YD quiet net fail',fn,e.message)}else toast(NETERR.test(e.message)?(navigator.onLine===false?'No internet – please try again':'Slow connection – please try again'):((typeof onKidView==='function'&&onKidView())||/402|depleted|billing|quota/i.test(e.message)?'Sorry, please say that again':String(e.message).replace(/ai ?studio|gemini|google|claude|anthropic|openai/gi,'service')));throw e});
 /* ---------- speed: phone-side copy of everything, refreshed quietly ---------- */
 const READS=new Set(['getBoot','getToday','getHomework','getStars','getVideos','getRoutine','adminToday','adminGetTimetable','adminRequests','adminThread']);
 const QUIET_WRITES=new Set(['homeworkUpdate','claimStar','markVideoShown','logTimer']);
@@ -77,9 +84,9 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v68 · Sun 22/11 10:45 AM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v69 · Sun 22/11 11:00 AM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
-function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
+function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
 function patchLocal(fn,a){
  if(fn==='homeworkUpdate')Object.keys(MEM.data).filter(k=>k.startsWith('getHomework|')).forEach(k=>MEM.data[k].forEach(h=>{if(h.id===a[0])h.status=a[1]}));
@@ -87,7 +94,7 @@ function patchLocal(fn,a){
  if(fn==='markVideoShown')Object.keys(MEM.data).filter(k=>k.startsWith('getVideos|')).forEach(k=>MEM.data[k].forEach(v=>{if(v.id===a[0])v.status=v.status==='Shown'?'Revised':'Shown'}));
  memSave()}
 const api=(fn,...args)=>{
- if(READS.has(fn)){const k=ckey(fn,args),c=memGet(k);if(c!==undefined){refreshKey(fn,args,k).catch(()=>{});return Promise.resolve(c)}return refreshKey(fn,args,k).then(d=>JSON.parse(JSON.stringify(d)))}
+ if(READS.has(fn)){const k=ckey(fn,args),c=memGet(k);if(c!==undefined){refreshKey(fn,args,k,true).catch(()=>{});return Promise.resolve(c)}return refreshKey(fn,args,k).then(d=>JSON.parse(JSON.stringify(d)))}
  if(QUIET_WRITES.has(fn)){patchLocal(fn,args);net(fn,args).then(()=>refreshBundle(1500)).catch(()=>toast('Not saved – please check internet'));return Promise.resolve(true)}
  return net(fn,args).then(d=>{if(fn.startsWith('admin')&&!/Login|CheckToken|Requests$|Today|GetTimetable/.test(fn)){Object.keys(MEM.data).filter(k=>k.startsWith('admin')).forEach(k=>delete MEM.data[k]);refreshBundle(500)}return d})};
 setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)refreshBundle()},60000);
