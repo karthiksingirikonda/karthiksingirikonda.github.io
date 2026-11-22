@@ -77,7 +77,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v67 · Sun 22/11 10:40 AM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v68 · Sun 22/11 10:45 AM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k){if(inflight[k])return inflight[k];inflight[k]=net(fn,args).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -97,6 +97,7 @@ function familyScreen(msg){$('#backBtn').classList.add('hidden');$('#app').inner
 function famGo(){const c=$('#famCode').value.trim();post({fn:'familyUnlock',code:c}).then(j=>{if(!j.ok)return familyScreen(j.error);const r=j.data;if(!r.ok)return familyScreen(r.msg);FTOK=r.token;try{localStorage.setItem('ydFam',FTOK)}catch(e){}start()}).catch(e=>familyScreen('No internet – please try again'))}
 // W141: 'not-allowed' after the mic re-opens on its own is a phone limit, not a permission problem – only show the help when the site is really blocked.
 // W142 (v61): help only when the site is really blocked; if the phone's own listening refuses, YD records the voice itself (recording mode, saved on this phone).
+try{if(!localStorage.getItem('ydFB68')){localStorage.removeItem('ydMicFB');localStorage.setItem('ydFB68','1')}}catch(e){}
 function MICFB(){try{return localStorage.getItem('ydMicFB')==='1'}catch(e){return false}}
 function EARS(){return !!GEM||MICFB()}
 function releaseMic(){try{if(typeof Ears!=='undefined'&&Ears.on)return;clearTimeout(window.__ydMicT);const st=window.__ydMic;window.__ydMic=null;st&&st.getTracks().forEach(t=>t.stop())}catch(e){}}
@@ -2052,17 +2053,22 @@ function boxEars(){const box=$('#typeBox');if(!box)return;
  Ears.start(async blob=>{Ears.stop();BOXEARS=false;tmPaint(false);
   if(ADMIN&&ADMIN.token){try{const r=await net('adminTranscribe',[ADMIN.token,await blobB64(blob),blob.type]);const bx=$('#typeBox');if(bx&&r.text)bx.value=(bx.value+' '+r.text).trim();if(!r.text)toast("Didn't catch that – try again")}catch(e){}const h=$('#micHint');if(h)h.textContent='Tap the mic to start talking';return}
   onKidSpeech(blob)},'#micHint').then(ok=>{if(!ok){BOXEARS=false;tmPaint(false)}})}
+// W149 (v68): box mic stops the always-on 'Buddy' wake listener first (two listeners clash → 'tap again' / 'network'), listens in short turns like the big mic and reopens itself until tapped off.
 function typeMic(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const box=$('#typeBox');if(!box)return;
  if(BOXEARS||(!TYPEREC&&(MICFB()||!SR)))return boxEars();
- if(TYPEREC){const r=TYPEREC;TYPEREC=null;r.off=true;tmPaint(false);try{r.stop()}catch(e){}setTimeout(()=>{try{r.abort()}catch(e){}},700);return}
- try{Voice.stop()}catch(e){}releaseMic();const base=box.value;let fin='';const r=new SR();TYPEREC=r;
- r.lang=(CHILD&&CHILD.id==='ditya')?'te-IN':'en-IN';r.continuous=true;r.interimResults=true;
- tmPaint(true);
- const toEars=()=>{if(TYPEREC===r)TYPEREC=null;try{r.abort()}catch(e){}try{localStorage.setItem('ydMicFB','1')}catch(e){}tmPaint(false);boxEars()};
- r.onresult=e=>{let inter='';fin='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t+' ';else inter+=t}const bx=$('#typeBox');if(bx)bx.value=(base+' '+fin+inter).trim()};
- r.onerror=e=>{if(e.error==='aborted'||e.error==='no-speech')return;if(/not-allowed|service-not-allowed|audio-capture|network|language/.test(e.error)){navigator.permissions&&navigator.permissions.query({name:'microphone'}).then(p=>{if(p.state==='denied'){TYPEREC=null;tmPaint(false);micHelp()}else toEars()}).catch(toEars);if(!navigator.permissions)toEars();return}toast(micReason(e.error))};
- r.onend=()=>{if(TYPEREC===r)TYPEREC=null;if(!TYPEREC&&!BOXEARS)tmPaint(false);const bx=$('#typeBox');if(bx&&fin)bx.value=(base+' '+fin).trim()};
- try{r.start()}catch(e){toEars()}}
+ if(TYPEREC){const r=TYPEREC;TYPEREC=null;r.off=true;tmPaint(false);try{r.stop()}catch(e){}setTimeout(()=>{try{r.abort()}catch(e){}},700);const h=$('#micHint');if(h)h.textContent='Mic off – tap the mic to talk';return}
+ try{Voice.stop()}catch(e){}try{Wake.stop()}catch(e){}releaseMic();
+ const st={base:box.value.trim(),fin:''};tmPaint(true);const h0=$('#micHint');if(h0)h0.textContent='🎤 Listening… speak now';
+ const turn=(tries)=>{const r=new SR();TYPEREC=r;r.lang=(CHILD&&CHILD.id==='ditya')?'te-IN':'en-IN';r.continuous=false;r.interimResults=true;r.maxAlternatives=1;let fin='',err='';
+  const show=x=>{const bx=$('#typeBox');if(bx)bx.value=[st.base,st.fin,x].filter(Boolean).join(' ').trim()};
+  r.onresult=e=>{let inter='';fin='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t;else inter+=t}show((fin||inter).trim())};
+  r.onerror=e=>{err=e.error;if(e.error==='aborted'||e.error==='no-speech')return;if(e.error==='not-allowed'||e.error==='service-not-allowed'){navigator.permissions&&navigator.permissions.query({name:'microphone'}).then(p=>{if(p.state==='denied')micHelp()}).catch(()=>{})}};
+  r.onend=()=>{if(fin.trim())st.fin=(st.fin+' '+fin.trim()).trim();show('');
+   if(r.off||TYPEREC!==r)return;
+   if((!err||err==='no-speech'||err==='aborted')&&tries<40){setTimeout(()=>{if(TYPEREC===r)turn(tries+1)},250);return}
+   TYPEREC=null;tmPaint(false);const h=$('#micHint');if(h)h.textContent='Mic off – tap the mic to talk';if(err&&err!=='no-speech'&&err!=='aborted')toast(micReason(err))};
+  try{r.start()}catch(e){setTimeout(()=>{if(TYPEREC===r){try{r.start()}catch(x){TYPEREC=null;tmPaint(false);toast('Tap 🎤 again')}}},400)}};
+ turn(0)}
 function dictate(id){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return toast('Voice not supported');releaseMic();const r=new SR();r.lang='te-IN';r.onresult=e=>{$('#'+id).value+=(($('#'+id).value?' ':'')+e.results[0][0].transcript)};r.start()}
 
 if(window.speechSynthesis)speechSynthesis.onvoiceschanged=()=>{};
