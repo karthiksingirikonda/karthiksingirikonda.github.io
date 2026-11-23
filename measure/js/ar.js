@@ -141,11 +141,19 @@ async function startSession(job, mode, done, k = 1, calLen = 1000) {
   const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 30);
   const reticle = new THREE.Mesh(new THREE.RingGeometry(0.035, 0.05, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   reticle.matrixAutoUpdate = false; reticle.visible = false; scene.add(reticle);
-  const aim = new THREE.Mesh(new THREE.SphereGeometry(0.015, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffd400 }));
+  const aim = new THREE.Mesh(new THREE.SphereGeometry(0.02, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffd400 }));
   aim.visible = false; scene.add(aim);
   const drawn = new THREE.Group(); scene.add(drawn);
-  const liveLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0xffd400 }));
-  liveLine.visible = false; scene.add(liveLine);
+  // thick, easy-to-see bars (normal lines are only 1 pixel wide)
+  const BAR = new THREE.CylinderGeometry(0.006, 0.006, 1, 10);
+  const UP = new THREE.Vector3(0, 1, 0);
+  const placeBar = (m, a, b) => {
+    const va = new THREE.Vector3(...a), vb = new THREE.Vector3(...b), dir = vb.clone().sub(va), len = dir.length();
+    m.position.copy(va).add(vb).multiplyScalar(0.5); m.scale.set(1, Math.max(len, 0.001), 1);
+    if (len > 1e-6) m.quaternion.setFromUnitVectors(UP, dir.normalize());
+  };
+  const liveLine = new THREE.Mesh(BAR, new THREE.MeshBasicMaterial({ color: 0xffd400, depthTest: false }));
+  liveLine.renderOrder = 2; liveLine.visible = false; scene.add(liveLine);
 
   renderer.xr.setReferenceSpaceType('local');
   await renderer.xr.setSession(session);
@@ -159,12 +167,13 @@ async function startSession(job, mode, done, k = 1, calLen = 1000) {
   let wallBase = null;   // [A,B] for On wall
   let results = [];      // readings in this session {label, mm, mode}
   let live = null;       // current aim point
-  let hitOk = false, lastHit = null, sampling = null;
+  let hitOk = false, lastHit = null, lastLiveAt = 0, lastGood = null, busyMark = false;
+  const recent = []; // last few aim points – averaged when you tap Mark
   const anchorQueue = [];
   const counts = {};
 
-  const dot = (p, color) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.012, 12, 12), new THREE.MeshBasicMaterial({ color })); m.position.set(...p); drawn.add(m); };
-  const seg = (a, b, color = 0xffd400) => drawn.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]), new THREE.LineBasicMaterial({ color })));
+  const dot = (p, color) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.02, 16, 16), new THREE.MeshBasicMaterial({ color, depthTest: false })); m.renderOrder = 3; m.position.set(...p); drawn.add(m); };
+  const seg = (a, b, color = 0xffd400) => { const m = new THREE.Mesh(BAR, new THREE.MeshBasicMaterial({ color, depthTest: false })); m.renderOrder = 2; placeBar(m, a, b); drawn.add(m); };
   const redraw = () => {
     drawn.clear();
     if (wallBase) { dot(wallBase[0], 0x2563eb); dot(wallBase[1], 0x2563eb); seg(wallBase[0], wallBase[1], 0x2563eb); }
@@ -190,16 +199,18 @@ async function startSession(job, mode, done, k = 1, calLen = 1000) {
     await db.put('points', r); results.push({ label: lbl, mm: valueMm }); showList();
   }
 
-  // Mark = hold still for a moment; the app averages ~12 readings for accuracy
+  // Mark works on the first tap: uses the last steady readings (no waiting)
+  let lastMarkAt = 0;
   function mark() {
-    if (sampling) return;
-    if (!live) { msg.textContent = needsHit() ? 'No floor found yet – move slowly over the floor.' : 'Aim a little differently and try again.'; return; }
-    sampling = { samples: [], hit: needsHit() ? lastHit : null };
-    markBtn.textContent = 'Hold still…';
+    if (busyMark || Date.now() - lastMarkAt < 400) return; // one tap = one mark (button + screen tap together)
+    const fresh = Date.now() - lastLiveAt < 600 ? lastGood : null; // ring may flicker – use the last good spot
+    if (!fresh) { msg.textContent = needsHit() ? 'No floor found yet – move slowly over the floor until the ring shows.' : 'Aim a little differently and try again.'; return; }
+    busyMark = true; lastMarkAt = Date.now();
+    const near = recent.filter(r => G.dist(r, fresh) < 0.03);
+    commit(near.length ? near : [fresh], needsHit() ? lastHit : null).finally(() => { busyMark = false; });
   }
   function median(arr) { const a = [...arr].sort((x, y) => x - y); return a[Math.floor(a.length / 2)]; }
   async function commit(samples, hit) {
-    markBtn.textContent = '● Mark';
     const p = [0, 1, 2].map(i => median(samples.map(s => s[i])));
     vibrate();
     anchorQueue.push({ p, hit });
@@ -322,17 +333,14 @@ async function startSession(job, mode, done, k = 1, calLen = 1000) {
     if (cur === 'height' && pts.length === 1) live = G.vertical(pts[0], C, d);
     else if (cur === 'wall' && wallBase) live = G.wallHit(wallBase[0], wallBase[1], C, d);
     else live = hp;
-    if (sampling && live) {
-      sampling.samples.push(live.slice());
-      if (sampling.samples.length >= 12) { const sm = sampling; sampling = null; commit(sm.samples, sm.hit); }
-    }
+    if (live) { lastGood = live.slice(); lastLiveAt = Date.now(); recent.push(lastGood); if (recent.length > 10) recent.shift(); }
     reticle.visible = !!hp && needsHit();
     aim.visible = !!live && !needsHit();
     if (aim.visible) aim.position.set(...live);
     // live reading
     const last = pts[pts.length - 1];
     if (last && live) {
-      liveLine.geometry.setFromPoints([new THREE.Vector3(...last), new THREE.Vector3(...live)]); liveLine.visible = true;
+      placeBar(liveLine, last, live); liveLine.visible = true;
       let v = cur === 'height' ? Math.abs(live[1] - last[1]) : (cur === 'room' || cur === 'pillar') ? G.flat(last, live) : G.dist(last, live);
       read.innerHTML = `${fmt(mm(v), 'mm')}<small>live · rough</small>`;
     } else liveLine.visible = false;

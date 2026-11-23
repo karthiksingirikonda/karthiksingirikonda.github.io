@@ -1,5 +1,5 @@
 // Offline support: the app opens and works with no internet.
-const V = 'measure-v3';
+const V = 'measure-v4';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'css/app.css', 'icons/icon-192.png',
   'js/app.js', 'js/ui.js', 'js/db.js', 'js/util.js', 'js/units.js', 'js/help.js', 'js/cloud.js', 'js/config.js',
   'js/drawing.js', 'js/ui-drawing.js', 'js/sheet.js', 'js/ui-sheet.js', 'js/ui-plan.js', 'js/ar.js', 'js/ui-count.js',
