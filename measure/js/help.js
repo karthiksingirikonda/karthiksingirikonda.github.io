@@ -15,11 +15,12 @@ export const SCREEN_HELP = {
   job: {
     title: 'Inside a job',
     body: [
-      ['Drawings', 'Upload the drawing (PDF from AutoCAD, or a photo of a printed drawing). The app reads the sizes printed on it.'],
-      ['Compare', 'Every point you measured: drawing size, site size and the difference. Green = within tolerance, red = beyond. Make the mismatch report here.'],
-      ['Sheet', 'The measurement sheet in the Pune format with the 3-way check. Export Excel / PDF / recheck version / check list.'],
-      ['Plan', 'Room plan from typed wall sizes + a photo per wall. Works out wall, floor and ceiling areas with door/window deductions.'],
-      ['Tap-measure', 'Rough length between two points with the camera. Only a guide (±1–2 cm) – you must type the real size before it is used.'],
+      ['📄 Drawing check', 'Upload the drawing (PDF from AutoCAD, or a photo of a printed drawing). The app reads the sizes printed on it.'],
+      ['⚖ Drawing vs Site', 'Every point you measured: drawing size, site size and the difference. Green = within tolerance, red = beyond. Make the mismatch report here.'],
+      ['🧾 Measurement sheet', 'The measurement sheet in the Pune format with the 3-way check. Export Excel / PDF / recheck version / check list.'],
+      ['🏠 Room sizes (type)', 'Room plan from typed wall sizes + a photo per wall. Works out wall, floor and ceiling areas with door/window deductions.'],
+      ['📷 Measure with camera', 'Length, height, on wall, full room, pillar. Rough (±1–2 cm) – type the tape size before billing.'],
+      ['🔢 Count from photo', 'Photo → box round one item → the app counts all similar ones.'],
     ],
   },
   drawing: {
@@ -76,6 +77,16 @@ export const SCREEN_HELP = {
       ['Undo', 'Removes the last mark.'],
     ],
   },
+  count: {
+    title: 'Count from photo',
+    body: [
+      ['Photo', 'Stand straight in front, all items in the picture, good light. Items must look about the same size.'],
+      ['Sample', 'Drag a box round ONE item with your finger. The app marks every similar item and shows the count.'],
+      ['Fix', 'Tap a wrong mark to remove it, tap a missed item to add it. Strictness slider: lower finds more.'],
+      ['Bricks', 'Type wall length/height and brick size to cross-check the count by area.'],
+      ['Save', 'Saves the count and the marked photo into the job (and its Drive folder).'],
+    ],
+  },
   settings: {
     title: 'Settings',
     body: [
@@ -90,18 +101,19 @@ export const SCREEN_HELP = {
 // The full "How to measure" guide – also where the camera angles live.
 export const GUIDE = [
   { id: 'quick', icon: '⚡', title: 'Quick measure – I want to…', items: [
-    ['…check one wall or one size against the drawing', 'Open the job → Drawings → tap the size chip on the drawing → type what the tape shows → Save.'],
-    ['…note the sizes of a room with no drawing', 'Open the job → Plan → ＋ Room → type length, width, height (or wall by wall) → take a photo of each wall.'],
-    ['…make the measurement sheet for billing', 'Open the job → Sheet → add items and lines → watch for ✔ on every line → Export Excel / PDF.'],
-    ['…get a rough length fast (no tape)', 'Open the job → Tap-measure. Remember: rough only.'],
-    ['…show the client/vendor what doesn\'t match', 'Open the job → Compare → Mismatch report.'],
+    ['…check one wall or one size against the drawing', 'Open the job → 📄 Drawing check → tap the size chip on the drawing → type what the tape shows → Save.'],
+    ['…type the sizes of a room by hand', 'Open the job → 🏠 Room sizes → ＋ Room → type length, width, height (or wall by wall) → take a photo of each wall.'],
+    ['…make the measurement sheet for billing', 'Open the job → 🧾 Measurement sheet → add items and lines → watch for ✔ on every line → Export Excel / PDF.'],
+    ['…get a length / height / room size with the camera', 'Open the job → 📷 Measure with camera → pick the mode. Rough only.'],
+    ['…count bricks, pillars, tiles from a photo', 'Open the job → 🔢 Count from photo → take photo → box round one item.'],
+    ['…show the client/vendor what doesn\'t match', 'Open the job → ⚖ Drawing vs Site → Mismatch report.'],
   ] },
   { id: 'camera', icon: '📷', title: 'How to hold the camera', items: [
     ['Photo of a printed drawing', 'Lay the sheet flat on a table. Hold the phone straight above it, parallel to the paper (not tilted). Fill the screen with the part you need. Good light, no shadow of your hand or phone. Avoid glare – turn the sheet if the light reflects. Tap the screen to focus on the numbers.'],
     ['Big drawing', 'Don\'t shoot the whole A1 in one photo – the numbers become too small to read. Take 2–4 photos, one per area, each upload as its own drawing page.'],
     ['Photo of a wall', 'Stand back far enough to get the full wall, floor line to ceiling line. Hold the phone at chest height, straight and level (use the grid lines in your camera app). Face the middle of the wall, not from a corner.'],
     ['Photo of a detail (switch, niche, crack)', 'Come close, keep the tape in the photo showing the size, phone straight on to the surface.'],
-    ['Tap-measure (camera ruler)', 'Good light. Point at a surface with some texture (plain white walls and shiny floors are hard). Move the phone slowly left-right until the ring appears. Keep 1–3 m away. Hold steady when you tap Mark.'],
+    ['Measure with camera', 'Good light. Point at a surface with some texture (plain white walls and shiny floors are hard). Move the phone slowly left-right until the ring appears. Keep 1–3 m away. Hold steady when you tap Mark.'],
   ] },
   { id: 'tape', icon: '📏', title: 'Measuring tips (tape)', items: [
     ['Wall length', 'Measure at 3 heights (bottom, middle, top) – walls are rarely perfectly straight. Write the smallest for fitting work, note the difference.'],
@@ -136,6 +148,7 @@ export const TIPS = {
   sheet: 'Each line is checked 3 ways. A ✘ means something to fix – tap it to see why.',
   plan: 'Rectangle room? Just type L, W, H. Odd shape? Use Wall by wall.',
   ar: 'Pick a mode. Start on the floor – Height and On wall need no ring on the wall.',
+  count: 'Drag a box round ONE item – the app counts the rest.',
   compare: 'Red rows are mismatches. Tap Mismatch report to make the PDF and Excel.',
 };
 export async function tipHtml(key) {

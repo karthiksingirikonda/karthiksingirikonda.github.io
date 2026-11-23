@@ -8,6 +8,7 @@ import { renderDrawings, renderDrawingView, renderCompare } from './ui-drawing.j
 import { renderSheet } from './ui-sheet.js';
 import { renderPlan } from './ui-plan.js';
 import { renderAR } from './ar.js';
+import { renderCount } from './ui-count.js';
 
 const view = document.getElementById('view');
 const titleEl = document.getElementById('title');
@@ -45,7 +46,7 @@ async function route() {
   view.innerHTML = '';
   window.scrollTo(0, 0);
   try {
-    if (parts[0] === 'job' && parts[1]) return await jobScreen(parts[1], parts[2] || 'drawings');
+    if (parts[0] === 'job' && parts[1]) return await jobScreen(parts[1], parts[2] || 'ar');
     if (parts[0] === 'drawing' && parts[1]) { setHelp('drawing'); return await renderDrawingView(view, parts[1], { setTitle }); }
     if (parts[0] === 'guide') return guideScreen();
     if (parts[0] === 'settings') return await settingsScreen();
@@ -100,10 +101,11 @@ function newJob(after) {
 
 async function quickMeasure() {
   const opts = [
+    ['ar', '📷 Measure with camera', 'Length, height, on wall, full room, pillar (rough ±1–2 cm).'],
+    ['count', '🔢 Count from photo', 'Bricks, pillars, tiles, lights – photo + tap one item.'],
     ['drawings', '📄 Check a size against the drawing', 'Upload / open the drawing, tap the size, type the tape reading.'],
-    ['plan', '🏠 Room sizes (no drawing)', 'Type L × W × H or wall by wall, photo per wall, areas worked out.'],
+    ['plan', '🏠 Room sizes (type by hand)', 'Type L × W × H or wall by wall, photo per wall, areas worked out.'],
     ['sheet', '🧾 Measurement sheet for billing', 'Pune format with the 3-way check.'],
-    ['ar', '📱 Rough length with the camera', 'Quick check only (±1–2 cm).'],
   ];
   const jobs = (await db.all('jobs')).sort((a, b) => b.updatedAt - a.updatedAt);
   const s = sheet(`<h2>⚡ Quick measure</h2><p class="muted">What do you want to do?</p>
@@ -119,8 +121,9 @@ async function quickMeasure() {
 }
 
 // ---------- One job ----------
-const TABS = [['drawings', '📄 Drawings', 'job'], ['compare', '⚖ Compare', 'compare'], ['sheet', '🧾 Sheet', 'sheet'], ['plan', '🏠 Plan', 'plan'], ['ar', '📱 Tap-measure', 'ar']];
+const TABS = [['ar', '📷 Measure with camera', 'ar'], ['count', '🔢 Count from photo', 'count'], ['drawings', '📄 Drawing check', 'job'], ['compare', '⚖ Drawing vs Site', 'compare'], ['sheet', '🧾 Measurement sheet', 'sheet'], ['plan', '🏠 Room sizes (type)', 'plan']];
 async function jobScreen(jobId, tab) {
+  tab = tab || 'ar';
   const job = await db.get('jobs', jobId);
   if (!job) { location.hash = '#/'; return; }
   setTitle(job.name, '#/');
@@ -128,12 +131,14 @@ async function jobScreen(jobId, tab) {
     <div id="tab"></div>
     <div class="row foot"><button class="link" id="j-edit">✎ Edit job</button><button class="link r" id="j-del">🗑 Delete job</button></div>`;
   const el = view.querySelector('#tab');
+  const on = view.querySelector('.tabs a.on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
   const t = TABS.find(x => x[0] === tab) || TABS[0];
   setHelp(t[2] === 'job' ? 'job' : t[2]);
   if (tab === 'compare') await renderCompare(el, job);
   else if (tab === 'sheet') await renderSheet(el, job);
   else if (tab === 'plan') await renderPlan(el, job);
   else if (tab === 'ar') await renderAR(el, job);
+  else if (tab === 'count') await renderCount(el, job);
   else await renderDrawings(el, job);
   view.querySelector('#j-del').onclick = async () => {
     if (await confirmBox(`Delete job "${esc(job.name)}" and everything in it from the app? (Files already in Drive stay there.)`, 'Delete')) { await db.deleteJob(jobId); location.hash = '#/'; }

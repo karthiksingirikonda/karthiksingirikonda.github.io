@@ -279,7 +279,7 @@ export async function pointForm(job, d, { page, x, y, dim, point }, done) {
 // ---------- Compare tab ----------
 export async function renderCompare(el, job) {
   const st = await settings();
-  const pts = (await db.byJob('points', job.id)).filter(p => p.kind !== 'ar').sort((a, b) => a.no - b.no);
+  const pts = (await db.byJob('points', job.id)).filter(p => !p.kind).sort((a, b) => a.no - b.no);
   const rough = (await db.byJob('points', job.id)).filter(p => p.kind === 'ar');
   const drawings = await db.byJob('drawings', job.id);
   const g = pts.filter(p => status(p, st.tol) === 'g').length, r = pts.filter(p => status(p, st.tol) === 'r').length;

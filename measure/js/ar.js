@@ -16,17 +16,22 @@ export const MODES = {
   length: { name: 'Length', icon: '↔', hint: ['Put the ring on the first end → Mark', 'Go to the other end → Mark'] },
   height: { name: 'Height', icon: '↕', hint: ['Put the ring on the floor at the wall base → Mark', 'Aim at the top (ceiling line / beam / top of door) → Mark'] },
   wall: { name: 'On wall', icon: '▭', hint: ['Ring on the floor at one end of the wall base → Mark', 'Ring on the floor further along the same wall → Mark', 'Now aim anywhere on that wall → Mark two points (window, switch, beam…)'] },
-  room: { name: 'Room', icon: '⬚', hint: ['Ring on the floor in one corner → Mark', 'Next corner → Mark … go round the room, then tap Finish'] },
+  room: { name: 'Full room', icon: '⬚', hint: ['Ring on the floor in one corner → Mark', 'Next corner → Mark … go round the room, then tap Finish'] },
   pillar: { name: 'Pillar', icon: '▣', hint: ['Ring at one floor corner of the pillar → Mark', 'Next corner of the same face → Mark', 'Corner round the side → Mark'] },
+  calib: { name: 'Calibrate', icon: '📏', hint: ['Lay the tape flat on the floor. Ring exactly on the 0 → Mark', 'Ring exactly on the tape length mark → Mark'] },
 };
+const PICK = ['length', 'height', 'wall', 'room', 'pillar'];
 
 export async function renderAR(el, job) {
   const unit = await db.getSetting('unit', 'mm');
   const ok = await arSupported();
   if (ok) loadThree(); // load early so the camera opens fast
   const rough = (await db.byJob('points', job.id)).filter(p => p.kind === 'ar').sort((a, b) => b.createdAt - a.createdAt);
-  el.innerHTML = `<div class="card"><b>📱 Camera measuring</b><p class="small">Every reading is <b class="a">rough (±1–2 cm)</b> – confirm with the tape before billing.</p>
-    ${ok ? `<div class="modes">${Object.entries(MODES).map(([k, m]) => `<button class="opt sm" data-mode="${k}"><b>${m.icon} ${m.name}</b><span>${modeUse(k)}</span></button>`).join('')}</div>`
+  const k = await db.getSetting('arScale', 1), calLen = await db.getSetting('arCalLen', 1000);
+  el.innerHTML = `<div class="card"><b>📷 Measure with camera</b><p class="small">Every reading is <b class="a">rough (±1–2 cm)</b> – confirm with the tape before billing.</p>
+    ${ok ? `<p class="small"><b>Tap what you want to measure – the camera opens:</b></p><div class="modes">${PICK.map(k => `<button class="opt sm" data-mode="${k}"><b>📷 ${MODES[k].icon} ${MODES[k].name}</b><span>${modeUse(k)}</span></button>`).join('')}</div>
+      <div class="calib"><b>📏 Calibrate (one time)</b><p class="small">${k === 1 ? 'Not done yet. Do it once: lay a tape on the floor and mark its 0 and its length.' : `Done – correction ${((k - 1) * 100).toFixed(1)}% saved on this phone. Redo only if readings look wrong or after a phone update.`}</p>
+        <div class="row"><label class="small" style="flex:1;margin:0">Tape length to mark (mm)<input id="cal-len" type="number" inputmode="numeric" value="${calLen}"></label><button class="btn" id="cal-go">📷 Calibrate</button>${k !== 1 ? '<button class="btn ghost sm" id="cal-reset">Reset</button>' : ''}</div></div>`
       : '<p class="muted">This phone/browser can\'t do camera measuring. Open the app in Chrome on an ARCore phone. Use the tape and type the size instead.</p>'}
     <details><summary class="small">How to hold the phone</summary><p class="small">Good light. Start by pointing at the floor 1–2 m ahead and move the phone slowly side to side until the ring appears. Plain walls are hard to catch – that is why Height and On wall start from the floor. Hold steady when you tap.</p></details></div>
     <h3>Readings</h3><div id="rl">${rough.length ? '' : '<div class="empty">None yet.</div>'}</div>`;
@@ -39,7 +44,13 @@ export async function renderAR(el, job) {
     rl.appendChild(d);
   }
   // Start the camera straight from the tap (the browser only allows it right after a tap)
-  el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => startSession(job, b.dataset.mode, () => renderAR(el, job)));
+  el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => startSession(job, b.dataset.mode, () => renderAR(el, job), k, calLen));
+  if (el.querySelector('#cal-go')) el.querySelector('#cal-go').onclick = () => {
+    const v = Number(el.querySelector('#cal-len').value) || 1000;
+    db.setSetting('arCalLen', v);
+    startSession(job, 'calib', () => renderAR(el, job), 1, v);
+  };
+  if (el.querySelector('#cal-reset')) el.querySelector('#cal-reset').onclick = async () => { await db.setSetting('arScale', 1); toast('Calibration cleared'); renderAR(el, job); };
 }
 function modeUse(k) {
   return { length: 'Wall to wall, room length/width, any straight run on floor', height: 'Floor to ceiling, beam, bulkhead, door top', wall: 'Window/door width & height, sill, anything up on a wall', room: 'Whole room: all walls + area → goes to Plan', pillar: 'Column width × depth' }[k];
@@ -94,14 +105,14 @@ export const G = {
   turn(a, b, c) { const c1 = G.cross([b[0] - a[0], 0, b[2] - a[2]], [c[0] - b[0], 0, c[2] - b[2]]); return c1[1] < 0 ? 'R' : 'L'; },
   area(pts) { let s = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; s += p[0] * q[2] - q[0] * p[2]; } return Math.abs(s) / 2; },
 };
-const mm = m => Math.round(m * 1000);
+const mm0 = m => Math.round(m * 1000);
 
 // ---------- the camera session ----------
-async function startSession(job, mode, done) {
+async function startSession(job, mode, done, k = 1, calLen = 1000) {
   if (!navigator.xr) return toast('Camera measuring not available here');
   const overlay = document.createElement('div');
   overlay.className = 'ar-ov';
-  overlay.innerHTML = `<div class="ar-top"><div class="ar-modes">${Object.entries(MODES).map(([k, m]) => `<button data-m="${k}">${m.icon} ${m.name}</button>`).join('')}</div><div id="ar-msg">Starting camera…</div></div>
+  overlay.innerHTML = `<div class="ar-top"><div class="ar-modes" ${mode === 'calib' ? 'hidden' : ''}>${PICK.map(key => `<button data-m="${key}">${MODES[key].icon} ${MODES[key].name}</button>`).join('')}</div><div id="ar-msg">Starting camera…</div></div>
     <div class="ar-mid"><div class="ar-cross"></div><div class="ar-read" id="ar-read"></div><div class="ar-list" id="ar-list"></div></div>
     <div class="ar-bot"><button class="btn ghost" id="ar-undo">↶ Undo</button><button class="btn ar-mark" id="ar-mark">● Mark</button><button class="btn ghost" id="ar-fin" hidden>✔ Finish</button><button class="btn ghost" id="ar-close">✕ Close</button></div>`;
   document.body.appendChild(overlay);
@@ -112,7 +123,7 @@ async function startSession(job, mode, done) {
   let session;
   try {
     // ask for the camera FIRST, while the tap is still fresh
-    session = await navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay'], domOverlay: { root: overlay } });
+    session = await navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay', 'anchors'], domOverlay: { root: overlay } });
   } catch (e) {
     overlay.remove();
     popup(`<h2>Camera could not start</h2><p class="small">${esc(e.message)}</p><ol class="small"><li>Open the app in <b>Chrome</b> (not Samsung Internet).</li><li>Install / update <b>Google Play Services for AR</b> from the Play Store.</li><li>Chrome ⋮ → Settings → Site settings → Camera → allow this site.</li><li>Try again.</li></ol>`);
@@ -141,13 +152,15 @@ async function startSession(job, mode, done) {
   const viewer = await session.requestReferenceSpace('viewer');
   const hitSource = await session.requestHitTestSource({ space: viewer });
 
+  const mm = m => Math.round(m * 1000 * k); // calibrated
   // ---- state ----
   let cur = mode;
   let pts = [];          // marked points [x,y,z]
   let wallBase = null;   // [A,B] for On wall
   let results = [];      // readings in this session {label, mm, mode}
   let live = null;       // current aim point
-  let hitOk = false;
+  let hitOk = false, lastHit = null, sampling = null;
+  const anchorQueue = [];
   const counts = {};
 
   const dot = (p, color) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.012, 12, 12), new THREE.MeshBasicMaterial({ color })); m.position.set(...p); drawn.add(m); };
@@ -167,7 +180,7 @@ async function startSession(job, mode, done) {
     overlay.querySelectorAll('[data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === cur));
     overlay.querySelector('#ar-fin').hidden = !(cur === 'room' && pts.length >= 3);
   };
-  const needsHit = () => cur === 'length' || cur === 'room' || cur === 'pillar' || (cur === 'height' && !pts.length) || (cur === 'wall' && !wallBase);
+  const needsHit = () => cur === 'length' || cur === 'calib' || cur === 'room' || cur === 'pillar' || (cur === 'height' && !pts.length) || (cur === 'wall' && !wallBase);
   const showList = () => { list.innerHTML = results.slice(-4).map(r => `<div>${esc(r.label)}: <b>${fmt(r.mm, 'mm')}</b></div>`).join(''); };
   const label = (base) => { counts[base] = (counts[base] || 0) + 1; return `${base} ${counts[base]}`; };
   const vibrate = () => { try { navigator.vibrate && navigator.vibrate(25); } catch (e) { } };
@@ -177,10 +190,19 @@ async function startSession(job, mode, done) {
     await db.put('points', r); results.push({ label: lbl, mm: valueMm }); showList();
   }
 
-  async function mark() {
+  // Mark = hold still for a moment; the app averages ~12 readings for accuracy
+  function mark() {
+    if (sampling) return;
     if (!live) { msg.textContent = needsHit() ? 'No floor found yet – move slowly over the floor.' : 'Aim a little differently and try again.'; return; }
+    sampling = { samples: [], hit: needsHit() ? lastHit : null };
+    markBtn.textContent = 'Hold still…';
+  }
+  function median(arr) { const a = [...arr].sort((x, y) => x - y); return a[Math.floor(a.length / 2)]; }
+  async function commit(samples, hit) {
+    markBtn.textContent = '● Mark';
+    const p = [0, 1, 2].map(i => median(samples.map(s => s[i])));
     vibrate();
-    const p = live.slice();
+    anchorQueue.push({ p, hit });
     if (cur === 'length') {
       pts.push(p);
       if (pts.length === 2) { const d = mm(G.dist(pts[0], pts[1])); await saveReading(label('Length'), d); read.innerHTML = `≈ ${fmt(d, 'mm')}<small>saved · rough ±1–2 cm</small>`; pts = []; }
@@ -216,6 +238,17 @@ async function startSession(job, mode, done) {
     } else if (cur === 'room') {
       if (pts.length >= 3 && G.flat(p, pts[0]) < 0.15) return finishRoom(); // tapped the first corner again
       pts.push(p);
+    } else if (cur === 'calib') {
+      pts.push(p);
+      if (pts.length === 2) {
+        const raw = G.flat(pts[0], pts[1]) * 1000;
+        const factor = calLen / raw;
+        if (factor < 0.85 || factor > 1.15) { read.innerHTML = `Read ${Math.round(raw)} mm for ${calLen} mm<small>too far off – try again slowly</small>`; pts = []; redraw(); return; }
+        await db.setSetting('arScale', factor);
+        read.innerHTML = `Calibrated ✔<small>read ${Math.round(raw)} mm for ${calLen} mm · correction ${((factor - 1) * 100).toFixed(1)}% saved</small>`;
+        msg.textContent = 'Done. Close and start measuring.';
+        pts = [];
+      }
     }
     redraw(); hint();
   }
@@ -238,7 +271,8 @@ async function startSession(job, mode, done) {
     msg.textContent = 'Room saved to Plan. Now take the height: tap ↕ Height.';
   }
 
-  overlay.querySelector('#ar-mark').onclick = e => { e.stopPropagation(); mark(); };
+  const markBtn = overlay.querySelector('#ar-mark');
+  markBtn.onclick = e => { e.stopPropagation(); mark(); };
   overlay.querySelector('#ar-fin').onclick = e => { e.stopPropagation(); finishRoom(); };
   overlay.querySelector('#ar-undo').onclick = e => {
     e.stopPropagation();
@@ -262,13 +296,36 @@ async function startSession(job, mode, done) {
     const C = [pos.x, pos.y, pos.z], d = [fwd.x, fwd.y, fwd.z];
     const hits = frame.getHitTestResults(hitSource);
     let hp = null;
-    if (hits.length) { const pose = hits[0].getPose(ref); if (pose) { reticle.matrix.fromArray(pose.transform.matrix); const p = pose.transform.position; hp = [p.x, p.y, p.z]; } }
+    lastHit = null;
+    if (hits.length) { const pose = hits[0].getPose(ref); if (pose) { reticle.matrix.fromArray(pose.transform.matrix); const p = pose.transform.position; hp = [p.x, p.y, p.z]; lastHit = hits[0]; } }
+    // keep marked dots locked to the real spot while you walk
+    let moved = false;
+    for (const p of [...pts, ...(wallBase || [])]) {
+      if (!p.anchor || !frame.trackedAnchors || !frame.trackedAnchors.has(p.anchor)) continue;
+      const ap = frame.getPose(p.anchor.anchorSpace, ref); if (!ap) continue;
+      const t = ap.transform.position;
+      if (Math.abs(t.x - p[0]) + Math.abs(t.y - p[1]) + Math.abs(t.z - p[2]) > 0.002) { p[0] = t.x; p[1] = t.y; p[2] = t.z; moved = true; }
+    }
+    if (moved) redraw();
+    while (anchorQueue.length) {
+      const { p, hit } = anchorQueue.shift();
+      const target = pts.concat(wallBase || []).find(x => x === p || (x[0] === p[0] && x[1] === p[1] && x[2] === p[2]));
+      if (!target) continue;
+      try {
+        const make = hit && hit.createAnchor ? hit.createAnchor() : frame.createAnchor ? frame.createAnchor(new XRRigidTransform({ x: p[0], y: p[1], z: p[2] }), ref) : null;
+        if (make) make.then(a => { target.anchor = a; }).catch(() => { });
+      } catch (e) { /* anchors not supported – dots stay where marked */ }
+    }
     const wasOk = hitOk; hitOk = !!hp;
     // where the next Mark will land
     live = null;
     if (cur === 'height' && pts.length === 1) live = G.vertical(pts[0], C, d);
     else if (cur === 'wall' && wallBase) live = G.wallHit(wallBase[0], wallBase[1], C, d);
     else live = hp;
+    if (sampling && live) {
+      sampling.samples.push(live.slice());
+      if (sampling.samples.length >= 12) { const sm = sampling; sampling = null; commit(sm.samples, sm.hit); }
+    }
     reticle.visible = !!hp && needsHit();
     aim.visible = !!live && !needsHit();
     if (aim.visible) aim.position.set(...live);

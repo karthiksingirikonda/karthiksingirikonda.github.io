@@ -103,3 +103,7 @@ details summary{cursor:pointer;font-weight:600}
 .ar-mid .ar-read{margin-top:120px}
 .ar-list{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;border-radius:8px;padding:4px 8px}.ar-list:empty{display:none}
 .ar-mark{min-width:110px;font-size:17px;background:#ffd400;color:#000}
+.calib{border-top:1px solid var(--line);margin-top:10px;padding-top:8px}
+.count-stage{overflow:auto;border-radius:8px;background:#000;max-height:70vh}
+.count-stage canvas{width:100%;display:block;touch-action:none}
+.count-big{font-size:22px;font-weight:800;margin:8px 0}.count-big span{color:var(--r)}
