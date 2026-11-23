@@ -84,7 +84,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v72 · Mon 23/11 8:00 AM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v73 · Mon 23/11 8:10 AM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -178,12 +178,12 @@ function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();+
  <div class="muted" id="micHint" style="text-align:center">Say "Hey ${esc(CHILD.helperName)}" or tap the mic</div>
  <div class="row"><div style="flex:1;position:relative;display:flex"><input id="typeBox" placeholder="Or type here" style="flex:1;padding-right:52px"><button id="typeMic" class="tmic" aria-label="Speak to type" title="Speak to type" onclick="typeMic()">&#127908;</button></div><button class="primary" onclick="sendTyped()">Send</button></div>`,true);
  if(mode==='morning')clockTick();
- if(String(mode).indexOf('class|')===0)clsBar(String(mode).split('|')[1]);
+ if(String(mode).indexOf('class|')===0){clsBar(String(mode).split('|')[1]);clsRestore(String(mode).split('|')[1])}
  if(restored){$('#micHint').textContent='Tap the mic to start talking';return}
  Voice.begin(mode==='intro');
  {const my=NAVSEQ,m0=String(mode).split('|')[0];if(!restored&&mode!=='intro'&&!/^(homework|check|hwplan)$/.test(m0))setTimeout(()=>{if(my===NAVSEQ&&GEM&&!Live.on&&LIVE_FIRST.indexOf(m0)>=0)Live.start('start')},300)}
  if(mode==='intro')send('(child opened the app for the first time)');
- if(String(mode).indexOf('class|')===0){const my=NAVSEQ;setTimeout(()=>{if(my===NAVSEQ&&!Live.on&&$('#chat')&&!$('#chat').children.length)send(clsKickMsg(String(mode).split('|')[1]))},700)}}
+ if(String(mode).indexOf('class|')===0){const my=NAVSEQ;setTimeout(()=>{if(my===NAVSEQ&&!Live.on&&$('#chat'))send(clsKickMsg(String(mode).split('|')[1]))},700)}}
 /* 12-hour times everywhere: 17:41 → 5:41 PM */
 function t12(x){return String(x==null?'':x).replace(/\b(\d{1,2}):(\d{2})\b/g,(z,h,m)=>{h=+h;if(h>23)return z;const ap=h>=12?'PM':'AM';return (h%12||12)+':'+m+' '+ap})}
 function clockTick(){const el=$('#clock');if(!el)return;const now=new Date(),me=(String(BOOT.morningEnd||'').match(/\b(\d{1,2}):(\d{2})/)||[0,7,50]),h=me[1],m=me[2];const end=new Date();end.setHours(+h,+m,0,0);const left=Math.max(0,Math.round((end-now)/60000));el.classList.remove('hidden');el.innerHTML=`<b>Minutes left: ${left}</b> <span class="muted">· ends ${t12((+h)+':'+String(m).padStart(2,'0'))}</span>`;setTimeout(clockTick,30000)}
@@ -2127,14 +2127,26 @@ function clsBar(w){const p=clsGet(w)||{minutes:w==='morning'?20:30,steps:[]};con
   el.innerHTML=CLSPAUSED?`⏸ ${t}<div><button class="primary" style="min-height:44px;margin-top:4px" onclick="clsBack()">▶ I'm back – continue</button></div>`:t};
  tick();CLSTICK=setInterval(tick,1000)}
 // W152 (v72): class time counts only while Yuvaan is really in the class (screen open and talking); it pauses when he goes away and never ends the class by itself. The helper must teach every step fully and may not wrap up before the planned minutes.
-let CLSW=null,CLSPAUSED=false,CLSLAST=0,CLSNUDGE=0;
+let CLSW=null,CLSPAUSED=false,CLSLAST=0,CLSNUDGE=0,CLSRESTORING=false;const CLSKICKED={};
+// W153 (v73): every class keeps what was said (on the phone, per day and class). Opening the class again shows the talk and continues from that point – never from the beginning; a new class first finishes whatever the last class left unfinished.
+function clsTrKey(w,d){return 'ydCT_'+(d||clsDay())+'_'+w}
+function clsTr(w,d){try{return (JSON.parse(localStorage.getItem(clsTrKey(w,d))||'{}').tr)||[]}catch(e){return []}}
+function clsTrAdd(w,who,text){try{const k=clsTrKey(w);const o=JSON.parse(localStorage.getItem(k)||'{}');o.tr=o.tr||[];o.tr.push([who==='me'?'Y':'H',String(text).slice(0,600)]);if(o.tr.length>80)o.tr=o.tr.slice(-80);o.steps=clsInfo(w).steps;localStorage.setItem(k,JSON.stringify(o))}catch(e){}}
+function clsLines(tr){return tr.slice(-10).map(x=>(x[0]==='Y'?'Yuvaan: ':'Buddy: ')+x[1].slice(0,300)).join('\n')}
+function clsPrev(w){const order=[];const d0=new Date();for(let back=0;back<4;back++){const d=new Date(d0.getTime()-back*864e5);const iso=hwrIso(d);(back===0?(w==='evening'?['morning']:[]):['evening','morning']).forEach(x=>order.push([iso,x]))}
+ for(const [iso,x] of order){try{const o=JSON.parse(localStorage.getItem(clsTrKey(x,iso))||'null');if(o&&o.tr&&o.tr.length)return {label:(iso===clsDay()?'this ':iso+' ')+x,steps:o.steps||'',tr:o.tr}}catch(e){}}return null}
+function clsRestore(w){const tr=clsTr(w);if(!tr.length)return;CLSRESTORING=true;try{tr.forEach(x=>addBubble(x[0]==='Y'?'me':'helper',x[1]))}finally{CLSRESTORING=false}const c=$('#chat');if(c)c.scrollTop=c.scrollHeight}
+
 function clsActKey(w){return 'ydCA_'+clsDay()+'_'+w}
 function clsSec(w){return +localStorage.getItem(clsActKey(w))||0}
 function clsAddSec(w,n){try{localStorage.setItem(clsActKey(w),String(clsSec(w)+n))}catch(e){}}
 function clsBusy(){return !!PLAYING||!!$('#thinking')||(window.speechSynthesis&&speechSynthesis.speaking)||(typeof Ears!=='undefined'&&Ears.on&&false)}
 function clsInfo(w){const p=clsGet(w)||{};const M=p.minutes||(w==='morning'?20:30);const used=Math.floor(clsSec(w)/60);return {M,used,left:Math.max(0,M-used),steps:(p.steps||[]).map((x,i)=>(i+1)+'. '+x.title).join('; ')}}
-function clsKickMsg(w){const i=clsInfo(w);return `(the ${w} class has started – greet him warmly, say in one line where we stopped last time, then begin step 1. Today's steps: ${i.steps}. This class is about ${i.M} minutes of real teaching: teach EVERY step fully – explain simply, give examples, ask him questions one at a time and wait for his answers. A fun fact is only a small extra, never a whole step. Do not finish, wrap up or say goodbye until all steps are done; he will tap Finish himself.)`}
-function clsSeen(who,text){if(!CLSW||String(MODE).indexOf('class|')!==0)return;CLSLAST=Date.now();if(who==='me')CLSPAUSED=false;
+function clsKickMsg(w){CLSKICKED[clsKey(w)]=1;const i=clsInfo(w);const now=clsTr(w);
+ if(now.length)return `(Yuvaan has opened the ${w} class AGAIN – part of it is already done today (${i.used} of ${i.M} minutes). Do NOT start from the beginning. This is exactly where we were:\n${clsLines(now)}\nIn one line remind him where we stopped, then continue from exactly that point. Teach every remaining step fully with examples and questions (steps: ${i.steps}). Do not finish or say goodbye until all steps are done.)`;
+ const prev=clsPrev(w);const carry=prev?` FIRST check the last class (${prev.label}, steps: ${prev.steps}). Its last lines were:\n${clsLines(prev.tr)}\nIf any step or question from that class was not finished or he could not answer, do that part first (briefly, from where it stopped – not from the beginning), then go to today's steps.`:'';
+ return `(the ${w} class has started – greet him warmly, say in one line where we stopped last time.${carry} Then begin today's step 1. Today's steps: ${i.steps}. This class is about ${i.M} minutes of real teaching: teach EVERY step fully – explain simply, give examples, ask him questions one at a time and wait for his answers. A fun fact is only a small extra, never a whole step. Do not finish, wrap up or say goodbye until all steps are done; he will tap Finish himself.)`}
+function clsSeen(who,text){if(!CLSW||String(MODE).indexOf('class|')!==0)return;CLSLAST=Date.now();if(who==='me')CLSPAUSED=false;if(!CLSRESTORING&&text&&text!=='• • •')clsTrAdd(CLSW,who,text);
  if(who!=='helper'||text==='• • •')return;const i=clsInfo(CLSW);
  if(i.used<i.M&&/\b(see you|bye|goodbye|good night|that'?s (all|it) for (today|now)|class is (over|done|finished|complete)|end of (the|our|today'?s) class|we('re| are) (done|finished)|finished (today'?s|the) class|great class today|well done today)\b/i.test(text)&&Date.now()-CLSNUDGE>60000){
   CLSNUDGE=Date.now();const w=CLSW;const go=()=>{if(CLSW!==w)return;if(clsBusy())return setTimeout(go,700);send(`(do NOT end the class – only ${i.used} of ${i.M} minutes are done. Say "Wait, we are not finished yet!" and carry on with the next step that is not fully taught yet (steps: ${i.steps}). Teach it fully with examples and questions.)`)};setTimeout(go,900)}}
