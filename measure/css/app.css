@@ -109,3 +109,6 @@ details summary{cursor:pointer;font-weight:600}
 .count-big{font-size:22px;font-weight:800;margin:8px 0}.count-big span{color:var(--r)}
 .opt.best{border:2px solid var(--g);background:#eefaf1}
 .count-ask{font-size:17px;text-align:center;margin:4px 0 10px}
+.laser-b{opacity:.55;font-size:18px}.laser-b.on{opacity:1;background:#1a9e4a;border-radius:8px}
+.mic-chip{position:fixed;right:10px;top:calc(64px + env(safe-area-inset-top));z-index:55;background:#d92d20;color:#fff;border:0;border-radius:22px;padding:10px 14px;font:700 15px system-ui;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+input.filled{background:#e5f7ea;border-color:var(--g);transition:background .3s}

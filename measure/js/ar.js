@@ -39,7 +39,9 @@ export async function renderAR(el, job) {
   const rl = el.querySelector('#rl');
   for (const p of rough) {
     const d = document.createElement('div'); d.className = 'prow ' + (p.confirmedMm != null ? 'g' : 'n');
-    d.innerHTML = `<span class="pin static ${p.confirmedMm != null ? 'g' : 'n'}">~</span><div><b>${esc(p.label || 'Reading')}</b><small>≈ ${fmt(p.roughMm, unit)} rough${p.confirmedMm != null ? ` · confirmed ${esc(p.confirmedText)}` : ' · not confirmed'}</small></div><span class="diff">${p.confirmedMm != null ? '✔' : 'Type real size'}</span>`;
+    const diff = p.confirmedMm != null ? Math.round(p.confirmedMm - p.roughMm) : null, agree = diff != null && Math.abs(diff) <= 10;
+    d.className = 'prow ' + (diff == null ? 'n' : agree ? 'g' : 'r');
+    d.innerHTML = `<span class="pin static ${diff == null ? 'n' : agree ? 'g' : 'r'}">~</span><div><b>${esc(p.label || 'Reading')}</b><small>Camera ≈ ${fmt(p.roughMm, unit)}${p.confirmedMm != null ? ` · Tape/laser ${esc(p.confirmedText)}` : ''}</small></div><span class="diff">${diff == null ? 'Add tape / laser size' : agree ? `✔ agree (${Math.abs(diff)} mm)` : `⚠ differ ${Math.abs(diff)} mm – re-check`}</span>`;
     d.onclick = () => confirmForm(p, () => renderAR(el, job));
     rl.appendChild(d);
   }

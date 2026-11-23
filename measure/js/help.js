@@ -124,6 +124,13 @@ export const GUIDE = [
     ['Photo of a detail (switch, niche, crack)', 'Come close, keep the tape in the photo showing the size, phone straight on to the surface.'],
     ['Measure with camera', 'Good light. Point at a surface with some texture (plain white walls and shiny floors are hard). Move the phone slowly left-right until the ring appears. Keep 1–3 m away. Hold steady when you tap Mark.'],
   ] },
+  { id: 'laser', icon: '📡', title: 'Laser meter & voice (most accurate)', items: [
+    ['Connect', 'Tap 📏 at the top → Connect → pick your Bosch GLM …C / CG or Leica DISTO. Bluetooth and Location must be on.'],
+    ['Measure', 'Tap the size box you want to fill, then press the laser button. The reading (±2 mm) fills the box.'],
+    ['Two-way check', 'Measure the same size twice. The app says ✔ if they agree within 3 mm, or ⚠ if not – then measure again.'],
+    ['Camera vs tape', 'In 📷 Measure with camera, add the tape/laser size to each reading: green = agree within 1 cm, red = re-check.'],
+    ['Voice', 'Tap a size box, then 🎤 Say size: "twelve feet four", "two thousand four hundred", "two point four metres".'],
+  ] },
   { id: 'tape', icon: '📏', title: 'Measuring tips (tape)', items: [
     ['Wall length', 'Measure at 3 heights (bottom, middle, top) – walls are rarely perfectly straight. Write the smallest for fitting work, note the difference.'],
     ['Height', 'Measure in two corners and the middle. Ceilings sag; floors slope.'],

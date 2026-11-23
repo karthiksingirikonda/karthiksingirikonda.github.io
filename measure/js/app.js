@@ -10,6 +10,7 @@ import { renderPlan } from './ui-plan.js';
 import { renderAR } from './ar.js';
 import { renderCount } from './ui-count.js';
 import { renderPhoto } from './ui-photo.js';
+import { connectLaser, disconnectLaser, onLaser, laserSupported } from './laser.js';
 
 const view = document.getElementById('view');
 const titleEl = document.getElementById('title');
@@ -17,6 +18,17 @@ const backBtn = document.getElementById('back');
 let helpKey = 'jobs';
 export const setHelp = k => { helpKey = k; };
 document.getElementById('info').onclick = () => showHelp(helpKey);
+
+// laser meter button in the top bar
+const laserBtn = document.getElementById('laser');
+onLaser(s => { laserBtn.classList.toggle('on', s.connected); laserBtn.title = s.connected ? `${s.name} connected` : 'Connect laser meter'; });
+laserBtn.onclick = () => {
+  const on = laserBtn.classList.contains('on');
+  const s = sheet(on ? `<h2>📏 Laser meter</h2><p>Connected. Tap any size box, then press the laser's measure button – the reading fills the box. Measure twice: the app tells you if the two readings agree.</p><button class="btn ghost" id="l-off">Disconnect</button>`
+    : `<h2>📏 Connect laser meter</h2><p class="small">Works with Bluetooth laser meters: Bosch GLM 50 C / 50-27 CG / 100 C / 150 C and Leica DISTO.</p><ol class="small"><li>Turn on the laser meter and its Bluetooth (Bosch: press the Bluetooth key).</li><li>Turn on Bluetooth and Location on the phone.</li><li>Tap Connect and pick the meter from the list.</li></ol>${laserSupported() ? '<button class="btn wide" id="l-on">Connect</button>' : '<p class="r">Open the app in Chrome on Android to use a laser meter.</p>'}`);
+  const on2 = s.el.querySelector('#l-on'); if (on2) on2.onclick = async () => { try { await connectLaser(); s.close(); } catch (e) { toast(e.message, 5000); } };
+  const off = s.el.querySelector('#l-off'); if (off) off.onclick = () => { disconnectLaser(); s.close(); };
+};
 
 // cloud status dot
 const dot = document.getElementById('cloud');
