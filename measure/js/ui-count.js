@@ -209,18 +209,41 @@ function tapFlow(box, job, img, done) {
     if (d.way === 'ask') return askWhich(box, job, img, done, d, [fx, fy]);
     if (d.way === 'loose') looseWork(box, job, img, done, [fx, fy], d.invert);
     else if (d.way === 'layers') layersWork(box, job, img, done, d.sug);
+    else if (d.way === 'colour') colourWork(box, job, img, done, [fx, fy]);
     else similarWork(box, job, img, done, d.box);
   });
 }
-// two ways fit the tap (e.g. shutter: glass pieces or slats) → ask which
+// count of same-looking things for a sample box (fractions of the photo)
+export function similarCount(img, bx, thr = 0.6) {
+  const c = scaled(img, WORK_W), w = c.width, h = c.height;
+  const sample = { x: Math.round(bx.x * w), y: Math.round(bx.y * h), w: Math.max(6, Math.round(bx.w * w)), h: Math.max(6, Math.round(bx.h * h)) };
+  const ms = Math.min(1, Math.sqrt(500 / (sample.w * sample.h)));
+  const sw = Math.max(8, Math.round(w * ms)), sh = Math.max(8, Math.round(h * ms));
+  const small = document.createElement('canvas'); small.width = sw; small.height = sh; small.getContext('2d').drawImage(c, 0, 0, sw, sh);
+  const g = grayOf(small);
+  const tx0 = Math.round(sample.x * ms), ty0 = Math.round(sample.y * ms), tw = Math.max(3, Math.round(sample.w * ms)), th = Math.max(3, Math.round(sample.h * ms));
+  if (tx0 + tw > sw || ty0 + th > sh) return 0;
+  const T = new Float32Array(tw * th);
+  for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) T[y * tw + x] = g[(ty0 + y) * sw + tx0 + x];
+  const mp = matchMap(g, sw, sh, T, tw, th);
+  return peaks(mp.map, mp.ow, mp.oh, thr, tw * 0.6, th * 0.6).length;
+}
+// more than one way fits the tap → ask which, with the count for each
 function askWhich(box, job, img, done, d, tap) {
-  const [lo, la] = d.options;
-  box.innerHTML = `<div class="card"><p class="count-ask"><b>Which do you want to count?</b></p>
-    <button class="opt best" id="w-la"><b>☰ ${la.count} ${la.sug.dir === 'v' ? 'layers / slats (top to bottom)' : 'bars / rods (left to right)'}</b><span>Rows that repeat, like shutter slats, board edges, grill rods</span></button>
-    <button class="opt" id="w-lo"><b>🔩 ${lo.count} separate pieces</b><span>Each separate piece like the one you tapped (panes, screws, bricks)</span></button>
+  const label = o => o.way === 'layers' ? `☰ ${o.count} ${o.sug.dir === 'v' ? 'layers / slats (top to bottom)' : 'bars / rods (left to right)'}`
+    : o.way === 'loose' ? `🔩 ${o.count} separate pieces` : o.way === 'colour' ? `🎨 ${o.count} of the same colour & size` : `▢ ${o.count} same-looking things`;
+  const sub = o => o.way === 'layers' ? 'Rows that repeat: shutter slats, board edges, grill rods'
+    : o.way === 'loose' ? 'Each separate piece like the one you tapped (screws, panes, bricks)' : o.way === 'colour' ? 'Like the one you tapped, even if turned different ways (butterflies, lights). You can limit it to an area.' : 'Exactly the same shape and direction as the one you tapped';
+  box.innerHTML = `<div class="card"><p class="count-ask"><b>What do you want to count?</b></p>
+    ${d.options.map((o, i) => `<button class="opt ${i === 0 ? 'best' : ''}" data-i="${i}"><b>${label(o)}</b><span>${sub(o)}</span></button>`).join('')}
     <button class="link" id="w-back">↶ Tap something else</button></div>`;
-  box.querySelector('#w-la').onclick = () => layersWork(box, job, img, done, la.sug);
-  box.querySelector('#w-lo').onclick = () => looseWork(box, job, img, done, tap, lo.invert);
+  box.querySelectorAll('[data-i]').forEach(bt => bt.onclick = () => {
+    const o = d.options[Number(bt.dataset.i)];
+    if (o.way === 'layers') layersWork(box, job, img, done, o.sug);
+    else if (o.way === 'loose') looseWork(box, job, img, done, tap, o.invert);
+    else if (o.way === 'colour') colourWork(box, job, img, done, tap);
+    else similarWork(box, job, img, done, o.box);
+  });
   box.querySelector('#w-back').onclick = () => tapFlow(box, job, img, done);
 }
 // decide from the tap: loose items, layers, or same-looking items
@@ -236,7 +259,7 @@ export function decide(img, fx, fy) {
     if (!cp) cp = k0;
     if (k0.area < W * H * 0.08) {
       const alike = an.comps.filter(k => k.area > k0.area * 0.5 && k.area < k0.area * 2).length;
-      if (alike >= 4 && (inv || an.fgShare < 0.45)) { looseC = { way: 'loose', invert: inv, count: looseCount(an.comps, k0.area) }; break; }
+      if (alike >= 4 && an.bgStd < 24 && (inv || an.fgShare < 0.45)) { looseC = { way: 'loose', invert: inv, count: looseCount(an.comps, k0.area) }; break; }
     }
   }
   // 2. layers through the tapped point (try both directions, keep the clearer one)
@@ -256,9 +279,16 @@ export function decide(img, fx, fy) {
     if (!best || score > best.score) best = { score, strength: per.strength, count, sug: { a: f(ends[0]), b: f(ends[1]), dir } };
   }
   const layC = best && best.strength > 0.25 ? { way: 'layers', sug: best.sug, count: best.count } : null;
-  if (looseC && layC) return { way: 'ask', options: [looseC, layC] };
-  if (looseC) return looseC;
-  if (layC) return layC;
+  const simBox = (() => {
+    if (cp && cp.area < W * H * 0.05) return { x: cp.minx / W, y: cp.miny / H, w: (cp.maxx - cp.minx + 1) / W, h: (cp.maxy - cp.miny + 1) / H };
+    const s0 = 0.06; return { x: Math.max(0, fx - s0 / 2), y: Math.max(0, fy - s0 * W / H / 2), w: s0, h: s0 * W / H };
+  })();
+  const colC = { way: 'colour', count: colourCount(img, fx, fy).count };
+  const simN = similarCount(img, simBox);
+  const simC = simN > 1 ? { way: 'similar', box: simBox, count: simN } : null;
+  const opts = [looseC, layC, colC, simC].filter(o => o && (o.way !== 'colour' || o.count > 0));
+  if (opts.length > 1) return { way: 'ask', options: opts };
+  if (opts.length === 1) return opts[0];
   // 3. same-looking items: use the tapped thing's outline (or a small square) as the sample
   let bx;
   if (cp && cp.area < W * H * 0.05) bx = { x: cp.minx / W, y: cp.miny / H, w: (cp.maxx - cp.minx + 1) / W, h: (cp.maxy - cp.miny + 1) / H };
@@ -457,7 +487,9 @@ export function looseCount(comps, unit) {
 }
 function looseAnalyse(g, w, h, shift, invert = false) {
   const m = itemMask(g, w, h, shift, invert);
-  let fg = 0; for (let i = 0; i < m.length; i++) fg += m[i];
+  let fg = 0, bs = 0, bs2 = 0, bn = 0;
+  for (let i = 0; i < m.length; i++) { fg += m[i]; if (!m[i]) { bs += g[i]; bs2 += g[i] * g[i]; bn++; } }
+  const bgStd = bn ? Math.sqrt(Math.max(0, bs2 / bn - (bs / bn) ** 2)) : 99;
   const { comps, lab } = components(m, w, h);
   const minA = w * h * 0.00005;
   const real = comps.filter(c => c.area >= minA && !(c.minx === 0 || c.miny === 0 || c.maxx === w - 1 || c.maxy === h - 1) || c.area >= minA * 40);
@@ -467,7 +499,7 @@ function looseAnalyse(g, w, h, shift, invert = false) {
   const mean = singles.reduce((s, a) => s + a, 0) / (singles.length || 1);
   const cv = singles.length ? Math.sqrt(singles.reduce((s, a) => s + (a - mean) ** 2, 0) / singles.length) / mean : 9;
   const estimate = looseCount(real, unit);
-  return { comps: real, lab, unit, items: real.length, cv, estimate, fgShare: fg / (w * h), invert };
+  return { comps: real, lab, unit, items: real.length, cv, estimate, fgShare: fg / (w * h), invert, bgStd };
 }
 
 function looseWork(box, job, img, done, tap, invert = false) {
@@ -521,4 +553,92 @@ function popupCount(n, set) {
   let v = n; wrap.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { v = Math.max(0, v + Number(b.dataset.d)); wrap.querySelector('#pc').textContent = v; });
   wrap.querySelector('#pc-ok').onclick = () => { set(v); wrap.remove(); };
   wrap.onclick = e => { if (e.target === wrap) wrap.remove(); };
+}
+
+// ---------- SAME COLOUR & SIZE (works when things are turned different ways, e.g. butterflies) ----------
+export function colourComps(rgb, w, h, col, D, area) {
+  const m = new Uint8Array(w * h), D2 = D * D;
+  const [x0, y0, x1, y1] = area || [0, 0, w, h];
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    const i = y * w + x, k = i * 4;
+    const dr = rgb[k] - col[0], dg = rgb[k + 1] - col[1], db = rgb[k + 2] - col[2];
+    if (dr * dr + dg * dg + db * db < D2) m[i] = 1;
+  }
+  const e = new Uint8Array(w * h), o = new Uint8Array(w * h);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; e[i] = m[i] & m[i - 1] & m[i + 1] & m[i - w] & m[i + w]; }
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; o[i] = e[i] | e[i - 1] | e[i + 1] | e[i - w] | e[i + w]; }
+  return components(o, w, h);
+}
+function tapColour(rgb, w, x, y) {
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const k = ((y + dy) * w + x + dx) * 4; if (k >= 0 && k < rgb.length) { r += rgb[k]; g += rgb[k + 1]; b += rgb[k + 2]; n++; } }
+  return [r / n, g / n, b / n];
+}
+export function colourCount(img, fx, fy, D = 50, area = null) {
+  const c = scaled(img, 1000), w = c.width, h = c.height, rgb = c.getContext('2d').getImageData(0, 0, w, h).data;
+  let x = Math.round(fx * w), y = Math.round(fy * h);
+  // fingers are bigger than small things: find the spot near the tap that stands out most from its surroundings
+  { const R = 14, W2 = 30; let sr = 0, sg = 0, sb = 0, n = 0;
+    for (let dy = -W2; dy <= W2; dy += 3) for (let dx = -W2; dx <= W2; dx += 3) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue; const k = (yy * w + xx) * 4; sr += rgb[k]; sg += rgb[k + 1]; sb += rgb[k + 2]; n++; }
+    const bg = [sr / n, sg / n, sb / n]; let best = -1, bx = x, by = y;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { if (dx * dx + dy * dy > R * R) continue; const xx = x + dx, yy = y + dy; if (xx < 2 || yy < 2 || xx >= w - 2 || yy >= h - 2) continue; const cc = tapColour(rgb, w, xx, yy); const d = (cc[0] - bg[0]) ** 2 + (cc[1] - bg[1]) ** 2 + (cc[2] - bg[2]) ** 2 - (dx * dx + dy * dy) * 4; if (d > best) { best = d; bx = xx; by = yy; } }
+    x = bx; y = by; }
+  const col = tapColour(rgb, w, x, y);
+  const { comps, lab } = colourComps(rgb, w, h, col, D, area);
+  let id = lab[y * w + x];
+  if (!id) { let bd = 1e9; for (const k of comps) { const dd = Math.hypot(k.cx - x, k.cy - y); if (dd < bd && dd < 15) { bd = dd; id = k.id; } } }
+  const me = comps.find(k => k.id === id);
+  if (!me) return { count: 0, comps: [], unit: 0, lab, w, h, c };
+  const A = me.area;
+  for (const k of comps) k.n = k.area < A * 0.25 || k.area > A * 8 ? 0 : Math.max(1, Math.round(k.area / A));
+  return { count: comps.reduce((s, k) => s + k.n, 0), comps, unit: A, lab, w, h, c };
+}
+
+function colourWork(box, job, img, done, tap) {
+  let D = 65, area = null, res = null, manual = [], picking = false, dragStart = null;
+  box.innerHTML = `<div class="card"><p><b>Same colour & size as the one you tapped.</b> Tap a wrong mark to remove it, tap a missed one to add it.</p>
+    <div class="count-stage"><canvas id="k-view"></canvas></div>
+    <div class="count-big"><span id="k-n">0</span> found</div>
+    <div class="row wrap"><button class="btn ghost sm" id="k-area">⬚ Count only in an area</button><button class="btn ghost sm" id="k-all" hidden>Whole photo</button></div>
+    <p class="small muted" id="k-hint">Busy photo with other things of the same colour? Tap “Count only in an area” and drag a box round where they are.</p>
+    <label class="small">Colour closeness <input type="range" id="k-d" min="20" max="120" value="65"></label>
+    <label>Name<input id="k-name" placeholder="e.g. Butterflies – front"></label>
+    <div class="row"><button class="btn ghost" id="k-back">↶ Tap something else</button><button class="btn" id="k-save">💾 Save count</button></div></div>`;
+  const q = id => box.querySelector(id), view = q('#k-view'), v = view.getContext('2d');
+  function run() { res = colourCount(img, tap[0], tap[1], D, area); view.width = res.w; view.height = res.h; draw(); }
+  const total = () => (res ? res.count : 0) - removed.size + manual.length;
+  const removed = new Set();
+  function draw() {
+    v.drawImage(res.c, 0, 0);
+    if (area) { v.strokeStyle = '#2563eb'; v.lineWidth = 3; v.setLineDash([8, 6]); v.strokeRect(area[0], area[1], area[2] - area[0], area[3] - area[1]); v.setLineDash([]); }
+    const R = Math.max(7, Math.min(22, Math.sqrt(res.unit || 50) / 1.6));
+    v.font = `bold ${Math.round(R)}px sans-serif`; v.textAlign = 'center'; v.textBaseline = 'middle';
+    let k = 0;
+    for (const cp of res.comps) { if (!cp.n || removed.has(cp.id)) continue; v.beginPath(); v.arc(cp.cx, cp.cy, R, 0, Math.PI * 2); v.fillStyle = cp.n > 1 ? 'rgba(37,99,235,.9)' : 'rgba(217,45,32,.88)'; v.fill(); v.fillStyle = '#fff'; v.fillText(cp.n > 1 ? '×' + cp.n : String(++k), cp.cx, cp.cy + 1); if (cp.n > 1) k += cp.n; }
+    for (const p of manual) { v.beginPath(); v.arc(p[0], p[1], R, 0, Math.PI * 2); v.fillStyle = 'rgba(26,158,74,.9)'; v.fill(); v.fillStyle = '#fff'; v.fillText('+', p[0], p[1] + 1); }
+    q('#k-n').textContent = total();
+  }
+  const toImg = e => { const r = view.getBoundingClientRect(); return [(e.clientX - r.left) * view.width / r.width, (e.clientY - r.top) * view.height / r.height]; };
+  view.addEventListener('pointerdown', e => { if (picking) { dragStart = toImg(e); view.setPointerCapture(e.pointerId); } });
+  view.addEventListener('pointermove', e => { if (!picking || !dragStart) return; const p = toImg(e); draw(); v.strokeStyle = '#ffd400'; v.lineWidth = 3; v.strokeRect(dragStart[0], dragStart[1], p[0] - dragStart[0], p[1] - dragStart[1]); });
+  view.addEventListener('pointerup', e => {
+    const p = toImg(e);
+    if (picking && dragStart) {
+      const a = [Math.round(Math.min(dragStart[0], p[0])), Math.round(Math.min(dragStart[1], p[1])), Math.round(Math.max(dragStart[0], p[0])), Math.round(Math.max(dragStart[1], p[1]))];
+      dragStart = null; picking = false;
+      if (a[2] - a[0] > 10 && a[3] - a[1] > 10) { area = a; removed.clear(); manual = []; run(); q('#k-all').hidden = false; }
+      q('#k-area').textContent = '⬚ Count only in an area'; return;
+    }
+    const id = res.lab[Math.round(p[1]) * res.w + Math.round(p[0])];
+    const cp = id && res.comps.find(k => k.id === id && k.n);
+    const mi = manual.findIndex(m => Math.hypot(m[0] - p[0], m[1] - p[1]) < 14);
+    if (mi >= 0) manual.splice(mi, 1); else if (cp) { if (removed.has(cp.id)) removed.delete(cp.id); else removed.add(cp.id); } else manual.push(p);
+    draw();
+  });
+  q('#k-area').onclick = () => { picking = true; q('#k-area').textContent = 'Now drag a box on the photo…'; };
+  q('#k-all').onclick = () => { area = null; removed.clear(); manual = []; q('#k-all').hidden = true; run(); };
+  q('#k-d').oninput = e => { D = Number(e.target.value); removed.clear(); run(); };
+  q('#k-back').onclick = () => tapFlow(box, job, img, done);
+  q('#k-save').onclick = () => saveCount(job, view, q('#k-name').value, total(), { method: 'colour' }, done);
+  run();
 }
