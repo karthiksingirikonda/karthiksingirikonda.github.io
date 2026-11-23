@@ -107,3 +107,4 @@ details summary{cursor:pointer;font-weight:600}
 .count-stage{overflow:auto;border-radius:8px;background:#000;max-height:70vh}
 .count-stage canvas{width:100%;display:block;touch-action:none}
 .count-big{font-size:22px;font-weight:800;margin:8px 0}.count-big span{color:var(--r)}
+.opt.best{border:2px solid var(--g);background:#eefaf1}
