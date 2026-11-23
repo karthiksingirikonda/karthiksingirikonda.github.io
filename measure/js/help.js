@@ -64,11 +64,16 @@ export const SCREEN_HELP = {
     ],
   },
   ar: {
-    title: 'Tap-measure',
+    title: 'Camera measuring',
     body: [
-      ['Only rough', 'Readings are ±1–2 cm. Use it to check quickly – not for billing.'],
-      ['How', 'Move the phone slowly over the floor/wall until the ring appears. Tap Mark at the first end, walk to the other end, tap Mark again.'],
-      ['Saving', 'A rough reading is saved as "rough". To use it anywhere, you must type the real size.'],
+      ['Only rough', 'Readings are ±1–2 cm. Confirm with the tape before billing.'],
+      ['Start', 'Pick a mode. Point at the floor 1–2 m ahead and move slowly until the white ring appears. Tap ● Mark or tap anywhere on the screen.'],
+      ['↔ Length', 'Ring at one end → Mark, other end → Mark. Wall to wall: use the floor line at the base of each wall.'],
+      ['↕ Height', 'Ring on the floor at the wall base → Mark. Then just aim at the top (ceiling line, beam, top of door) – a yellow dot follows straight up – Mark.'],
+      ['▭ On wall', 'Two floor marks along the base of one wall. After that, aim anywhere on that wall (even plain paint) and Mark two points: window width, height, sill, switch height.'],
+      ['⬚ Room', 'Mark every floor corner going round, then ✔ Finish (or tap the first corner again). All walls, corner angles and area go to Plan.'],
+      ['▣ Pillar', 'Three floor corners: two of the front face, one round the side. Gives face × side.'],
+      ['Undo', 'Removes the last mark.'],
     ],
   },
   settings: {
@@ -130,7 +135,7 @@ export const TIPS = {
   drawing: 'Tap a size chip on the drawing, then type what your tape shows. Pinch to zoom.',
   sheet: 'Each line is checked 3 ways. A ✘ means something to fix – tap it to see why.',
   plan: 'Rectangle room? Just type L, W, H. Odd shape? Use Wall by wall.',
-  ar: 'Move the phone slowly until the ring appears, then tap Mark at each end.',
+  ar: 'Pick a mode. Start on the floor – Height and On wall need no ring on the wall.',
   compare: 'Red rows are mismatches. Tap Mismatch report to make the PDF and Excel.',
 };
 export async function tipHtml(key) {

@@ -1,10 +1,10 @@
 // Offline support: the app opens and works with no internet.
-const V = 'measure-v1';
+const V = 'measure-v2';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'css/app.css', 'icons/icon-192.png',
   'js/app.js', 'js/ui.js', 'js/db.js', 'js/util.js', 'js/units.js', 'js/help.js', 'js/cloud.js', 'js/config.js',
   'js/drawing.js', 'js/ui-drawing.js', 'js/sheet.js', 'js/ui-sheet.js', 'js/ui-plan.js', 'js/ar.js',
   'vendor/pdf.min.mjs', 'vendor/pdf.worker.min.mjs', 'vendor/jspdf.umd.min.js', 'vendor/jspdf.plugin.autotable.min.js',
-  'vendor/xlsx.full.min.js', 'vendor/exceljs.min.js', 'vendor/firebase.js'];
+  'vendor/xlsx.full.min.js', 'vendor/exceljs.min.js', 'vendor/firebase.js', 'vendor/three.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
