@@ -5,6 +5,7 @@ import { check, UNITS, normUnit, r2, sheetExcel, sheetPdf, checkPdf } from './sh
 import { esc, toast, download, fileDate, safeName } from './util.js';
 import { mountTip, busy, confirmBox, sheet as popup } from './ui.js';
 import { saveJobFile } from './ui-drawing.js';
+import { catOptions, findCat } from './categories.js';
 
 export async function loadSheet(job) {
   let s = await db.get('sheets', 'sheet-' + job.id);
@@ -101,10 +102,12 @@ export async function renderSheet(el, job) {
     el.querySelector('#x-note').textContent = c.allOk ? 'Files are saved in the job\'s Drive folder and ready to download. Nothing is sent to anyone.' : 'Excel and PDF unlock when every line shows ✔. Recheck version and check list are always available.';
   }
   el.querySelector('#add-item').onclick = () => {
-    const p = popup(`<h2>New item</h2><label>Heading<input id="ni" placeholder="e.g. Wall painting"></label><button class="btn wide" id="ni-ok">Add</button>`);
+    const p = popup(`<h2>New item</h2><label>Category<select id="nc">${catOptions('__other')}</select></label><label>Heading<input id="ni" placeholder="e.g. Wall painting" data-nofocus></label><button class="btn wide" id="ni-ok">Add</button>`);
+    p.el.querySelector('#nc').onchange = e => { if (e.target.value !== '__other') p.el.querySelector('#ni').value = e.target.value; };
     p.el.querySelector('#ni-ok').onclick = () => {
-      const h = p.el.querySelector('#ni').value.trim(); if (!h) return toast('Type the heading');
-      s.items.push({ id: db.uid(), no: String(s.items.length + 1), heading: h, lines: [{ ...newLine(), desc: h }] });
+      const h = p.el.querySelector('#ni').value.trim(); if (!h) return toast('Pick a category or type the heading');
+      const c = findCat(h);
+      s.items.push({ id: db.uid(), no: String(s.items.length + 1), heading: h, lines: [{ ...newLine(), desc: h, unit: c ? c.unit : 'Sqft' }] });
       save(); p.close(); drawAll();
     };
   };

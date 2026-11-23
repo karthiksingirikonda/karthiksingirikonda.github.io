@@ -6,14 +6,16 @@ export const HEADER = {
   company: 'DESIGN INTERIO',
   address: 'HD-140, WeWork Galaxy, 43 Residency Road, Ashok Nagar, MG Road, Bengaluru, Karnataka - 560025',
 };
-export const UNITS = ['Sqft', 'Rft', 'Nos', 'Set'];
+export const UNITS = ['Sqft', 'Rft', 'Mtr', 'Nos', 'Set'];
 const BLUE = 'FFB3C6E7', GREY = 'FFDADADA';
 const QTY_FMT = '_ * #,##0.00_ ;_ * \\-#,##0.00_ ;_ * "-"??_ ;_ @_ ';
 
 // Turn a typed size into what the sheet stores. Returns { ok, cellValue, kind, inches, ft, msg }
 export function sheetSize(raw) {
   if (raw == null || String(raw).trim() === '') return { ok: true, empty: true };
-  const p = parseSize(raw, 'ftin');
+  let p = parseSize(raw, 'ftin');
+  // a bare number of 100 or more is taken as mm (no site size is 100 feet in one piece); smaller bare numbers are feet
+  if (p && p.kind === 'ftin' && !/['"]|ft|feet|foot/i.test(String(raw)) && p.ft >= 100) p = parseSize(String(raw).trim() + ' mm');
   if (!p) return { ok: false, msg: `Can't read "${raw}". Type like 12'10" or 2400 mm.` };
   if (p.kind === 'ftin' || p.kind === 'in') {
     const totalIn = p.kind === 'in' ? p.ft * 12 + p.inch : p.ft * 12 + p.inch;
@@ -47,9 +49,10 @@ export function lineFormula(line, r) {
     return `E${r}*${feetExpr('F' + r, L)}*${feetExpr('H' + r, W)}`;
   }
   if (unit === 'Rft') { if (L.empty) return null; return `E${r}*${feetExpr('F' + r, L)}`; }
+  if (unit === 'Mtr') { if (L.empty) return null; return `E${r}*${feetExpr('F' + r, L)}*0.3048`; }
   return `E${r}`;
 }
-export const normUnit = u => { const x = String(u || '').trim().toLowerCase(); return x === 'sqft' ? 'Sqft' : x === 'rft' ? 'Rft' : x === 'set' ? 'Set' : 'Nos'; };
+export const normUnit = u => { const x = String(u || '').trim().toLowerCase(); return x === 'sqft' ? 'Sqft' : x === 'rft' ? 'Rft' : ['mtr', 'rmt', 'm', 'mtrs'].includes(x) ? 'Mtr' : x === 'set' ? 'Set' : 'Nos'; };
 
 // ---------- Tiny formula evaluator (method B: the real formula text, worked out) ----------
 export function evalFormula(f, cells) {
@@ -106,15 +109,17 @@ export function check(sheet) {
         const L = sheetSize(ln.length), W = sheetSize(ln.width);
         if (!L.ok) throw new Error(L.msg); if (!W.ok) throw new Error(W.msg);
         if (unit === 'Sqft' && (L.empty || W.empty)) throw new Error('Sqft needs Length and Width');
-        if (unit === 'Rft' && L.empty) throw new Error('Rft needs Length');
+        if ((unit === 'Rft' || unit === 'Mtr') && L.empty) throw new Error(unit + ' needs Length');
         // A: exact inch maths
         if (unit === 'Sqft') row.A = nos * L.inches * W.inches / 144;
         else if (unit === 'Rft') row.A = nos * L.inches / 12;
+        else if (unit === 'Mtr') row.A = nos * L.inches * 0.0254;
         else row.A = nos;
         // C: decimal feet
         const ftOf = s => s.kind === 'ftin' ? s.ft + s.inch / 12 : s.kind === 'mm' ? s.value / 304.8 : s.kind === 'cm' ? s.value / 30.48 : s.value / 0.3048;
         if (unit === 'Sqft') row.C = nos * ftOf(L) * ftOf(W);
         else if (unit === 'Rft') row.C = nos * ftOf(L);
+        else if (unit === 'Mtr') row.C = nos * ftOf(L) * 0.3048;
         else row.C = nos;
         // B: the Excel formula itself
         const r = 10; const f = lineFormula(ln, r);

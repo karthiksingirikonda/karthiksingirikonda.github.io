@@ -77,6 +77,17 @@ export const SCREEN_HELP = {
       ['Undo', 'Removes the last mark.'],
     ],
   },
+  notes: {
+    title: 'Measure on photo',
+    body: [
+      ['Photo', 'Stand back and take one photo of a whole side (wall, partition run, ceiling area).'],
+      ['Category', 'Pick what you are measuring (partition, ceiling, skirting, painting, cable…). It sets the unit: Sqft, Rft, Mtr or Nos.'],
+      ['Draw', 'Tap ✏ next to Length (or Height/Width), then tap the two ends on the photo. A line appears.'],
+      ['Size', 'Fill the size: press the laser (Bluetooth), tap 🎤 Say size and say the laser reading, or type. Bare numbers of 100+ are mm (2400 = 2400 mm); feet-inch like 12\'4".'],
+      ['Minus', 'Doors, windows, columns: tap “Make it a minus line”.'],
+      ['Sheet', 'Send to measurement sheet: each line goes under its category heading, with the photo name as site note. The marked photo is saved as proof.'],
+    ],
+  },
   photo: {
     title: 'Size from photo',
     body: [
@@ -166,6 +177,7 @@ export const TIPS = {
   ar: 'Pick a mode. Start on the floor – Height and On wall need no ring on the wall.',
   count: 'Take the photo, then tap ONE of the things you want counted.',
   photo: 'Tap the 4 corners of the opening, then give one known size.',
+  notes: 'Pick the category, tap ✏, tap both ends on the photo, then say or laser the size.',
   compare: 'Red rows are mismatches. Tap Mismatch report to make the PDF and Excel.',
 };
 export async function tipHtml(key) {

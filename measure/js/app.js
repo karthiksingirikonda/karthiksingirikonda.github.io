@@ -10,6 +10,7 @@ import { renderPlan } from './ui-plan.js';
 import { renderAR } from './ar.js';
 import { renderCount } from './ui-count.js';
 import { renderPhoto } from './ui-photo.js';
+import { renderNotes } from './ui-notes.js';
 import { connectLaser, disconnectLaser, onLaser, laserSupported } from './laser.js';
 
 const view = document.getElementById('view');
@@ -59,7 +60,7 @@ async function route() {
   view.innerHTML = '';
   window.scrollTo(0, 0);
   try {
-    if (parts[0] === 'job' && parts[1]) return await jobScreen(parts[1], parts[2] || 'ar');
+    if (parts[0] === 'job' && parts[1]) return await jobScreen(parts[1], parts[2] || 'notes');
     if (parts[0] === 'drawing' && parts[1]) { setHelp('drawing'); return await renderDrawingView(view, parts[1], { setTitle }); }
     if (parts[0] === 'guide') return guideScreen();
     if (parts[0] === 'settings') return await settingsScreen();
@@ -114,6 +115,7 @@ function newJob(after) {
 
 async function quickMeasure() {
   const opts = [
+    ['notes', '📸 Measure on photo', 'Photo of a side → draw lines → sizes by laser/voice/tape → sheet.'],
     ['ar', '📷 Measure with camera', 'Length, height, on wall, full room, pillar (rough ±1–2 cm).'],
     ['count', '🔢 Count from photo', 'Screws, boards, slats, bricks – photo + tap one.'],
     ['photo', '📐 Size from photo', 'Shutter / opening width, height, sqft, panels.'],
@@ -135,9 +137,9 @@ async function quickMeasure() {
 }
 
 // ---------- One job ----------
-const TABS = [['ar', '📷 Measure with camera', 'ar'], ['count', '🔢 Count from photo', 'count'], ['photo', '📐 Size from photo', 'photo'], ['drawings', '📄 Drawing check', 'job'], ['compare', '⚖ Drawing vs Site', 'compare'], ['sheet', '🧾 Measurement sheet', 'sheet'], ['plan', '🏠 Room sizes (type)', 'plan']];
+const TABS = [['notes', '📸 Measure on photo', 'notes'], ['ar', '📷 Measure with camera', 'ar'], ['count', '🔢 Count from photo', 'count'], ['photo', '📐 Size from photo', 'photo'], ['drawings', '📄 Drawing check', 'job'], ['compare', '⚖ Drawing vs Site', 'compare'], ['sheet', '🧾 Measurement sheet', 'sheet'], ['plan', '🏠 Room sizes (type)', 'plan']];
 async function jobScreen(jobId, tab) {
-  tab = tab || 'ar';
+  tab = tab || 'notes';
   const job = await db.get('jobs', jobId);
   if (!job) { location.hash = '#/'; return; }
   setTitle(job.name, '#/');
@@ -154,6 +156,7 @@ async function jobScreen(jobId, tab) {
   else if (tab === 'ar') await renderAR(el, job);
   else if (tab === 'count') await renderCount(el, job);
   else if (tab === 'photo') await renderPhoto(el, job);
+  else if (tab === 'notes') await renderNotes(el, job);
   else await renderDrawings(el, job);
   view.querySelector('#j-del').onclick = async () => {
     if (await confirmBox(`Delete job "${esc(job.name)}" and everything in it from the app? (Files already in Drive stay there.)`, 'Delete')) { await db.deleteJob(jobId); location.hash = '#/'; }

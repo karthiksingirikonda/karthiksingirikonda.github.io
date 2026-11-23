@@ -14,7 +14,7 @@ export const onLaser = fn => { listeners.add(fn); fn(laserState); };
 const emit = () => listeners.forEach(f => f(laserState));
 
 // ---- which box gets the reading: the size box you tapped last ----
-const NOT_SIZE_IDS = new Set(['j-name', 'j-site', 'j-client', 'e-n', 'e-s', 'e-c', 's-by', 's-tol', 'r-n', 'ni', 'c-l', 'p-l', 'p-n', 'k-name', 'l-name', 'o-name', 'c-name', 'pp-name', 'corr', 's-n', 'cal-len', 'b-bl', 'b-bh', 'b-j']);
+const NOT_SIZE_IDS = new Set(['j-name', 'j-site', 'j-client', 'e-n', 'e-s', 'e-c', 's-by', 's-tol', 'r-n', 'ni', 'c-l', 'p-l', 'p-n', 'k-name', 'l-name', 'o-name', 'c-name', 'pp-name', 'corr', 's-n', 'cal-len', 'b-bl', 'b-bh', 'b-j', 'n-desc', 'n-other', 'n-label', 'n-nos']);
 export function isSizeInput(el) {
   if (!el || el.tagName !== 'INPUT') return false;
   if (['checkbox', 'range', 'file', 'radio'].includes(el.type)) return false;

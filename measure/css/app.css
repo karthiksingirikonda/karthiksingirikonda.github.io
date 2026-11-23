@@ -112,3 +112,6 @@ details summary{cursor:pointer;font-weight:600}
 .laser-b{opacity:.55;font-size:18px}.laser-b.on{opacity:1;background:#1a9e4a;border-radius:8px}
 .mic-chip{position:fixed;right:10px;top:calc(64px + env(safe-area-inset-top));z-index:55;background:#d92d20;color:#fff;border:0;border-radius:22px;padding:10px 14px;font:700 15px system-ui;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 input.filled{background:#e5f7ea;border-color:var(--g);transition:background .3s}
+.lgrid.w3n{grid-template-columns:.6fr 1.5fr 1.5fr;align-items:end}
+.inl{display:flex;gap:4px;align-items:center}.inl input{margin:0}.inl .icon{background:#ffd400;border-radius:8px;padding:6px 9px}
+.note-form{border-top:1px solid var(--line);margin-top:8px;padding-top:6px}
