@@ -84,7 +84,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v73 · Mon 23/11 8:10 AM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v74 · Mon 23/11 8:10 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -1744,14 +1744,14 @@ async function openRoutine(name){const SEQ=++NAVSEQ;setNav({v:'child',id:CHILD.i
  if(SEQ!==NAVSEQ)return;render(`<div style="font-size:22px;font-weight:800;text-transform:capitalize">${esc(name)}</div>
  <div class="card" style="text-align:center"><div style="display:flex;gap:8px;align-items:center"><div id="rtPic" style="flex:1;min-width:0"></div>${name==='exercise'?`<div id="camBox" class="hidden" style="position:relative;flex:1;min-width:0"><video id="camVid" playsinline muted style="width:100%;border-radius:12px;transform:scaleX(-1);display:block"></video><canvas id="camCv" style="position:absolute;left:0;top:0;width:100%;height:100%;transform:scaleX(-1)"></canvas></div>`:''}</div><div id="rtTitle" style="font-size:24px;font-weight:800"></div><div id="rtText" class="muted" style="font-size:17px"></div>
  <div id="rtCount" style="font-size:52px;font-weight:800;color:#2A5FD6;margin-top:6px">0:00</div><div id="rtStep" class="muted"></div></div>
- <div class="card"><b>Music</b> <span class="muted">${r.music?esc(r.music.title):'Not chosen yet – Amma adds the list'}</span>
- ${r.options.length>1?`<select onchange="api('chooseMusic',CHILD.id,'${name}',this.value).then(()=>openRoutine('${name}'))" style="margin-top:8px"><option>Change my music…</option>${r.options.map(o=>`<option value="${o.id}">${esc(o.title)}</option>`).join('')}</select>`:''}<div id="rtMusic"></div></div>
+ ${name==='exercise'?'<div id="rtMusic"></div>':`<div class="card"><b>Music</b> <span class="muted">${r.music?esc(r.music.title):'Not chosen yet – Amma adds the list'}</span>
+ ${r.options.length>1?`<select onchange="api('chooseMusic',CHILD.id,'${name}',this.value).then(()=>openRoutine('${name}'))" style="margin-top:8px"><option>Change my music…</option>${r.options.map(o=>`<option value="${o.id}">${esc(o.title)}</option>`).join('')}</select>`:''}<div id="rtMusic"></div></div>`}
  ${name==='exercise'?`<div class="card" style="text-align:center"><div id="camMsg" class="muted" style="font-size:17px;margin-top:6px"></div><button class="ghost" id="camBtn" style="margin-top:6px" onclick="camToggle()">📷 Check me with camera</button></div>`:''}
  <div class="row hidden" id="rtNav" style="gap:8px"><button class="ghost" style="flex:1;min-height:52px;font-size:18px" onclick="rtJump(-1)">⏮ Back</button><button class="ghost" style="flex:1;min-height:52px;font-size:18px" onclick="rtJump(1)">⏭ Skip</button></div>
  <button class="primary" id="rtGo" style="min-height:64px;font-size:20px" onclick="rtStart()">Start</button>`,true)}
-function rtJump(d){if(!RT)return;clearInterval(RT.timer);RT.waiting=0;clearInterval(RT.reask);rtEarsStop();RT.readyDone=0;$('#rtStep').textContent='';RT.i=Math.max(0,RT.i+d);rtStep()}
+function rtJump(d){if(!RT)return;whistleStop();clearInterval(RT.timer);RT.waiting=0;clearInterval(RT.reask);rtEarsStop();RT.readyDone=0;$('#rtStep').textContent='';RT.i=Math.max(0,RT.i+d);rtStep()}
 async function rtStart(){$('#rtGo').classList.add('hidden');const nv=$('#rtNav');if(nv)nv.classList.remove('hidden');try{if(navigator.wakeLock)RT.lock=await navigator.wakeLock.request('screen')}catch(e){}
- if(RT.music){const m=RT.music;if(m.kind==='youtube'){const id=(m.link.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/)||[])[1];if(id)$('#rtMusic').innerHTML=`<iframe width="100%" height="90" style="border:0;border-radius:12px;margin-top:8px" src="https://www.youtube.com/embed/${id}?autoplay=1&loop=1&playlist=${id}" allow="autoplay"></iframe>`}
+ if(RT.name==='exercise')whistleUnlock();if(RT.music&&RT.name!=='exercise'){const m=RT.music;if(m.kind==='youtube'){const id=(m.link.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/)||[])[1];if(id)$('#rtMusic').innerHTML=`<iframe width="100%" height="90" style="border:0;border-radius:12px;margin-top:8px" src="https://www.youtube.com/embed/${id}?autoplay=1&loop=1&playlist=${id}" allow="autoplay"></iframe>`}
   else{const id=(m.link.match(/\/d\/([^/]+)/)||m.link.match(/id=([^&]+)/)||[])[1];const a=new Audio(id?'https://drive.google.com/uc?export=download&id='+id:m.link);a.loop=true;a.play().catch(()=>{});RT.audio=a}}
  rtStep()}
 function rtStep(){const s=RT.steps[RT.i];if(!s)return rtEnd();
@@ -1761,7 +1761,18 @@ function rtStep(){const s=RT.steps[RT.i];if(!s)return rtEnd();
  clearInterval(RT.timer);RT.timer=setInterval(()=>{const left=Math.ceil((end-Date.now())/1000);if(!s.count)$('#rtCount').textContent=mmss(left);
   if(s.hint)[30,20,10].forEach(x=>{if(left===x&&!said[x]){said[x]=1;Voice.speak(x+' seconds left!','en')}});
   if(s.count){const el=Date.now()-t0;if(el<s.intro*1000){$('#rtCount').textContent='Get ready…'}else{const k=Math.min(s.count,Math.floor((el-s.intro*1000)/(s.beat*1000))+1);$('#rtCount').textContent=k+' / '+s.count;if(k>cnt){cnt=k;cntSay(k);$('#rtStep').textContent='Step '+(RT.i+1)+' of '+RT.steps.length+' · '+mmss(left)+' left'}}}
-  if(left<=0){clearInterval(RT.timer);RT.i++;rtStep()}},250)}
+  if(left<=0){clearInterval(RT.timer);RT.i++;if(RT.name==='exercise')rtBell();else rtStep()}},250)}
+/* W36 – coach whistle at the end of each exercise; rings until Continue is tapped (Mon 23/11/26) */
+let WH={ctx:null,t:null};
+function whistleUnlock(){try{if(!WH.ctx)WH.ctx=new (window.AudioContext||window.webkitAudioContext)();if(WH.ctx.state==='suspended')WH.ctx.resume()}catch(e){}}
+function whistleTone(at){const c=WH.ctx,o=c.createOscillator(),g=c.createGain(),t=c.currentTime+at;o.type='triangle';o.frequency.setValueAtTime(2200,t);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.25);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+0.3)}
+function whistleOnce(){try{whistleUnlock();whistleTone(0);whistleTone(0.35)}catch(e){}}
+function whistleStart(){whistleStop();whistleOnce();WH.t=setInterval(whistleOnce,1400)}
+function whistleStop(){clearInterval(WH.t);WH.t=null}
+function rtBell(){const last=!RT.steps[RT.i];const nx=RT.steps[RT.i];try{Voice.stop()}catch(e){}
+ $('#rtCount').textContent='⏸';$('#rtTitle').textContent=last?'All done!':'Next: '+nx.title;$('#rtText').textContent=last?'Tap Continue to finish.':'Tap Continue when you are ready.';if(!last)$('#rtPic').innerHTML=picSvg(nx.pic);
+ $('#rtStep').innerHTML='<button class="green" id="rtContBtn" style="min-height:64px;font-size:22px;width:100%;margin-top:8px" onclick="rtContinue()">▶ Continue</button>';whistleStart()}
+function rtContinue(){whistleStop();$('#rtStep').textContent='';if(!RT.steps[RT.i])return rtEnd();RT.readyDone=1;rtStep()}
 const EN_CNT=['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty'];
 function cntSay(k){const dk=CHILD&&CHILD.id==='ditya';const t=(dk?TE_CNT:EN_CNT)[k]||String(k);try{const ss=window.speechSynthesis;if(!ss)return;ss.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=dk?'te-IN':'en-IN';u.rate=1;const vs=ss.getVoices().filter(v=>v.lang&&v.lang.replace('_','-').toLowerCase().startsWith(u.lang.toLowerCase()));if(vs.length)u.voice=vs[0];ss.resume();ss.speak(u)}catch(e){}}
 /* W34 – "Are you ready?" before exercises that need moving or setting something up (pull-ups, dips, chair, bar, wall, mat) */
@@ -1821,7 +1832,7 @@ function camCheck(p,st,s,who){const pre=who?who+', ':'';
  st.prev=p.map(q=>({x:q.x,y:q.y}));
  if(Date.now()-st.lastMove>6000){camSay(st,(who?who:'Come on')+', keep moving!');st.lastMove=Date.now();return 'keep moving!'}
  return 'moving ✅'}
-function rtEnd(){clearInterval(RT.timer);const nv=$('#rtNav');if(nv)nv.classList.add('hidden');RT.waiting=0;clearInterval(RT.reask);rtEarsStop();camStop();if(RT.audio)RT.audio.pause();$('#rtMusic').innerHTML='';try{RT.lock&&RT.lock.release()}catch(e){}
+function rtEnd(){whistleStop();clearInterval(RT.timer);const nv=$('#rtNav');if(nv)nv.classList.add('hidden');RT.waiting=0;clearInterval(RT.reask);rtEarsStop();camStop();if(RT.audio)RT.audio.pause();$('#rtMusic').innerHTML='';try{RT.lock&&RT.lock.release()}catch(e){}
  $('#rtTitle').textContent='All done!';$('#rtText').textContent='Great job – Amma will check your star.';$('#rtCount').textContent='★';$('#rtPic').innerHTML='';
  api('claimStar',CHILD.id,'Routine: '+RT.name,'');api('logTimer',CHILD.id,'routine',RT.name,RT.steps.reduce((a,s)=>a+s.seconds,0));Voice.speak('Super! You did really well!','en')}
 
