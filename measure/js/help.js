@@ -83,7 +83,7 @@ export const SCREEN_HELP = {
       ['Photo', 'Stand back and take one photo of a whole side (wall, partition run, ceiling area).'],
       ['Category', 'Pick what you are measuring (partition, ceiling, skirting, painting, cable…). It sets the unit: Sqft, Rft, Mtr or Nos.'],
       ['Draw', 'Tap ✏ next to Length (or Height/Width), then tap the two ends on the photo. A line appears.'],
-      ['Size', 'Fill the size: press the laser (Bluetooth), tap 🎤 Say size and say the laser reading, or type. Bare numbers of 100+ are mm (2400 = 2400 mm); feet-inch like 12\'4".'],
+      ['Size', 'Fill the size: tap the box → 🎤 Say (say the tape/laser reading), ⌨ Type, or 📷 Camera (tap one end, then the other – straight runs like doors, walls, heights; ±1 cm). Bluetooth laser fills it too. Bare numbers of 100+ are mm (2400 = 2400 mm); feet-inch like 12\'4".'],
       ['Minus', 'Doors, windows, columns: tap “Make it a minus line”.'],
       ['Sheet', 'Send to measurement sheet: each line goes under its category heading, with the photo name as site note. The marked photo is saved as proof.'],
     ],
@@ -140,7 +140,8 @@ export const GUIDE = [
     ['Measure', 'Tap the size box you want to fill, then press the laser button. The reading (±2 mm) fills the box.'],
     ['Two-way check', 'Measure the same size twice. The app says ✔ if they agree within 3 mm, or ⚠ if not – then measure again.'],
     ['Camera vs tape', 'In 📷 Measure with camera, add the tape/laser size to each reading: green = agree within 1 cm, red = re-check.'],
-    ['Voice', 'Tap a size box, then 🎤 Say size: "twelve feet four", "two thousand four hundred", "two point four metres".'],
+    ['Camera in the size box', 'Tap a size box → 📷 Camera → pick ↔ Length / ↕ Height / ▭ On wall → tap one end, then the other. The size (mm) fills the box and the camera closes. About ±1 cm on 1–2 m – the box turns yellow and the sheet line notes "camera size". Curves: type them.'],
+    ['Voice', 'Tap a size box, then 🎤 Say: "twelve feet four", "two thousand four hundred", "two point four metres".'],
   ] },
   { id: 'tape', icon: '📏', title: 'Measuring tips (tape)', items: [
     ['Wall length', 'Measure at 3 heights (bottom, middle, top) – walls are rarely perfectly straight. Write the smallest for fitting work, note the difference.'],

@@ -21,6 +21,14 @@ export const MODES = {
   calib: { name: 'Calibrate', icon: '📏', hint: ['Lay the tape flat on the floor. Ring exactly on the 0 → Mark', 'Ring exactly on the tape length mark → Mark'] },
 };
 const PICK = ['length', 'height', 'wall', 'room', 'pillar'];
+const QUICK = ['length', 'height', 'wall'];
+
+// One size straight into a size box: camera opens → tap one end → tap the other end → size comes back (mm), camera closes.
+// Must be called straight from a tap (the browser only opens the camera right after a tap).
+export async function measureQuick() {
+  const k = await db.getSetting('arScale', 1);
+  return new Promise(res => startSession(null, 'length', () => { }, k, 1000, res));
+}
 
 export async function renderAR(el, job) {
   const unit = await db.getSetting('unit', 'mm');
@@ -110,11 +118,13 @@ export const G = {
 const mm0 = m => Math.round(m * 1000);
 
 // ---------- the camera session ----------
-async function startSession(job, mode, done, k = 1, calLen = 1000) {
-  if (!navigator.xr) return toast('Camera measuring not available here');
+async function startSession(job, mode, done, k = 1, calLen = 1000, quick = null) {
+  let quickVal = null;
+  if (!navigator.xr) { toast('Camera measuring not available here – open the app in Chrome on Android'); if (quick) quick(null); return; }
+  const modeKeys = quick ? QUICK : PICK;
   const overlay = document.createElement('div');
   overlay.className = 'ar-ov';
-  overlay.innerHTML = `<div class="ar-top"><div class="ar-modes" ${mode === 'calib' ? 'hidden' : ''}>${PICK.map(key => `<button data-m="${key}">${MODES[key].icon} ${MODES[key].name}</button>`).join('')}</div><div id="ar-msg">Starting camera…</div></div>
+  overlay.innerHTML = `<div class="ar-top"><div class="ar-modes" ${mode === 'calib' ? 'hidden' : ''}>${modeKeys.map(key => `<button data-m="${key}">${MODES[key].icon} ${MODES[key].name}</button>`).join('')}</div>${quick ? '<div class="ar-q">One size → goes into the box you tapped. Straight runs only.</div>' : ''}<div id="ar-msg">Starting camera…</div></div>
     <div class="ar-mid"><div class="ar-cross"></div><div class="ar-read" id="ar-read"></div><div class="ar-list" id="ar-list"></div></div>
     <div class="ar-bot"><button class="btn ghost" id="ar-undo">↶ Undo</button><button class="btn ar-mark" id="ar-mark">● Mark</button><button class="btn ghost" id="ar-fin" hidden>✔ Finish</button><button class="btn ghost" id="ar-close">✕ Close</button></div>`;
   document.body.appendChild(overlay);
@@ -128,6 +138,7 @@ async function startSession(job, mode, done, k = 1, calLen = 1000) {
     session = await navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay', 'anchors'], domOverlay: { root: overlay } });
   } catch (e) {
     overlay.remove();
+    if (quick) quick(null);
     popup(`<h2>Camera could not start</h2><p class="small">${esc(e.message)}</p><ol class="small"><li>Open the app in <b>Chrome</b> (not Samsung Internet).</li><li>Install / update <b>Google Play Services for AR</b> from the Play Store.</li><li>Chrome ⋮ → Settings → Site settings → Camera → allow this site.</li><li>Try again.</li></ol>`);
     return;
   }
@@ -197,6 +208,7 @@ async function startSession(job, mode, done, k = 1, calLen = 1000) {
   const vibrate = () => { try { navigator.vibrate && navigator.vibrate(25); } catch (e) { } };
 
   async function saveReading(lbl, valueMm, extra = {}) {
+    if (quick) { quickVal = valueMm; results.push({ label: lbl, mm: valueMm }); vibrate(); setTimeout(() => session.end(), 700); return; }
     const r = { id: db.uid(), jobId: job.id, kind: 'ar', rough: true, label: lbl, roughMm: valueMm, mode: cur, confirmedMm: null, createdAt: Date.now(), ...extra };
     await db.put('points', r); results.push({ label: lbl, mm: valueMm }); showList();
   }
@@ -349,5 +361,5 @@ async function startSession(job, mode, done, k = 1, calLen = 1000) {
     if (wasOk !== hitOk) hint();
     renderer.render(scene, camera);
   });
-  session.addEventListener('end', () => { renderer.setAnimationLoop(null); renderer.dispose(); renderer.domElement.remove(); overlay.remove(); if (results.length) toast(`${results.length} reading(s) saved`); done(); });
+  session.addEventListener('end', () => { renderer.setAnimationLoop(null); renderer.dispose(); renderer.domElement.remove(); overlay.remove(); if (quick) { quick(quickVal); return; } if (results.length) toast(`${results.length} reading(s) saved`); done(); });
 }

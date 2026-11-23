@@ -63,7 +63,7 @@ async function work(box, job, file, done, existing) {
   }
   function lineObj() {
     const c = cat(); const unit = normUnit(c.unit);
-    return { cat: c.name, desc: q('#n-desc').value.trim() || c.name, unit, nos: q('#n-nos').value.trim() || '1', length: q('#n-len').value.trim(), breadth: '', width: (c.measure === 'LxH' || c.measure === 'LxW') ? q('#n-h').value.trim() : '' };
+    return { cat: c.name, desc: q('#n-desc').value.trim() || c.name, unit, nos: q('#n-nos').value.trim() || '1', length: q('#n-len').value.trim(), breadth: '', width: (c.measure === 'LxH' || c.measure === 'LxW') ? q('#n-h').value.trim() : '', cam: q('#n-len').dataset.src === 'Camera' || q('#n-h').dataset.src === 'Camera' };
   }
   function calc() {
     const ln = lineObj(); const ch = check({ items: [{ heading: ln.cat, lines: [ln] }] }).lines[0];
@@ -89,7 +89,7 @@ async function work(box, job, file, done, existing) {
   }
   function renderLines() {
     const c = check({ items: [{ heading: 'x', lines: rec.lines }] });
-    q('#n-lines').innerHTML = rec.lines.length ? '<h3>Lines on this photo</h3>' + rec.lines.map((l, i) => `<div class="prow ${c.lines[i].ok ? 'g' : 'r'}"><div><b>${esc(l.cat)}</b><small>${esc(l.desc)} · ${l.nos} × ${esc(l.length || '')}${l.width ? ' × ' + esc(l.width) : ''}</small></div><span class="diff">${c.lines[i].ok ? r2(c.lines[i].A) + ' ' + l.unit : '✘'}</span><button class="link r small" data-del="${i}">✕</button></div>`).join('') : '';
+    q('#n-lines').innerHTML = rec.lines.length ? '<h3>Lines on this photo</h3>' + rec.lines.map((l, i) => `<div class="prow ${c.lines[i].ok ? 'g' : 'r'}"><div><b>${esc(l.cat)}</b><small>${esc(l.desc)}${l.cam ? ' · 📷 camera ±1 cm' : ''} · ${l.nos} × ${esc(l.length || '')}${l.width ? ' × ' + esc(l.width) : ''}</small></div><span class="diff">${c.lines[i].ok ? r2(c.lines[i].A) + ' ' + l.unit : '✘'}</span><button class="link r small" data-del="${i}">✕</button></div>`).join('') : '';
     q('#n-lines').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { const i = Number(b.dataset.del); rec.lines.splice(i, 1); rec.marks = rec.marks.filter(m => m.line !== i).map(m => ({ ...m, line: m.line > i ? m.line - 1 : m.line })); renderLines(); draw(); });
   }
   const toImg = e => { const r = view.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };
@@ -99,7 +99,7 @@ async function work(box, job, file, done, existing) {
     if (!pend) { pend = p; q('#n-step').innerHTML = '<b>Now tap the other end</b> of this size.'; draw(); return; }
     draft = draft || {}; draft[drawing] = { x1: pend[0], y1: pend[1], x2: p[0], y2: p[1] };
     const input = q(drawing === 'len' ? '#n-len' : '#n-h'); pend = null; drawing = null;
-    q('#n-step').innerHTML = 'Line drawn. Now give its size: press the laser, tap 🎤 Say size, or type.';
+    q('#n-step').innerHTML = 'Line drawn. Now give its size: 🎤 Say, ⌨ Type, 📷 Camera (straight runs) or press the laser.';
     draw(); input.focus();
   });
   box.querySelectorAll('[data-draw]').forEach(b => b.onclick = () => { drawing = b.dataset.draw; pend = null; q('#n-step').innerHTML = `<b>Tap one end</b> of the ${drawing === 'len' ? q('#n-l-lbl').textContent.toLowerCase() : q('#n-h-lbl').textContent.toLowerCase()} on the photo.`; view.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
@@ -112,9 +112,11 @@ async function work(box, job, file, done, existing) {
     const i = rec.lines.length; rec.lines.push(ln);
     const minus = Number(ln.nos) < 0;
     const shown = t => { const z = sheetSize(t); return z.ok && !z.empty && z.kind !== 'ftin' ? `${z.cellValue} ${z.kind}` : t; };
-    if (draft && draft.len) rec.marks.push({ ...draft.len, text: shown(ln.length), line: i, minus });
-    if (draft && draft.h) rec.marks.push({ ...draft.h, text: shown(ln.width), line: i, minus });
-    draft = null; q('#n-len').value = ''; q('#n-h').value = ''; q('#n-nos').value = '1'; q('#n-desc').value = '';
+    const camL = q('#n-len').dataset.src === 'Camera', camH = q('#n-h').dataset.src === 'Camera';
+    if (draft && draft.len) rec.marks.push({ ...draft.len, text: (camL ? '≈ ' : '') + shown(ln.length), line: i, minus });
+    if (draft && draft.h) rec.marks.push({ ...draft.h, text: (camH ? '≈ ' : '') + shown(ln.width), line: i, minus });
+    draft = null;
+    for (const id of ['#n-len', '#n-h']) { const x = q(id); x.value = ''; delete x.dataset.src; x.classList.remove('cam-src'); } q('#n-nos').value = '1'; q('#n-desc').value = '';
     renderLines(); draw(); calc(); toast('Line added');
   };
   async function save() {
@@ -132,7 +134,7 @@ async function work(box, job, file, done, existing) {
     for (const ln of rec.lines) {
       let it = sh.items.find(x => x.heading === ln.cat);
       if (!it) { it = { id: db.uid(), no: String(sh.items.length + 1), heading: ln.cat, lines: [] }; sh.items.push(it); }
-      it.lines.push({ id: db.uid(), desc: ln.desc, unit: ln.unit, nos: ln.nos, length: ln.length, breadth: '', width: ln.width, siteNote: `Photo: ${rec.label}` });
+      it.lines.push({ id: db.uid(), desc: ln.desc, unit: ln.unit, nos: ln.nos, length: ln.length, breadth: '', width: ln.width, siteNote: `Photo: ${rec.label}${ln.cam ? ' · camera size ±1 cm – check' : ''}` });
     }
     rec.sent = true; await db.put('points', rec); await db.put('sheets', sh);
     toast(`${rec.lines.length} line(s) added to the measurement sheet`); done();

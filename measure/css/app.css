@@ -110,7 +110,12 @@ details summary{cursor:pointer;font-weight:600}
 .opt.best{border:2px solid var(--g);background:#eefaf1}
 .count-ask{font-size:17px;text-align:center;margin:4px 0 10px}
 .laser-b{opacity:.55;font-size:18px}.laser-b.on{opacity:1;background:#1a9e4a;border-radius:8px}
-.mic-chip{position:fixed;right:10px;top:calc(64px + env(safe-area-inset-top));z-index:55;background:#d92d20;color:#fff;border:0;border-radius:22px;padding:10px 14px;font:700 15px system-ui;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.size-bar{position:fixed;right:8px;top:calc(62px + env(safe-area-inset-top));z-index:55;display:flex;gap:6px}
+.size-bar[hidden]{display:none}
+.size-bar button{border:0;border-radius:22px;padding:10px 13px;font:700 15px system-ui;color:#fff;background:#0f5c6e;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.size-bar [data-b=say]{background:#d92d20}.size-bar [data-b=cam]{background:#1a7f37}
+input.cam-src{border-color:#e8a200;background:#fff8e1}
+.ar-q{font:600 13px system-ui;color:#ffd400;margin:4px 0}
 input.filled{background:#e5f7ea;border-color:var(--g);transition:background .3s}
 .lgrid.w3n{grid-template-columns:.6fr 1.5fr 1.5fr;align-items:end}
 .inl{display:flex;gap:4px;align-items:center}.inl input{margin:0}.inl .icon{background:#ffd400;border-radius:8px;padding:6px 9px}

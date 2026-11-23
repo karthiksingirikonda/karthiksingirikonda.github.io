@@ -1,6 +1,7 @@
 // Bluetooth laser meter (Bosch GLM …C / CG, Leica DISTO) + voice entry for sizes.
 // A reading goes straight into the size box you last tapped. Two readings of the same size are compared (two-way check).
 import { toast } from './util.js';
+import { measureQuick } from './ar.js';
 
 const BOSCH_SVC = '02a6c0d0-0451-4000-b000-fb3210111989';
 const BOSCH_CHR = '02a6c0d1-0451-4000-b000-fb3210111989';
@@ -30,10 +31,17 @@ document.addEventListener('focusin', e => { if (isSizeInput(e.target)) { lastInp
 export function fillSize(text, from) {
   const el = lastInput && document.body.contains(lastInput) ? lastInput : null;
   if (!el) { toast(`${from}: ${text} – tap a size box first`, 3500); return false; }
-  el.value = text; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true }));
+  el.value = text; el.dataset.src = from; el.classList.toggle('cam-src', from === 'Camera');
+  el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true }));
   el.classList.add('filled'); setTimeout(() => el.classList.remove('filled'), 900);
+  if (from === 'Camera') { // sheet line: note that this size came from the camera
+    const ln = el.closest('.line'), sn = ln && ln.querySelector('[data-lf="siteNote"]');
+    if (sn && !/camera/i.test(sn.value)) { sn.value = (sn.value ? sn.value + ' · ' : '') + 'camera size ±1 cm – check'; sn.dispatchEvent(new Event('input', { bubbles: true })); }
+  }
   return true;
 }
+// typing by hand over a laser/voice/camera size: it is now a typed size
+document.addEventListener('input', e => { if (e.isTrusted && e.target.dataset && e.target.dataset.src) { delete e.target.dataset.src; e.target.classList.remove('cam-src'); } });
 
 // ---- laser ----
 export const laserSupported = () => !!navigator.bluetooth;
@@ -110,16 +118,32 @@ export function spokenToSize(said) {
   m = s.match(/(\d+(?:\.\d+)?)/); if (m) return `${Number(m[1])} mm`;
   return null;
 }
-let mic = null;
+// ---- size bar: shows above the keyboard when a size box is tapped ----
+let bar = null, mic = null, barFor = null;
 function showMic(el) {
-  if (!SR) return;
-  if (!mic) {
-    mic = document.createElement('button'); mic.className = 'mic-chip'; mic.type = 'button'; mic.textContent = '🎤 Say size';
-    mic.addEventListener('pointerdown', e => e.preventDefault()); // keep the box focused
-    mic.onclick = listen; document.body.appendChild(mic);
-    document.addEventListener('focusout', () => setTimeout(() => { if (!isSizeInput(document.activeElement) && mic) mic.hidden = true; }, 200));
+  barFor = el;
+  if (!bar) {
+    bar = document.createElement('div'); bar.className = 'size-bar';
+    bar.innerHTML = `${SR ? '<button type="button" data-b="say">🎤 Say</button>' : ''}<button type="button" data-b="type">⌨ Type</button>${navigator.xr ? '<button type="button" data-b="cam">📷 Camera</button>' : ''}`;
+    bar.addEventListener('pointerdown', e => e.preventDefault()); // keep the box focused
+    mic = bar.querySelector('[data-b="say"]');
+    if (mic) mic.onclick = listen;
+    bar.querySelector('[data-b="type"]').onclick = () => { const t = barFor; if (t) { t.focus(); try { t.select(); } catch (e) { } } };
+    const cam = bar.querySelector('[data-b="cam"]');
+    if (cam) cam.onclick = async () => {
+      const target = barFor && document.body.contains(barFor) ? barFor : null;
+      if (!target) return toast('Tap a size box first');
+      bar.hidden = true;
+      const mm = await measureQuick();
+      if (mm == null) return;
+      lastInput = target;
+      fillSize(`${mm} mm`, 'Camera');
+      toast(`Camera: ${mm} mm (±1 cm) – filled`, 3500);
+    };
+    document.body.appendChild(bar);
+    document.addEventListener('focusout', () => setTimeout(() => { if (!isSizeInput(document.activeElement) && bar) bar.hidden = true; }, 200));
   }
-  mic.hidden = false;
+  bar.hidden = false;
 }
 function listen() {
   const r = new SR(); r.lang = 'en-IN'; r.interimResults = false; r.maxAlternatives = 3;
@@ -130,6 +154,6 @@ function listen() {
     if (size) { fillSize(size, 'Voice'); toast(`Heard "${alts[0]}" → ${size}`, 3000); } else toast(`Heard "${alts[0]}" – say it like "twelve feet four" or "two thousand four hundred mm"`, 4000);
   };
   r.onerror = e => toast('Voice: ' + e.error);
-  r.onend = () => { mic.textContent = '🎤 Say size'; };
+  r.onend = () => { mic.textContent = '🎤 Say'; };
   r.start();
 }
