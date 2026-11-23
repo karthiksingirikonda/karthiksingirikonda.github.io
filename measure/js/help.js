@@ -77,11 +77,20 @@ export const SCREEN_HELP = {
       ['Undo', 'Removes the last mark.'],
     ],
   },
+  photo: {
+    title: 'Size from photo',
+    body: [
+      ['Corners', 'Tap the 4 corners of the opening: top-left, top-right, bottom-right, bottom-left. Drag any corner to fine-tune.'],
+      ['Known size', 'Best: a board/tile on the same wall – tap its 4 corners and type its size. Or type one side of the opening (from tape/camera); the other side is worked out from the photo angle (±3–5%).'],
+      ['Shutter', 'Type the no. of panels (or panel width) and folded thickness – you get panel size, folded stack and clear opening.'],
+      ['Sheet', 'Add to sheet puts the opening as a Sqft line in the measurement sheet.'],
+    ],
+  },
   count: {
     title: 'Count from photo',
     body: [
       ['Photo', 'Stand straight in front, all items in the picture, good light. Items must look about the same size.'],
-      ['Sample', 'Drag a box round ONE item with your finger. The app marks every similar item and shows the count.'],
+      ['Tap one', 'Tap ONE of the things you want counted. The app works out how: loose items, layers/slats, or same-looking items.'],
       ['Fix', 'Tap a wrong mark to remove it, tap a missed item to add it. Strictness slider: lower finds more.'],
       ['Bricks', 'Type wall length/height and brick size to cross-check the count by area.'],
       ['Save', 'Saves the count and the marked photo into the job (and its Drive folder).'],
@@ -148,7 +157,8 @@ export const TIPS = {
   sheet: 'Each line is checked 3 ways. A ✘ means something to fix – tap it to see why.',
   plan: 'Rectangle room? Just type L, W, H. Odd shape? Use Wall by wall.',
   ar: 'Pick a mode. Start on the floor – Height and On wall need no ring on the wall.',
-  count: 'Drag a box round ONE item – the app counts the rest.',
+  count: 'Take the photo, then tap ONE of the things you want counted.',
+  photo: 'Tap the 4 corners of the opening, then give one known size.',
   compare: 'Red rows are mismatches. Tap Mismatch report to make the PDF and Excel.',
 };
 export async function tipHtml(key) {

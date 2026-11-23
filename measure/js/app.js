@@ -9,6 +9,7 @@ import { renderSheet } from './ui-sheet.js';
 import { renderPlan } from './ui-plan.js';
 import { renderAR } from './ar.js';
 import { renderCount } from './ui-count.js';
+import { renderPhoto } from './ui-photo.js';
 
 const view = document.getElementById('view');
 const titleEl = document.getElementById('title');
@@ -102,7 +103,8 @@ function newJob(after) {
 async function quickMeasure() {
   const opts = [
     ['ar', '📷 Measure with camera', 'Length, height, on wall, full room, pillar (rough ±1–2 cm).'],
-    ['count', '🔢 Count from photo', 'Bricks, pillars, tiles, lights – photo + tap one item.'],
+    ['count', '🔢 Count from photo', 'Screws, boards, slats, bricks – photo + tap one.'],
+    ['photo', '📐 Size from photo', 'Shutter / opening width, height, sqft, panels.'],
     ['drawings', '📄 Check a size against the drawing', 'Upload / open the drawing, tap the size, type the tape reading.'],
     ['plan', '🏠 Room sizes (type by hand)', 'Type L × W × H or wall by wall, photo per wall, areas worked out.'],
     ['sheet', '🧾 Measurement sheet for billing', 'Pune format with the 3-way check.'],
@@ -121,7 +123,7 @@ async function quickMeasure() {
 }
 
 // ---------- One job ----------
-const TABS = [['ar', '📷 Measure with camera', 'ar'], ['count', '🔢 Count from photo', 'count'], ['drawings', '📄 Drawing check', 'job'], ['compare', '⚖ Drawing vs Site', 'compare'], ['sheet', '🧾 Measurement sheet', 'sheet'], ['plan', '🏠 Room sizes (type)', 'plan']];
+const TABS = [['ar', '📷 Measure with camera', 'ar'], ['count', '🔢 Count from photo', 'count'], ['photo', '📐 Size from photo', 'photo'], ['drawings', '📄 Drawing check', 'job'], ['compare', '⚖ Drawing vs Site', 'compare'], ['sheet', '🧾 Measurement sheet', 'sheet'], ['plan', '🏠 Room sizes (type)', 'plan']];
 async function jobScreen(jobId, tab) {
   tab = tab || 'ar';
   const job = await db.get('jobs', jobId);
@@ -139,6 +141,7 @@ async function jobScreen(jobId, tab) {
   else if (tab === 'plan') await renderPlan(el, job);
   else if (tab === 'ar') await renderAR(el, job);
   else if (tab === 'count') await renderCount(el, job);
+  else if (tab === 'photo') await renderPhoto(el, job);
   else await renderDrawings(el, job);
   view.querySelector('#j-del').onclick = async () => {
     if (await confirmBox(`Delete job "${esc(job.name)}" and everything in it from the app? (Files already in Drive stay there.)`, 'Delete')) { await db.deleteJob(jobId); location.hash = '#/'; }
@@ -189,6 +192,17 @@ async function settingsScreen() {
 }
 
 // ---------- start ----------
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+// updates: a new version loads by itself – just close and open the app (no clearing needed)
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.update();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update(); });
+  });
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded) return; reloaded = true;
+    if (!document.querySelector('.sheet-wrap,.busy,.ar-ov')) location.reload();
+  });
+}
 cloud.init().catch(e => console.warn(e));
 route();

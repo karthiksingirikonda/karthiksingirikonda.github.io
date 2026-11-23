@@ -73,7 +73,7 @@ export async function renderCount(el, job) {
   el.querySelector('#c-cam').onchange = onFile; el.querySelector('#c-gal').onchange = onFile;
 }
 
-async function similarWork(box, job, img, done) {
+async function similarWork(box, job, img, done, preset) {
   const sc = Math.min(1, WORK_W / img.naturalWidth);
   const w = Math.round(img.naturalWidth * sc), h = Math.round(img.naturalHeight * sc);
   const work = document.createElement('canvas'); work.width = w; work.height = h;
@@ -91,7 +91,7 @@ async function similarWork(box, job, img, done) {
         <div class="lgrid"><label>Wall length mm<input id="b-l" inputmode="numeric"></label><label>Wall height mm<input id="b-h" inputmode="numeric"></label><label>Brick L mm<input id="b-bl" value="230" inputmode="numeric"></label><label>Brick H mm<input id="b-bh" value="75" inputmode="numeric"></label></div>
         <label>Joint mm<input id="b-j" value="10" inputmode="numeric"></label><p id="b-out" class="small"></p></details>
       <label>Name<input id="c-name" placeholder="e.g. Bricks – front wall, Pillars – ground floor"></label>
-      <div class="row"><button class="btn ghost" id="c-back">← Other way</button><button class="btn ghost" id="c-redo">↶ New box</button><button class="btn" id="c-save">💾 Save count</button></div>
+      <div class="row"><button class="btn ghost" id="c-back">↶ Tap something else</button><button class="btn ghost" id="c-redo">↶ New box</button><button class="btn" id="c-save">💾 Save count</button></div>
     </div></div>`;
   const view = box.querySelector('#c-view'), vctx = view.getContext('2d');
   view.width = w; view.height = h;
@@ -133,7 +133,18 @@ async function similarWork(box, job, img, done) {
     if (!sample) {
       if (bw < 6 || bh < 6) { toast('Drag a box round one item'); draw(); return; }
       if (bw * bh > w * h * 0.25) { toast('Box too big – draw round ONE item only'); draw(); return; }
-      sample = { x: Math.round(Math.min(s0.x, p.x)), y: Math.round(Math.min(s0.y, p.y)), w: Math.round(bw), h: Math.round(bh) };
+      await useSample({ x: Math.round(Math.min(s0.x, p.x)), y: Math.round(Math.min(s0.y, p.y)), w: Math.round(bw), h: Math.round(bh) });
+      return;
+    }
+    // tap: remove a mark or add one
+    if (bw > 10 || bh > 10) return;
+    const rr = Math.max(8, Math.min(sample.w, sample.h) / 2);
+    const i = marks.findIndex(m => Math.hypot(m.x - p.x, m.y - p.y) < rr);
+    if (i >= 0) marks.splice(i, 1); else marks.push({ x: p.x, y: p.y, added: true });
+    draw(); brick();
+  });
+  async function useSample(sm0) {
+      sample = sm0;
       // keep the sample small for speed (shrink picture work if needed)
       const b = busy('Finding similar items…');
       await new Promise(r => setTimeout(r, 30));
@@ -148,23 +159,16 @@ async function similarWork(box, job, img, done) {
       for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) T[y * tw + x] = sgray[(ty0 + y) * sw + tx0 + x];
       map = matchMap(sgray, sw, sh, T, tw, th); map.tw = tw; map.th = th;
       b.done();
-      q('#c-tools').hidden = false; q('#c-step').innerHTML = '<b>Step 2:</b> Check the marks. Tap to remove wrong ones / add missed ones.';
+      q('#c-tools').hidden = false; q('#c-step').innerHTML = '<b>Check the marks.</b> Tap a wrong mark to remove it, tap a missed one to add it. Not this item? Drag a new box (↶ New box).';
       find();
-      return;
-    }
-    // tap: remove a mark or add one
-    if (bw > 10 || bh > 10) return;
-    const rr = Math.max(8, Math.min(sample.w, sample.h) / 2);
-    const i = marks.findIndex(m => Math.hypot(m.x - p.x, m.y - p.y) < rr);
-    if (i >= 0) marks.splice(i, 1); else marks.push({ x: p.x, y: p.y, added: true });
-    draw(); brick();
-  });
+  }
   q('#c-thr').oninput = e => { thr = Number(e.target.value) / 100; q('#c-tv').textContent = e.target.value; if (map) find(); };
   ['#b-l', '#b-h', '#b-bl', '#b-bh', '#b-j'].forEach(id => q(id).oninput = brick);
   q('#c-redo').onclick = () => { sample = null; marks = []; map = null; q('#c-tools').hidden = true; q('#c-step').innerHTML = '<b>Step 1:</b> Draw a box round ONE item with your finger.'; draw(); };
-  q('#c-back').onclick = () => chooser(box, job, img, done);
+  q('#c-back').onclick = () => tapFlow(box, job, img, done);
   q('#c-save').onclick = () => saveCount(job, view, q('#c-name').value, marks.length, { estimate, method: 'similar' }, done);
   draw();
+  if (preset) await useSample({ x: Math.round(preset.x * w), y: Math.round(preset.y * h), w: Math.max(6, Math.round(preset.w * w)), h: Math.max(6, Math.round(preset.h * h)) });
 }
 
 // ---------- shared ----------
@@ -189,30 +193,77 @@ const grayOf = c => toGray(c.getContext('2d').getImageData(0, 0, c.width, c.heig
 async function countWork(box, job, file, done) {
   const img = new Image(); img.src = URL.createObjectURL(file);
   await new Promise((r, j) => { img.onload = r; img.onerror = j; });
-  chooser(box, job, img, done);
+  tapFlow(box, job, img, done);
 }
 
-// ---------- step 1: which way to count (best one highlighted) ----------
-function chooser(box, job, img, done) {
-  const c = scaled(img, LINE_W), g = grayOf(c);
-  const lay = bestLayers(g, c.width, c.height);
-  const small = scaled(img, 700), sg = grayOf(small);
-  const loose = looseAnalyse(sg, small.width, small.height, 0);
-  let best = 'similar';
-  const looseOk = loose.items >= 5 && loose.estimate <= 1500 && loose.estimate < loose.items * 2 && loose.cv < 0.5 && loose.fgShare < 0.45;
-  if (looseOk) best = 'loose';
-  else if (lay && lay.strength > 0.25 && lay.count >= 4) best = 'layers';
-  const opt = (k, icon, title, desc) => `<button class="opt ${k === best ? 'best' : ''}" data-way="${k}"><b>${icon} ${title}${k === best ? ' – suggested' : ''}</b><span>${desc}</span></button>`;
-  box.innerHTML = `<div class="card"><img class="photo" src="${img.src}" alt=""><p><b>What do you want to count?</b></p>
-    ${opt('loose', '🔩', 'Loose items', `Screws, nuts, seeds spread on a sheet${loose.items ? ` – about ${loose.estimate} seen` : ''}`)}
-    ${opt('layers', '☰', 'Stack / layers', `Boards, ply, laminates, bags, shutter slats, grill rods${lay ? ` – about ${lay.count} ${lay.dir === 'v' ? 'layers' : 'bars'} seen` : ''}`)}
-    ${opt('similar', '▢', 'Same item spread around', 'Butterflies, lights, pillars – box one, the app counts the rest')}</div>`;
-  box.querySelectorAll('[data-way]').forEach(b => b.onclick = () => {
-    const k = b.dataset.way;
-    if (k === 'loose') looseWork(box, job, img, done);
-    else if (k === 'layers') layersWork(box, job, img, done, lay);
-    else similarWork(box, job, img, done);
+// ---------- one flow: photo → tap the thing → the app decides how to count ----------
+function tapFlow(box, job, img, done) {
+  box.innerHTML = `<div class="card"><p class="count-ask">👆 <b>What do you want to count?</b><br>Tap ONE of them on the photo.</p>
+    <div class="count-stage"><canvas id="t-view"></canvas></div></div>`;
+  const c = scaled(img, 1000), view = box.querySelector('#t-view');
+  view.width = c.width; view.height = c.height; view.getContext('2d').drawImage(c, 0, 0);
+  view.addEventListener('click', async e => {
+    const r = view.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+    const b = busy('Looking at what you tapped…'); await new Promise(z => setTimeout(z, 30));
+    let d; try { d = decide(img, fx, fy); } finally { b.done(); }
+    if (d.way === 'ask') return askWhich(box, job, img, done, d, [fx, fy]);
+    if (d.way === 'loose') looseWork(box, job, img, done, [fx, fy], d.invert);
+    else if (d.way === 'layers') layersWork(box, job, img, done, d.sug);
+    else similarWork(box, job, img, done, d.box);
   });
+}
+// two ways fit the tap (e.g. shutter: glass pieces or slats) → ask which
+function askWhich(box, job, img, done, d, tap) {
+  const [lo, la] = d.options;
+  box.innerHTML = `<div class="card"><p class="count-ask"><b>Which do you want to count?</b></p>
+    <button class="opt best" id="w-la"><b>☰ ${la.count} ${la.sug.dir === 'v' ? 'layers / slats (top to bottom)' : 'bars / rods (left to right)'}</b><span>Rows that repeat, like shutter slats, board edges, grill rods</span></button>
+    <button class="opt" id="w-lo"><b>🔩 ${lo.count} separate pieces</b><span>Each separate piece like the one you tapped (panes, screws, bricks)</span></button>
+    <button class="link" id="w-back">↶ Tap something else</button></div>`;
+  box.querySelector('#w-la').onclick = () => layersWork(box, job, img, done, la.sug);
+  box.querySelector('#w-lo').onclick = () => looseWork(box, job, img, done, tap, lo.invert);
+  box.querySelector('#w-back').onclick = () => tapFlow(box, job, img, done);
+}
+// decide from the tap: loose items, layers, or same-looking items
+export function decide(img, fx, fy) {
+  // 1. loose items on a plain background
+  const sm = scaled(img, 700), sg = grayOf(sm), W = sm.width, H = sm.height;
+  let cp = null, looseC = null;
+  for (const inv of [false, true]) {
+    const an = looseAnalyse(sg, W, H, 0, inv);
+    const id = an.lab[Math.round(fy * H) * W + Math.round(fx * W)];
+    const k0 = id ? an.comps.find(k => k.id === id) : null;
+    if (!k0) continue;
+    if (!cp) cp = k0;
+    if (k0.area < W * H * 0.08) {
+      const alike = an.comps.filter(k => k.area > k0.area * 0.5 && k.area < k0.area * 2).length;
+      if (alike >= 4 && (inv || an.fgShare < 0.45)) { looseC = { way: 'loose', invert: inv, count: looseCount(an.comps, k0.area) }; break; }
+    }
+  }
+  // 2. layers through the tapped point (try both directions, keep the clearer one)
+  const c = scaled(img, LINE_W), g = grayOf(c), w = c.width, h = c.height, x = fx * w, y = fy * h;
+  let best = null;
+  for (const dir of ['v', 'h']) {
+    const L = dir === 'v' ? [x, 0, x, h - 1] : [0, y, w - 1, y];
+    const prof = detrend(lineProfile(g, w, h, ...L));
+    const per = periodOf(prof); if (!per) continue;
+    const ends = autoEnds(prof, per.p); if (!ends) continue;
+    const at = dir === 'v' ? y : x;
+    if (at < ends[0] - per.p || at > ends[1] + per.p) continue; // the tap must be inside the layers
+    const count = Math.round((ends[1] - ends[0]) / per.p) + 1;
+    if (count < 4) continue;
+    const f = t => dir === 'v' ? [x, t] : [t, y];
+    const score = per.strength * Math.min(1, count / 8);
+    if (!best || score > best.score) best = { score, strength: per.strength, count, sug: { a: f(ends[0]), b: f(ends[1]), dir } };
+  }
+  const layC = best && best.strength > 0.25 ? { way: 'layers', sug: best.sug, count: best.count } : null;
+  if (looseC && layC) return { way: 'ask', options: [looseC, layC] };
+  if (looseC) return looseC;
+  if (layC) return layC;
+  // 3. same-looking items: use the tapped thing's outline (or a small square) as the sample
+  let bx;
+  if (cp && cp.area < W * H * 0.05) bx = { x: cp.minx / W, y: cp.miny / H, w: (cp.maxx - cp.minx + 1) / W, h: (cp.maxy - cp.miny + 1) / H };
+  else { const s = 0.07; bx = { x: Math.max(0, fx - s / 2), y: Math.max(0, fy - s * W / H / 2), w: s, h: s * W / H }; }
+  return { way: 'similar', box: bx };
 }
 
 // ---------- LAYERS: count along a line ----------
@@ -318,14 +369,14 @@ function layersWork(box, job, img, done, sug) {
   const c = scaled(img, LINE_W), w = c.width, h = c.height, g = grayOf(c);
   let A = sug ? sug.a.slice() : [w * 0.5, h * 0.2], B = sug ? sug.b.slice() : [w * 0.5, h * 0.8];
   let marks = [], drag = null, extra = 0;
-  box.innerHTML = `<div class="card"><p><b>☰ Stack / layers</b> – drag the two round ends so the line goes from the FIRST layer to the LAST layer, across all of them.</p>
+  box.innerHTML = `<div class="card"><p><b>Counted as layers.</b> Check the blue line goes from the FIRST layer to the LAST – drag its round ends if not. One yellow tick = one layer.</p>
     <div class="count-stage"><canvas id="l-view"></canvas></div>
     <div class="count-big"><span id="l-n">0</span> layers</div>
     <label class="small">Layer spacing <input type="range" id="l-sp" min="4" max="160" value="20"> <span class="muted">slide until each yellow tick sits on one layer</span></label>
     <div class="row"><button class="btn ghost sm" id="l-minus">− 1</button><button class="btn ghost sm" id="l-plus">+ 1</button><span class="small muted">if the count is off by one at an end</span></div>
     <p class="small muted">Tip: the line must cross every layer (tilt it with the layers if the photo is at an angle). Each yellow tick is one layer.</p>
     <label>Name<input id="l-name" placeholder="e.g. Gypsum boards – load 1"></label>
-    <div class="row"><button class="btn ghost" id="l-back">← Other way</button><button class="btn" id="l-save">💾 Save count</button></div></div>`;
+    <div class="row"><button class="btn ghost" id="l-back">↶ Tap something else</button><button class="btn" id="l-save">💾 Save count</button></div></div>`;
   const view = box.querySelector('#l-view'), v = view.getContext('2d'); view.width = w; view.height = h;
   const q = id => box.querySelector(id);
   let sm = null, sp = null;
@@ -353,7 +404,7 @@ function layersWork(box, job, img, done, sug) {
   q('#l-sp').oninput = e => { sp = Number(e.target.value); extra = 0; marks = gridMarks(sm, 0, sm.length - 1, sp); draw(); };
   q('#l-minus').onclick = () => { extra--; draw(); };
   q('#l-plus').onclick = () => { extra++; draw(); };
-  q('#l-back').onclick = () => chooser(box, job, img, done);
+  q('#l-back').onclick = () => tapFlow(box, job, img, done);
   q('#l-save').onclick = () => saveCount(job, view, q('#l-name').value, Math.max(0, marks.length + extra), { method: 'layers' }, done);
   compute();
 }
@@ -367,10 +418,10 @@ export function otsu(g) {
   return t;
 }
 // mask: 1 = item. Items are the smaller share (background is the big plain area).
-export function itemMask(g, w, h, shift = 0) {
+export function itemMask(g, w, h, shift = 0, invert = false) {
   const t = otsu(g) + shift;
   let dark = 0; for (let i = 0; i < g.length; i++) if (g[i] < t) dark++;
-  const itemsDark = dark < g.length / 2;
+  const itemsDark = (dark < g.length / 2) !== invert;
   const m = new Uint8Array(w * h);
   for (let i = 0; i < g.length; i++) m[i] = itemsDark ? (g[i] < t ? 1 : 0) : (g[i] > t ? 1 : 0);
   // open: remove specks
@@ -404,8 +455,8 @@ export function looseCount(comps, unit) {
   for (const c of comps) { c.n = c.area < unit * 0.35 ? 0 : Math.max(1, Math.round(c.area / unit)); total += c.n; }
   return total;
 }
-function looseAnalyse(g, w, h, shift) {
-  const m = itemMask(g, w, h, shift);
+function looseAnalyse(g, w, h, shift, invert = false) {
+  const m = itemMask(g, w, h, shift, invert);
   let fg = 0; for (let i = 0; i < m.length; i++) fg += m[i];
   const { comps, lab } = components(m, w, h);
   const minA = w * h * 0.00005;
@@ -416,19 +467,21 @@ function looseAnalyse(g, w, h, shift) {
   const mean = singles.reduce((s, a) => s + a, 0) / (singles.length || 1);
   const cv = singles.length ? Math.sqrt(singles.reduce((s, a) => s + (a - mean) ** 2, 0) / singles.length) / mean : 9;
   const estimate = looseCount(real, unit);
-  return { comps: real, lab, unit, items: real.length, cv, estimate, fgShare: fg / (w * h) };
+  return { comps: real, lab, unit, items: real.length, cv, estimate, fgShare: fg / (w * h), invert };
 }
 
-function looseWork(box, job, img, done) {
+function looseWork(box, job, img, done, tap, invert = false) {
   const c = scaled(img, 1000), w = c.width, h = c.height, g = grayOf(c);
-  let shift = 0, an = looseAnalyse(g, w, h, shift), unit = an.unit, manual = [];
-  box.innerHTML = `<div class="card"><p><b>🔩 Loose items</b> – tap ONE single item (not a touching pair). The app uses its size to count all, including ones touching each other.</p>
+  let shift = 0, an = looseAnalyse(g, w, h, shift, invert), unit = an.unit, manual = [];
+  let picked = false;
+  if (tap) { const id = an.lab[Math.round(tap[1] * h) * w + Math.round(tap[0] * w)]; const cp = id && an.comps.find(k => k.id === id); if (cp) { unit = cp.area; picked = true; } }
+  box.innerHTML = `<div class="card"><p><b>Counted as loose items.</b> Red = one item, blue ×N = touching items counted by size. Tap a mark to change it, tap an empty spot to add one.</p>
     <div class="count-stage"><canvas id="o-view"></canvas></div>
     <div class="count-big"><span id="o-n">0</span> items</div>
     <label class="small">Separation <input type="range" id="o-sh" min="-40" max="40" value="0"> <span class="muted">move if items are missed or the floor is counted</span></label>
     <p class="small muted">Red = one item. Blue with ×N = touching items counted by size. Tap a mark to change it; tap an empty spot to add one.</p>
     <label>Name<input id="o-name" placeholder="e.g. 3 mm screws – box 1"></label>
-    <div class="row"><button class="btn ghost" id="o-back">← Other way</button><button class="btn" id="o-save">💾 Save count</button></div></div>`;
+    <div class="row"><button class="btn ghost" id="o-back">↶ Tap something else</button><button class="btn" id="o-save">💾 Save count</button></div></div>`;
   const view = box.querySelector('#o-view'), v = view.getContext('2d'); view.width = w; view.height = h;
   const q = id => box.querySelector(id);
   const total = () => an.comps.reduce((s, k) => s + (k.n || 0), 0) + manual.length;
@@ -446,7 +499,6 @@ function looseWork(box, job, img, done) {
     q('#o-n').textContent = total();
   }
   const toImg = e => { const r = view.getBoundingClientRect(); return [(e.clientX - r.left) * w / r.width, (e.clientY - r.top) * h / r.height]; };
-  let picked = false;
   view.addEventListener('click', e => {
     const [x, y] = toImg(e);
     const id = an.lab[Math.round(y) * w + Math.round(x)];
@@ -457,8 +509,8 @@ function looseWork(box, job, img, done) {
       const s = popupCount(cp.n, n => { cp.n = n; draw(); }); void s;
     } else { manual.push([x, y]); draw(); }
   });
-  q('#o-sh').oninput = e => { shift = Number(e.target.value); an = looseAnalyse(g, w, h, shift); looseCount(an.comps, unit); draw(); };
-  q('#o-back').onclick = () => chooser(box, job, img, done);
+  q('#o-sh').oninput = e => { shift = Number(e.target.value); an = looseAnalyse(g, w, h, shift, invert); looseCount(an.comps, unit); draw(); };
+  q('#o-back').onclick = () => tapFlow(box, job, img, done);
   q('#o-save').onclick = () => saveCount(job, view, q('#o-name').value, total(), { method: 'loose' }, done);
   looseCount(an.comps, unit); draw();
 }
