@@ -84,7 +84,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v74 · Mon 23/11 8:10 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v75 · Mon 23/11 8:05 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -1762,12 +1762,12 @@ function rtStep(){const s=RT.steps[RT.i];if(!s)return rtEnd();
   if(s.hint)[30,20,10].forEach(x=>{if(left===x&&!said[x]){said[x]=1;Voice.speak(x+' seconds left!','en')}});
   if(s.count){const el=Date.now()-t0;if(el<s.intro*1000){$('#rtCount').textContent='Get ready…'}else{const k=Math.min(s.count,Math.floor((el-s.intro*1000)/(s.beat*1000))+1);$('#rtCount').textContent=k+' / '+s.count;if(k>cnt){cnt=k;cntSay(k);$('#rtStep').textContent='Step '+(RT.i+1)+' of '+RT.steps.length+' · '+mmss(left)+' left'}}}
   if(left<=0){clearInterval(RT.timer);RT.i++;if(RT.name==='exercise')rtBell();else rtStep()}},250)}
-/* W36 – coach whistle at the end of each exercise; rings until Continue is tapped (Mon 23/11/26) */
+/* W36 – school bell (ding-dong) at the end of each exercise; rings until Continue is tapped (Mon 23/11/26) */
 let WH={ctx:null,t:null};
 function whistleUnlock(){try{if(!WH.ctx)WH.ctx=new (window.AudioContext||window.webkitAudioContext)();if(WH.ctx.state==='suspended')WH.ctx.resume()}catch(e){}}
-function whistleTone(at){const c=WH.ctx,o=c.createOscillator(),g=c.createGain(),t=c.currentTime+at;o.type='triangle';o.frequency.setValueAtTime(2200,t);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.25);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+0.3)}
-function whistleOnce(){try{whistleUnlock();whistleTone(0);whistleTone(0.35)}catch(e){}}
-function whistleStart(){whistleStop();whistleOnce();WH.t=setInterval(whistleOnce,1400)}
+function whistleTone(at,f){const c=WH.ctx,o=c.createOscillator(),g=c.createGain(),t=c.currentTime+at;o.type='sine';o.frequency.setValueAtTime(f,t);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.6,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.9);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+0.95)}
+function whistleOnce(){try{whistleUnlock();whistleTone(0,880);whistleTone(0.5,660)}catch(e){}}
+function whistleStart(){whistleStop();whistleOnce();WH.t=setInterval(whistleOnce,1100)}
 function whistleStop(){clearInterval(WH.t);WH.t=null}
 function rtBell(){const last=!RT.steps[RT.i];const nx=RT.steps[RT.i];try{Voice.stop()}catch(e){}
  $('#rtCount').textContent='⏸';$('#rtTitle').textContent=last?'All done!':'Next: '+nx.title;$('#rtText').textContent=last?'Tap Continue to finish.':'Tap Continue when you are ready.';if(!last)$('#rtPic').innerHTML=picSvg(nx.pic);
