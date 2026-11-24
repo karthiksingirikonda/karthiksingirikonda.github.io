@@ -28,7 +28,7 @@ button,.btn{min-height:48px;border-radius:14px;border:none;font:inherit;font-wei
 .tag{font-size:12px;font-weight:800;border-radius:8px;padding:3px 8px}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.kgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}.kt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;border-radius:22px;min-height:104px;font-size:17px;font-weight:800;color:#1F2A44;box-shadow:0 2px 8px #0001}.kt span{font-size:40px;line-height:1}.kt.clsnow{outline:4px solid #F2A900;animation:pulse 1.6s infinite}.kt.sm{min-height:80px;font-size:14px;background:#F4F6FA}.kt.sm span{font-size:28px}
+.kgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}.kt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;border-radius:22px;min-height:104px;font-size:17px;font-weight:800;color:#1F2A44;box-shadow:0 2px 8px #0001}.kt span{font-size:40px;line-height:1}.bpick{display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;padding:6px;font-size:21px;font-weight:800;color:#1F2A44}.bpick .bp{font-size:112px;line-height:1;animation:bfloat 2.4s ease-in-out infinite}.bpick:nth-child(2) .bp{animation-delay:1.2s}.bpick:active .bp{transform:scale(.9)}@keyframes bfloat{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(-5deg)}}.btab{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:17px;font-weight:800;color:#1F2A44;background:none;border:0;padding:6px 10px;opacity:.55}.btab.on{opacity:1}.btab .bp{font-size:64px;line-height:1}.btab.on .bp{animation:bfloat 2.4s ease-in-out infinite}.btab.box{background:#FFF1F1;border:3px solid #E0A0A0;border-radius:22px;padding:10px 18px}.btab.box.on{border-color:#D23B3B;box-shadow:0 3px 10px #D23B3B33}.brow{display:flex;align-items:center;gap:10px;background:#fff;border:2px solid #E6EAF2;border-radius:16px;padding:10px 12px}.brow .bt{flex:1;text-align:left;background:none;border:0;font:inherit;font-size:17px;font-weight:700;color:#1F2A44;padding:0}.brow .pin{background:none;border:0;font-size:30px;padding:2px 6px}.brow .pin.off{opacity:.3;filter:grayscale(1)}.kt.clsnow{outline:4px solid #F2A900;animation:pulse 1.6s infinite}.kt.sm{min-height:80px;font-size:14px;background:#F4F6FA}.kt.sm span{font-size:28px}
 .live{display:block;margin:14px auto 4px;background:#6B3FD9;color:#fff;border:0;border-radius:26px;padding:13px 26px;font-size:19px;font-weight:800;box-shadow:0 4px 14px #6B3FD955}.live.on{background:#C62828}
 .mic{width:110px;height:110px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 0 0 12px #D5E2FB}
 .mic.listen{animation:pulse 1.2s infinite}.mic.sleep{background:#9AA3B5;box-shadow:0 0 0 12px #E6E9EF}
@@ -84,7 +84,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v76 · Mon 23/11 8:10 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v77 · Tue 24/11 7:55 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -124,7 +124,7 @@ async function start(){const jm=(location.hash||'').match(/join=([a-f0-9]{20})/)
  showFab();if(!ADMIN)setTimeout(pollThread,1500);restoreNav()}
 function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children.find(c=>c.id===n.id);
  if(kid&&kid.introDone===false&&n.v==='talk')n.v='child';
- if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='class')return openClass(n.which||'morning');if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='games')return openGames();if(n.v==='base')return openBase(n.tab);if(n.v==='dtb')return openBubbles();if(n.v==='dtc')return openColourMatch();if(n.v==='dtr')return openRacer();if(['lvl','lvedit','lvplay'].indexOf(n.v)>=0)return kid.id==='ditya'?lvShared('ditya'):openLevels();if(n.v==='learn')return openLearn();if(n.v==='learnSec')return openLearnSec(n.sec);if(n.v==='learnItem')return openLearnItem(n.sec,n.i);if(n.v==='quiz')return openQuiz(n.kind==='actionsKid'?'actions':n.kind||'groups');if(n.v==='colour')return openColour(n.i||0)}
+ if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='bhub')return openBuddyHub(n.mode);if(n.v==='bchats')return openBuddyChats(n.mode,n.tab);if(n.v==='talk'&&n.bt){const c=btList().find(x=>x.id===n.bt);if(c){BT={id:c.id,mode:n.mode||'chat',recap:btRecap(c)};BTOPEN=true}}if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='class')return openClass(n.which||'morning');if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='games')return openGames();if(n.v==='base')return openBase(n.tab);if(n.v==='dtb')return openBubbles();if(n.v==='dtc')return openColourMatch();if(n.v==='dtr')return openRacer();if(['lvl','lvedit','lvplay'].indexOf(n.v)>=0)return kid.id==='ditya'?lvShared('ditya'):openLevels();if(n.v==='learn')return openLearn();if(n.v==='learnSec')return openLearnSec(n.sec);if(n.v==='learnItem')return openLearnItem(n.sec,n.i);if(n.v==='quiz')return openQuiz(n.kind==='actionsKid'?'actions':n.kind||'groups');if(n.v==='colour')return openColour(n.i||0)}
  if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
  goHome()}
 function showFab(){$('#askFab').classList.toggle('hidden',!FTOK);updateDot()}
@@ -136,7 +136,7 @@ let MICOBS=null;function micStateOf(t){t=String(t||'');if(/Speaking/.test(t))ret
 function paintMic(){const h=$('#micHint');if(!h)return;const st=micStateOf(h.textContent);h.className='st-'+st;const m=$('#micBtn');if(m){m.classList.toggle('speak',st==='speak');m.classList.toggle('think',st==='think');if(st==='listen'){m.classList.add('listen');m.classList.remove('sleep')}else if(st==='off'){m.classList.remove('listen');m.classList.add('sleep')}else{m.classList.remove('listen','sleep')}}}
 function watchMic(){try{MICOBS&&MICOBS.disconnect()}catch(e){}const h=$('#micHint');if(!h)return;MICOBS=new MutationObserver(paintMic);MICOBS.observe(h,{childList:true,characterData:true,subtree:true});paintMic()}
 // Back: from any of a child's screens → that child's page; from the child's page (or Admin) → main screen.
-function goBack(){const n=getNav()||{};if(CHILD&&!ADMIN_VIEW()&&n.v==='learnItem'){++NAVSEQ;Voice.stop();return openLearnSec(n.sec)}if(CHILD&&!ADMIN_VIEW()&&n.v==='learnSec'){++NAVSEQ;Voice.stop();return openLearn()}if(CHILD&&['chess','word','typing','quiz','colour','ckid','sudoku','quest','lvl','lvedit','lvplay','base','dtb','dtc','dtr'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
+function goBack(){const n=getNav()||{};if(CHILD&&!ADMIN_VIEW()&&((n.v==='talk'&&n.bt)||n.v==='bchats')){++NAVSEQ;Voice.stop();try{Live.stop&&Live.stop()}catch(e){}BT=null;return openBuddyHub(n.mode)}if(CHILD&&!ADMIN_VIEW()&&n.v==='learnItem'){++NAVSEQ;Voice.stop();return openLearnSec(n.sec)}if(CHILD&&!ADMIN_VIEW()&&n.v==='learnSec'){++NAVSEQ;Voice.stop();return openLearn()}if(CHILD&&['chess','word','typing','quiz','colour','ckid','sudoku','quest','lvl','lvedit','lvplay','base','dtb','dtc','dtr'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
 // phone/browser back button follows the same rule
 try{history.pushState({yd:1},'')}catch(e){}
 window.addEventListener('popstate',()=>{const n=getNav()||{};if(n.v&&n.v!=='home'){goBack();try{history.pushState({yd:1},'')}catch(e){}}});
@@ -168,7 +168,7 @@ async function openChild(id){const SEQ=++NAVSEQ;setNav({v:'child',id:id});PENDIN
 function defaultMode(t){const n=t.now;if(n>=BOOT.morningEnd&&n<'14:00')return 'chat';if(n<BOOT.morningEnd)return 'morning';if(n>='14:00'&&n<'15:00')return 'fact';if(n>='15:00'&&n<'16:00')return 'homework';return 'chat'}
 
 /* ---------- talk (hands-free voice) ---------- */
-function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;MODE=mode;if(mode!=='intro')setNav({v:'talk',id:CHILD.id,mode:mode});
+function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();if(!BTOPEN)BT=null;BTOPEN=false;++NAVSEQ;MODE=mode;if(mode!=='intro')setNav(BT?{v:'talk',id:CHILD.id,mode:mode,bt:BT.id}:{v:'talk',id:CHILD.id,mode:mode});
  render(`<div class="muted" style="font-weight:800">${mode==='intro'?'Hello! Let\'s meet':'Talking with '+esc(CHILD.helperName)} <span class="tag" style="background:#EEF1F7">computer helper</span></div>
  <div id="clock" class="card hidden"></div>
  <div id="screenShow"></div>
@@ -179,21 +179,48 @@ function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();+
  <div class="row"><div style="flex:1;position:relative;display:flex"><input id="typeBox" placeholder="Or type here" style="flex:1;padding-right:52px"><button id="typeMic" class="tmic" aria-label="Speak to type" title="Speak to type" onclick="typeMic()">&#127908;</button></div><button class="primary" onclick="sendTyped()">Send</button></div>`,true);
  if(mode==='morning')clockTick();
  if(String(mode).indexOf('class|')===0){clsBar(String(mode).split('|')[1]);clsRestore(String(mode).split('|')[1])}
+ if(BT)btRestore();
  if(restored){$('#micHint').textContent='Tap the mic to start talking';return}
  Voice.begin(mode==='intro');
- {const my=NAVSEQ,m0=String(mode).split('|')[0];if(!restored&&mode!=='intro'&&!/^(homework|check|hwplan)$/.test(m0))setTimeout(()=>{if(my===NAVSEQ&&GEM&&!Live.on&&LIVE_FIRST.indexOf(m0)>=0)Live.start('start')},300)}
+ {const my=NAVSEQ,m0=String(mode).split('|')[0];if(!restored&&mode!=='intro'&&!/^(homework|check|hwplan)$/.test(m0))setTimeout(()=>{if(my===NAVSEQ&&GEM&&!Live.on&&LIVE_FIRST.indexOf(m0)>=0)Live.start('start',btFirst())},300)}
  if(mode==='intro')send('(child opened the app for the first time)');
  if(String(mode).indexOf('class|')===0){const my=NAVSEQ;setTimeout(()=>{if(my===NAVSEQ&&!Live.on&&$('#chat'))send(clsKickMsg(String(mode).split('|')[1]))},700)}}
+/* ---------- Talk to Buddy: New chat + My chats (pinned / not pinned), saved on this phone ---------- */
+let BT=null,BTOPEN=false,BTREST=false;
+function btKey(){return 'ydBT_'+(CHILD&&CHILD.id||'x')}
+function btList(){try{return JSON.parse(localStorage.getItem(btKey())||'[]')}catch(e){return []}}
+function btSave(l){try{localStorage.setItem(btKey(),JSON.stringify(l.slice(0,60)))}catch(e){}}
+function btSeen(who,text){if(!BT||BTREST||!text||text==='• • •'||MODE!==BT.mode)return;const l=btList();let c=l.find(x=>x.id===BT.id);if(!c){c={id:BT.id,t:'',ts:Date.now(),pin:false,tr:[]};l.unshift(c)}c.tr.push([who==='me'?'Y':'H',String(text).slice(0,600)]);if(c.tr.length>120)c.tr=c.tr.slice(-120);if(!c.t&&who==='me')c.t=String(text).replace(/\s+/g,' ').trim().slice(0,40);c.ts=Date.now();l.splice(l.indexOf(c),1);l.unshift(c);btSave(l)}
+function btRestore(){const c=btList().find(x=>x.id===BT.id);if(!c||!c.tr.length)return;BTREST=true;try{c.tr.forEach(x=>addBubble(x[0]==='Y'?'me':'helper',x[1]))}finally{BTREST=false}const ch=$('#chat');if(ch)ch.scrollTop=ch.scrollHeight}
+function btRecap(c){return c.tr.slice(-8).map(x=>(x[0]==='Y'?'Child: ':'You: ')+x[1].slice(0,200)).join(' | ')}
+function btFirst(){if(!BT)return '';if(BT.recap){const r=BT.recap;BT.recap='';BT.fresh=false;return '(The child opened an earlier chat again. Its last lines were: '+r+' — Continue this same chat in one short, warm English sentence.)'}if(BT.fresh){BT.fresh=false;return '(This is a brand-new chat. Do not bring up earlier topics. Greet the child in one short, warm English sentence and ask what he wants to talk about.)'}return ''}
+function btWrap(text){if(!BT||String(text).startsWith('('))return text;const f=btFirst();return f?f.replace(/\)$/,' Now the child says:) ')+text:text}
+function btWhen(ts){const d=new Date(ts),w=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];return w+' '+d.getDate()+'/'+(d.getMonth()+1)+' · '+t12(d.getHours()+':'+String(d.getMinutes()).padStart(2,'0'))}
+function openBuddyHub(mode){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();BT=null;mode=mode||'chat';setNav({v:'bhub',id:CHILD.id,mode});
+ render(`<div style="font-size:24px;font-weight:800;text-align:center">💬 Talk to ${esc(CHILD.helperName)}</div>
+ <div style="display:flex;justify-content:space-around;align-items:flex-end;margin:26px 0 10px">
+ <button class="bpick" onclick="btNew('${mode}')"><span class="bp">🆕</span>New chat</button>
+ <button class="bpick" onclick="openBuddyChats('${mode}')"><span class="bp">📁</span>My chats</button></div>`,true)}
+function btNew(mode){BT={id:'c'+Date.now(),mode:mode||'chat',fresh:true};BTOPEN=true;openTalk(BT.mode)}
+function btOpen(id,mode){const c=btList().find(x=>x.id===id);if(!c)return;BT={id,mode:mode||'chat',recap:btRecap(c)};BTOPEN=true;openTalk(BT.mode)}
+function btPin(id,mode,tab){const l=btList(),c=l.find(x=>x.id===id);if(c){c.pin=!c.pin;btSave(l);toast(c.pin?'📌 Pinned':'Unpinned')}openBuddyChats(mode,tab)}
+function openBuddyChats(mode,tab){++NAVSEQ;Voice.stop();mode=mode||'chat';tab=tab||'pin';setNav({v:'bchats',id:CHILD.id,mode,tab});
+ const all=btList().filter(c=>c.tr&&c.tr.some(x=>x[0]==='Y')),l=all.filter(c=>tab==='pin'?c.pin:!c.pin);
+ render(`<div style="font-size:24px;font-weight:800;text-align:center">📁 My chats</div>
+ <div style="display:flex;justify-content:space-around;align-items:flex-end;margin:14px 0 6px">
+ <button class="btab box${tab==='pin'?' on':''}" onclick="openBuddyChats('${mode}','pin')"><span class="bp">📌</span>Pinned</button>
+ <button class="btab${tab==='not'?' on':''}" onclick="openBuddyChats('${mode}','not')"><span class="bp">📄</span>Not pinned</button></div>
+ <div style="display:flex;flex-direction:column;gap:8px">${l.length?l.map(c=>`<div class="brow"><button class="bt" onclick="btOpen('${c.id}','${mode}')">${esc(c.t||'Chat')}<div class="muted" style="font-size:13px;font-weight:600">${esc(btWhen(c.ts))}</div></button><button class="pin${c.pin?'':' off'}" aria-label="${c.pin?'Unpin':'Pin'}" onclick="btPin('${c.id}','${mode}','${tab}')">📌</button></div>`).join(''):`<div class="card muted" style="text-align:center">${tab==='pin'?'No pinned chats yet. Tap 📌 on a chat to pin it.':'No chats yet. Tap 🆕 New chat to start one!'}</div>`}</div>`,true)}
 /* 12-hour times everywhere: 17:41 → 5:41 PM */
 function t12(x){return String(x==null?'':x).replace(/\b(\d{1,2}):(\d{2})\b/g,(z,h,m)=>{h=+h;if(h>23)return z;const ap=h>=12?'PM':'AM';return (h%12||12)+':'+m+' '+ap})}
 function clockTick(){const el=$('#clock');if(!el)return;const now=new Date(),me=(String(BOOT.morningEnd||'').match(/\b(\d{1,2}):(\d{2})/)||[0,7,50]),h=me[1],m=me[2];const end=new Date();end.setHours(+h,+m,0,0);const left=Math.max(0,Math.round((end-now)/60000));el.classList.remove('hidden');el.innerHTML=`<b>Minutes left: ${left}</b> <span class="muted">· ends ${t12((+h)+':'+String(m).padStart(2,'0'))}</span>`;setTimeout(clockTick,30000)}
-function addBubble(who,text,cap){const c=$('#chat');if(!c)return;try{clsSeen(who,text)}catch(e){}const d=document.createElement('div');d.className='bubble '+(who==='me'?'me':'helper');d.textContent=text;if(cap){const k=document.createElement('div');k.className='muted';k.style.marginTop='4px';k.textContent=cap;d.appendChild(k)}c.appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'})}
+function addBubble(who,text,cap){const c=$('#chat');if(!c)return;try{clsSeen(who,text)}catch(e){}try{btSeen(who,text)}catch(e){}const d=document.createElement('div');d.className='bubble '+(who==='me'?'me':'helper');d.textContent=text;if(cap){const k=document.createElement('div');k.className='muted';k.style.marginTop='4px';k.textContent=cap;d.appendChild(k)}c.appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'})}
 function HWMODE(){return /^(homework|check|hwplan)/.test(MODE||'')}
 async function hwAgain(){const t='Sorry, I did not catch that. Please say your answer again.';addBubble('helper',t);await sayFree(t,'en')}
 function sendTyped(){if(TYPEREC)typeMic();if(BOXEARS){BOXEARS=false;try{Ears.stop()}catch(e){}tmPaint(false)}const b=$('#typeBox');if(b.value.trim()){send(b.value.trim());b.value=''}}
 async function send(text){if(!text.startsWith('('))addBubble('me',text);Voice.pause();
  addBubble('helper','• • •');const dots=$('#chat')&&$('#chat').lastElementChild;if(dots)dots.id='thinking';
- try{const r=GEM?await api('talkSpeak',CHILD.id,MODE,text):await api('talk',CHILD.id,MODE,text);const th=$('#thinking');th&&th.remove();if(!(r.say||r.text)){if(HWMODE())await hwAgain();Voice.resume();return}addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
+ try{const q=btWrap(text);const r=GEM?await api('talkSpeak',CHILD.id,MODE,q):await api('talk',CHILD.id,MODE,q);const th=$('#thinking');th&&th.remove();if(!(r.say||r.text)){if(HWMODE())await hwAgain();Voice.resume();return}addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
   if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true;$('#micHint').textContent='Say "Hey '+r.helperName+'" any time'}
   await speakReply(r.say||r.text,r.lang||'te',r);
  }catch(e){const th=$('#thinking');th&&th.remove()}
@@ -416,7 +443,7 @@ function yuvaanHome(t,nowIdx){setTimeout(clsPrefetch,400);const hr=new Date().ge
  <div class="kgrid">
  <button class="kt${cNow==='morning'?' clsnow':''}" style="background:#FFF4D6" onclick="openClass('morning')"><span>🌅</span>Morning class</button>
  <button class="kt${cNow==='evening'?' clsnow':''}" style="background:#FFE6D9" onclick="openClass('evening')"><span>🌇</span>Evening class</button>
- <button class="kt" style="background:#E8F1FF" onclick="openTalk('${defaultMode(t)}')"><span>💬</span>Talk to ${esc(CHILD.helperName)}</button>
+ <button class="kt" style="background:#E8F1FF" onclick="openBuddyHub('${defaultMode(t)}')"><span>💬</span>Talk to ${esc(CHILD.helperName)}</button>
  <button class="kt" style="background:#EFEAFB" onclick="openHomework()"><span>📚</span>Homework</button>
  <button class="kt" style="background:#FFF1C9" onclick="openStars()"><span>⭐</span>My stars</button>
  <button class="kt" style="background:#EEF3FF" onclick="openTalk('speakEn')"><span>🗣️</span>English talk</button>
