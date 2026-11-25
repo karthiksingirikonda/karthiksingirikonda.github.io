@@ -84,7 +84,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v82 · Wed 25/11 7:30 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v83 · Wed 25/11 7:05 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -233,7 +233,7 @@ function clockTick(){const el=$('#clock');if(!el)return;const now=new Date(),me=
 function addBubble(who,text,cap){const c=$('#chat');if(!c)return;try{clsSeen(who,text)}catch(e){}try{btSeen(who,text)}catch(e){}const d=document.createElement('div');d.className='bubble '+(who==='me'?'me':'helper');d.textContent=text;if(cap){const k=document.createElement('div');k.className='muted';k.style.marginTop='4px';k.textContent=cap;d.appendChild(k)}c.appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'})}
 function HWMODE(){return /^(homework|check|hwplan)/.test(MODE||'')}
 async function hwAgain(){const t='Sorry, I did not catch that. Please say your answer again.';addBubble('helper',t);await sayFree(t,'en')}
-function sendTyped(){if(TYPEREC)typeMic();if(BOXEARS){BOXEARS=false;try{Ears.stop()}catch(e){}tmPaint(false)}const b=$('#typeBox');if(b.value.trim()){send(b.value.trim());b.value=''}}
+function sendTyped(){if(TYPEREC){const r=TYPEREC;TYPEREC=null;r.off=true;r.sent=1;r.autoSend=0;tmPaint(false);try{r.abort()}catch(e){}const h=$('#micHint');if(h)h.textContent='Mic off – tap the mic to talk'}if(BOXEARS){BOXEARS=false;try{Ears.stop()}catch(e){}tmPaint(false)}const b=$('#typeBox');if(b.value.trim()){send(b.value.trim());b.value=''}}
 async function send(text){if(!text.startsWith('('))addBubble('me',text);Voice.pause();
  addBubble('helper','• • •');const dots=$('#chat')&&$('#chat').lastElementChild;if(dots)dots.id='thinking';
  try{let q=btWrap(text);const mg=modeGuard();if(mg&&!String(text).startsWith('('))q=mg+' '+q;const r=GEM?await api('talkSpeak',CHILD.id,MODE,q):await api('talk',CHILD.id,MODE,q);const th=$('#thinking');th&&th.remove();if(!(r.say||r.text)){if(HWMODE())await hwAgain();Voice.resume();return}addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
@@ -2158,9 +2158,9 @@ function typeMic(){const SR=window.SpeechRecognition||window.webkitSpeechRecogni
  const st={base:box.value.trim(),fin:''};tmPaint(true);const h0=$('#micHint');if(h0)h0.textContent='🎤 Listening… speak now';
  const turn=(tries)=>{const r=new SR();TYPEREC=r;r.lang=(CHILD&&CHILD.id==='ditya')?'te-IN':'en-IN';r.continuous=false;r.interimResults=true;r.maxAlternatives=1;let fin='',err='';
   const show=x=>{const bx=$('#typeBox');if(bx)bx.value=[st.base,st.fin,x].filter(Boolean).join(' ').trim()};
-  r.onresult=e=>{let inter='';fin='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t;else inter+=t}show((fin||inter).trim())};
+  r.onresult=e=>{if(r.sent)return;let inter='';fin='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t;else inter+=t}show((fin||inter).trim())};
   r.onerror=e=>{err=e.error;if(e.error==='aborted'||e.error==='no-speech')return;if(e.error==='not-allowed'||e.error==='service-not-allowed'){navigator.permissions&&navigator.permissions.query({name:'microphone'}).then(p=>{if(p.state==='denied')micHelp()}).catch(()=>{})}};
-  r.onend=()=>{if(fin.trim())st.fin=(st.fin+' '+fin.trim()).trim();show('');
+  r.onend=()=>{if(r.sent)return;if(fin.trim())st.fin=(st.fin+' '+fin.trim()).trim();show('');
    if(r.off&&r.autoSend){tmAutoSend(r);return}
    if(r.off||TYPEREC!==r)return;
    if((!err||err==='no-speech'||err==='aborted')&&tries<40){setTimeout(()=>{if(TYPEREC===r)turn(tries+1)},250);return}
