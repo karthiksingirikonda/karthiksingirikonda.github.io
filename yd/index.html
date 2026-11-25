@@ -84,7 +84,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v81 · Wed 25/11 6:40 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v82 · Wed 25/11 7:30 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -124,7 +124,7 @@ async function start(){const jm=(location.hash||'').match(/join=([a-f0-9]{20})/)
  showFab();if(!ADMIN)setTimeout(pollThread,1500);restoreNav()}
 function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children.find(c=>c.id===n.id);
  if(kid&&kid.introDone===false&&n.v==='talk')n.v='child';
- if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='bhub')return openBuddyHub(n.mode);if(n.v==='bchats')return openBuddyChats(n.mode,n.tab);if(n.v==='talk'&&n.bt){const c=btList().find(x=>x.id===n.bt);if(c){BT={id:c.id,mode:n.mode||'chat',recap:btRecap(c)};BTOPEN=true}}if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='class')return openClass(n.which||'morning');if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='games')return openGames();if(n.v==='base')return openBase(n.tab);if(n.v==='dtb')return openBubbles();if(n.v==='dtc')return openColourMatch();if(n.v==='dtr')return openRacer();if(['lvl','lvedit','lvplay'].indexOf(n.v)>=0)return kid.id==='ditya'?lvShared('ditya'):openLevels();if(n.v==='learn')return openLearn();if(n.v==='learnSec')return openLearnSec(n.sec);if(n.v==='learnItem')return openLearnItem(n.sec,n.i);if(n.v==='quiz')return openQuiz(n.kind==='actionsKid'?'actions':n.kind||'groups');if(n.v==='colour')return openColour(n.i||0)}
+ if(kid){CHILD=kid;if(n.v==='child')return openChild(n.id);if(n.v==='hw')return openHomework();if(n.v==='stars')return openStars();if(n.v==='videos')return openVideos();if(n.v==='bhub')return openBuddyHub(n.mode,n.g);if(n.v==='bchats'){BTG=n.g||'talk';return openBuddyChats(n.mode,n.tab)}if(n.v==='talk'&&n.bt){BTG=n.g||'talk';const c=btList().find(x=>x.id===n.bt);const cls=String(n.mode||'').indexOf('class|')===0;if(c||cls){BT={id:n.bt,mode:n.mode||'chat',recap:c&&!cls?btRecap(c):'',cls:cls?1:0};BTOPEN=true}}if(n.v==='talk')return openTalk(n.mode||'chat',true);if(n.v==='class')return openClass(n.which||'morning');if(n.v==='trace')return openTrace(n.set||'en',n.i||0);if(n.v==='typing')return openTyping();if(n.v==='chess')return openChess();if(n.v==='word')return openWordGame();if(n.v==='games')return openGames();if(n.v==='base')return openBase(n.tab);if(n.v==='dtb')return openBubbles();if(n.v==='dtc')return openColourMatch();if(n.v==='dtr')return openRacer();if(['lvl','lvedit','lvplay'].indexOf(n.v)>=0)return kid.id==='ditya'?lvShared('ditya'):openLevels();if(n.v==='learn')return openLearn();if(n.v==='learnSec')return openLearnSec(n.sec);if(n.v==='learnItem')return openLearnItem(n.sec,n.i);if(n.v==='quiz')return openQuiz(n.kind==='actionsKid'?'actions':n.kind||'groups');if(n.v==='colour')return openColour(n.i||0)}
  if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
  goHome()}
 function showFab(){$('#askFab').classList.toggle('hidden',!FTOK);updateDot()}
@@ -136,7 +136,7 @@ let MICOBS=null;function micStateOf(t){t=String(t||'');if(/Speaking/.test(t))ret
 function paintMic(){const h=$('#micHint');if(!h)return;const st=micStateOf(h.textContent);h.className='st-'+st;const m=$('#micBtn');if(m){m.classList.toggle('speak',st==='speak');m.classList.toggle('think',st==='think');if(st==='listen'){m.classList.add('listen');m.classList.remove('sleep')}else if(st==='off'){m.classList.remove('listen');m.classList.add('sleep')}else{m.classList.remove('listen','sleep')}}}
 function watchMic(){try{MICOBS&&MICOBS.disconnect()}catch(e){}const h=$('#micHint');if(!h)return;MICOBS=new MutationObserver(paintMic);MICOBS.observe(h,{childList:true,characterData:true,subtree:true});paintMic()}
 // Back: from any of a child's screens → that child's page; from the child's page (or Admin) → main screen.
-function goBack(){const n=getNav()||{};if(CHILD&&!ADMIN_VIEW()&&((n.v==='talk'&&n.bt)||n.v==='bchats')){++NAVSEQ;Voice.stop();try{Live.stop&&Live.stop()}catch(e){}BT=null;return openBuddyHub(n.mode)}if(CHILD&&!ADMIN_VIEW()&&n.v==='learnItem'){++NAVSEQ;Voice.stop();return openLearnSec(n.sec)}if(CHILD&&!ADMIN_VIEW()&&n.v==='learnSec'){++NAVSEQ;Voice.stop();return openLearn()}if(CHILD&&['chess','word','typing','quiz','colour','ckid','sudoku','quest','lvl','lvedit','lvplay','base','dtb','dtc','dtr'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
+function goBack(){const n=getNav()||{};if(CHILD&&!ADMIN_VIEW()&&((n.v==='talk'&&n.bt)||n.v==='bchats')){++NAVSEQ;Voice.stop();try{Live.stop&&Live.stop()}catch(e){}BT=null;const g=n.g||'talk';return openBuddyHub(g.indexOf('class_')===0?'class|'+g.slice(6):(n.mode||'chat'),g)}if(CHILD&&!ADMIN_VIEW()&&n.v==='learnItem'){++NAVSEQ;Voice.stop();return openLearnSec(n.sec)}if(CHILD&&!ADMIN_VIEW()&&n.v==='learnSec'){++NAVSEQ;Voice.stop();return openLearn()}if(CHILD&&['chess','word','typing','quiz','colour','ckid','sudoku','quest','lvl','lvedit','lvplay','base','dtb','dtc','dtr'].indexOf(n.v)>=0&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();return openGames()}if(CHILD&&n.v&&n.v!=='child'&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW()){++NAVSEQ;Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}const b=$('#bigTimer');if(b&&!TM&&!SW)b.remove();openChild(CHILD.id)}else goHome()}
 // phone/browser back button follows the same rule
 try{history.pushState({yd:1},'')}catch(e){}
 window.addEventListener('popstate',()=>{const n=getNav()||{};if(n.v&&n.v!=='home'){goBack();try{history.pushState({yd:1},'')}catch(e){}}});
@@ -168,7 +168,7 @@ async function openChild(id){const SEQ=++NAVSEQ;setNav({v:'child',id:id});PENDIN
 function defaultMode(t){const n=t.now;if(n>=BOOT.morningEnd&&n<'14:00')return 'chat';if(n<BOOT.morningEnd)return 'morning';if(n>='14:00'&&n<'15:00')return 'fact';if(n>='15:00'&&n<'16:00')return 'homework';return 'chat'}
 
 /* ---------- talk (hands-free voice) ---------- */
-function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();if(!BTOPEN)BT=null;BTOPEN=false;++NAVSEQ;MODE=mode;if(mode!=='intro')setNav(BT?{v:'talk',id:CHILD.id,mode:mode,bt:BT.id}:{v:'talk',id:CHILD.id,mode:mode});
+function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();if(!BTOPEN)BT=null;BTOPEN=false;++NAVSEQ;MODE=mode;if(mode!=='intro')setNav(BT?{v:'talk',id:CHILD.id,mode:mode,bt:BT.id,g:BTG}:{v:'talk',id:CHILD.id,mode:mode});
  render(`<div class="muted" style="font-weight:800">${mode==='intro'?'Hello! Let\'s meet':'Talking with '+esc(CHILD.helperName)} <span class="tag" style="background:#EEF1F7">computer helper</span></div>
  <div id="clock" class="card hidden"></div>
  <div id="screenShow"></div>
@@ -179,30 +179,36 @@ function openTalk(mode,restored){if(CHILD&&RESTING[CHILD.id])return showRest();i
  <div class="row"><div style="flex:1;position:relative;display:flex"><input id="typeBox" placeholder="Or type here" style="flex:1;padding-right:52px"><button id="typeMic" class="tmic" aria-label="Speak to type" title="Speak to type" onclick="typeMic()">&#127908;</button></div><button class="primary" onclick="sendTyped()">Send</button></div>`,true);
  if(mode==='morning')clockTick();
  if(String(mode).indexOf('class|')===0){clsBar(String(mode).split('|')[1]);clsRestore(String(mode).split('|')[1])}
- if(BT)btRestore();
+ if(BT&&!BT.cls)btRestore();
  if(restored){$('#micHint').textContent='Tap the mic to start talking';return}
  Voice.begin(mode==='intro');
- {const my=NAVSEQ,m0=String(mode).split('|')[0];if(!restored&&mode!=='intro'&&!/^(homework|check|hwplan)$/.test(m0))setTimeout(()=>{if(my===NAVSEQ&&GEM&&!Live.on&&LIVE_FIRST.indexOf(m0)>=0)Live.start('start',btFirst())},300)}
+ {const my=NAVSEQ,m0=String(mode).split('|')[0];if(!restored&&mode!=='intro'&&!/^(homework|check|hwplan)$/.test(m0))setTimeout(()=>{if(my===NAVSEQ&&GEM&&!Live.on&&LIVE_FIRST.indexOf(m0)>=0)Live.start('start',liveFirst())},300)}
  if(mode==='intro')send('(child opened the app for the first time)');
  if(String(mode).indexOf('class|')===0){const my=NAVSEQ;setTimeout(()=>{if(my===NAVSEQ&&!Live.on&&$('#chat'))send(clsKickMsg(String(mode).split('|')[1]))},700)}}
 /* ---------- Talk to Buddy: New chat + My chats (pinned / not pinned), saved on this phone ---------- */
-let BT=null,BTOPEN=false,BTREST=false;
-function btKey(){return 'ydBT_'+(CHILD&&CHILD.id||'x')}
+let BT=null,BTOPEN=false,BTREST=false,BTG='talk';
+const BTGT={talk:'💬 Talk to %',speakEn:'🗣️ English talk',speakHi:'🗣️ हिंदी talk',story:'📖 Story',class_morning:'🌅 Morning class',class_evening:'🌇 Evening class'};
+function btGroupOf(mode){mode=String(mode||'chat');if(mode.indexOf('class|')===0)return 'class_'+mode.split('|')[1];return /^(speakEn|speakHi|story)$/.test(mode)?mode:'talk'}
+function btKey(){return 'ydBT_'+(CHILD&&CHILD.id||'x')+(BTG==='talk'?'':'_'+BTG)}
+/* Story screen: always tell stories here, whatever the timetable says (Wed 25/11/26) */
+const MODEGUARD={story:'(STORY SCREEN: the child chose Story. Tell a story whenever asked, right now, whatever the timetable or the time of day says. Never send the child to tasks or homework from here.)'};
+function modeGuard(){return MODEGUARD[String(MODE||'').split('|')[0]]||''}
+function liveFirst(){const g=modeGuard(),b=btFirst();if(!g)return b;return g+' '+(b||'Start in one short, warm sentence and ask which story the child wants to hear.')}
 function btList(){try{return JSON.parse(localStorage.getItem(btKey())||'[]')}catch(e){return []}}
 function btSave(l){try{localStorage.setItem(btKey(),JSON.stringify(l.slice(0,60)))}catch(e){}}
-function btSeen(who,text){if(!BT||BTREST||!text||text==='• • •'||MODE!==BT.mode)return;const l=btList();let c=l.find(x=>x.id===BT.id);if(!c){c={id:BT.id,t:'',ts:Date.now(),pin:false,tr:[]};l.unshift(c)}c.tr.push([who==='me'?'Y':'H',String(text).slice(0,600)]);if(c.tr.length>120)c.tr=c.tr.slice(-120);if(!c.t&&who==='me')c.t=String(text).replace(/\s+/g,' ').trim().slice(0,40);c.ts=Date.now();l.splice(l.indexOf(c),1);l.unshift(c);btSave(l)}
+function btSeen(who,text){if(!BT||BTREST||!text||text==='• • •'||MODE!==BT.mode)return;const l=btList();let c=l.find(x=>x.id===BT.id);if(!c){c={id:BT.id,t:BT.title||'',ts:Date.now(),pin:false,tr:[]};l.unshift(c)}c.tr.push([who==='me'?'Y':'H',String(text).slice(0,600)]);if(c.tr.length>120)c.tr=c.tr.slice(-120);if(!c.t&&who==='me')c.t=String(text).replace(/\s+/g,' ').trim().slice(0,40);c.ts=Date.now();l.splice(l.indexOf(c),1);l.unshift(c);btSave(l)}
 function btRestore(){const c=btList().find(x=>x.id===BT.id);if(!c||!c.tr.length)return;BTREST=true;try{c.tr.forEach(x=>addBubble(x[0]==='Y'?'me':'helper',x[1]))}finally{BTREST=false}const ch=$('#chat');if(ch)ch.scrollTop=ch.scrollHeight}
 function btRecap(c){return c.tr.slice(-8).map(x=>(x[0]==='Y'?'Child: ':'You: ')+x[1].slice(0,200)).join(' | ')}
-function btFirst(){if(!BT)return '';if(BT.recap){const r=BT.recap;BT.recap='';BT.fresh=false;return '(The child opened an earlier chat again. Its last lines were: '+r+' — Continue this same chat in one short, warm English sentence.)'}if(BT.fresh){BT.fresh=false;return '(This is a brand-new chat. Do not bring up earlier topics. Greet the child in one short, warm English sentence and ask what the child wants to talk about.)'}return ''}
+function btFirst(){if(!BT)return '';if(BT.recap){const r=BT.recap;BT.recap='';BT.fresh=false;return '(The child opened an earlier chat again. Its last lines were: '+r+' — Continue this same chat in one short, warm English sentence.)'}if(BT.fresh){BT.fresh=false;return '(This is a brand-new chat. Do not bring up earlier topics. Start this screen\'s activity fresh, in one short, warm sentence.)'}return ''}
 function btWrap(text){if(!BT||String(text).startsWith('('))return text;const f=btFirst();return f?f.replace(/\)$/,' Now the child says:) ')+text:text}
 function btWhen(ts){const d=new Date(ts),w=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];return w+' '+d.getDate()+'/'+(d.getMonth()+1)+' · '+t12(d.getHours()+':'+String(d.getMinutes()).padStart(2,'0'))}
-function openBuddyHub(mode){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();BT=null;mode=mode||'chat';setNav({v:'bhub',id:CHILD.id,mode});
- render(`<div style="font-size:24px;font-weight:800;text-align:center">💬 Talk to ${esc(CHILD.helperName)}</div>
+function openBuddyHub(mode,g){if(CHILD&&RESTING[CHILD.id])return showRest();++NAVSEQ;Voice.stop();BT=null;mode=mode||'chat';BTG=g||btGroupOf(mode);setNav({v:'bhub',id:CHILD.id,mode,g:BTG});
+ render(`<div style="font-size:24px;font-weight:800;text-align:center">${esc((BTGT[BTG]||BTGT.talk).replace('%',CHILD.helperName))}</div>
  <div style="display:flex;justify-content:space-around;align-items:flex-end;margin:26px 0 10px">
- <button class="bpick" onclick="btNew('${mode}')"><span class="bp">🆕</span>New chat</button>
+ <button class="bpick" onclick="${BTG.indexOf('class_')===0?`openClass('${BTG.slice(6)}')`:`btNew('${mode}')`}"><span class="bp">🆕</span>New chat</button>
  <button class="bpick" onclick="openBuddyChats('${mode}')"><span class="bp">📁</span>My chats</button></div>`,true)}
 function btNew(mode){BT={id:'c'+Date.now(),mode:mode||'chat',fresh:true};BTOPEN=true;openTalk(BT.mode)}
-function btOpen(id,mode){const c=btList().find(x=>x.id===id);if(!c)return;BT={id,mode:mode||'chat',recap:btRecap(c)};BTOPEN=true;openTalk(BT.mode)}
+function btOpen(id,mode){const c=btList().find(x=>x.id===id);if(!c)return;if(BTG.indexOf('class_')===0)mode='chat';BT={id,mode:mode||'chat',recap:btRecap(c)};BTOPEN=true;openTalk(BT.mode)}
 function btPin(id,mode,tab){const l=btList(),c=l.find(x=>x.id===id);if(c){c.pin=!c.pin;btSave(l);toast(c.pin?'📌 Pinned':'Unpinned')}openBuddyChats(mode,tab)}
 function btDel(id,mode,tab){const c=btList().find(x=>x.id===id);if(!c)return;if(!confirm('Delete this chat?\n\n"'+(c.t||'Chat')+'"\n\nIt will be gone for ever.'))return;btSave(btList().filter(x=>x.id!==id));toast('🗑️ Chat deleted');openBuddyChats(mode,tab)}
 function btMenuClose(){const m=document.getElementById('btMenu');if(m)m.remove()}
@@ -214,9 +220,9 @@ function btMenu(ev,id,mode,tab){ev.stopPropagation();btMenuClose();const c=btLis
 function btRename(id,mode,tab){btMenuClose();const l=btList(),c=l.find(x=>x.id===id);if(!c)return;const n=prompt('New name for this chat:',c.t||'');if(n==null||!n.trim())return;c.t=n.trim().slice(0,40);btSave(l);toast('✏️ Renamed');openBuddyChats(mode,tab)}
 function btCopy(id){btMenuClose();const c=btList().find(x=>x.id===id);if(!c)return;const t=(c.t||'Chat')+'\n'+c.tr.map(x=>(x[0]==='Y'?CHILD.name:CHILD.helperName)+': '+x[1]).join('\n');const ok=()=>toast('📋 Chat copied');try{navigator.clipboard.writeText(t).then(ok,()=>{btCopyOld(t);ok()})}catch(e){btCopyOld(t);ok()}}
 function btCopyOld(t){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(e){}a.remove()}
-function openBuddyChats(mode,tab){btMenuClose();++NAVSEQ;Voice.stop();mode=mode||'chat';tab=tab||'pin';setNav({v:'bchats',id:CHILD.id,mode,tab});
+function openBuddyChats(mode,tab){btMenuClose();++NAVSEQ;Voice.stop();mode=mode||'chat';tab=tab||'pin';setNav({v:'bchats',id:CHILD.id,mode,tab,g:BTG});
  const all=btList().filter(c=>c.tr&&c.tr.some(x=>x[0]==='Y')),l=all.filter(c=>tab==='pin'?c.pin:!c.pin);
- render(`<div style="font-size:24px;font-weight:800;text-align:center">📁 My chats</div>
+ render(`<div style="font-size:24px;font-weight:800;text-align:center">📁 My chats</div><div class="muted" style="text-align:center;font-weight:700">${esc((BTGT[BTG]||BTGT.talk).replace('%',CHILD.helperName))}</div>
  <div style="display:flex;justify-content:space-around;align-items:flex-end;margin:14px 0 6px">
  <button class="btab box${tab==='pin'?' on':''}" onclick="openBuddyChats('${mode}','pin')"><span class="bp">📌</span>Pinned</button>
  <button class="btab${tab==='not'?' on':''}" onclick="openBuddyChats('${mode}','not')"><span class="bp">📄</span>Not pinned</button></div>
@@ -230,7 +236,7 @@ async function hwAgain(){const t='Sorry, I did not catch that. Please say your a
 function sendTyped(){if(TYPEREC)typeMic();if(BOXEARS){BOXEARS=false;try{Ears.stop()}catch(e){}tmPaint(false)}const b=$('#typeBox');if(b.value.trim()){send(b.value.trim());b.value=''}}
 async function send(text){if(!text.startsWith('('))addBubble('me',text);Voice.pause();
  addBubble('helper','• • •');const dots=$('#chat')&&$('#chat').lastElementChild;if(dots)dots.id='thinking';
- try{const q=btWrap(text);const r=GEM?await api('talkSpeak',CHILD.id,MODE,q):await api('talk',CHILD.id,MODE,q);const th=$('#thinking');th&&th.remove();if(!(r.say||r.text)){if(HWMODE())await hwAgain();Voice.resume();return}addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
+ try{let q=btWrap(text);const mg=modeGuard();if(mg&&!String(text).startsWith('('))q=mg+' '+q;const r=GEM?await api('talkSpeak',CHILD.id,MODE,q):await api('talk',CHILD.id,MODE,q);const th=$('#thinking');th&&th.remove();if(!(r.say||r.text)){if(HWMODE())await hwAgain();Voice.resume();return}addBubble('helper',r.say||r.text,(r.say&&r.text&&r.text!==r.say)?r.text:'');showOnScreen(r.show);
   if(r.helperName){CHILD.helperName=r.helperName;CHILD.introDone=true;$('#micHint').textContent='Say "Hey '+r.helperName+'" any time'}
   await speakReply(r.say||r.text,r.lang||'te',r);
  }catch(e){const th=$('#thinking');th&&th.remove()}
@@ -451,14 +457,14 @@ const CH={VAL:{p:100,n:300,b:320,r:500,q:900,k:0},
 function yuvaanHome(t,nowIdx){setTimeout(clsPrefetch,400);const hr=new Date().getHours(),cNow=hr<12?'morning':hr>=15?'evening':'';return `<div class="row" style="align-items:center;justify-content:space-between"><div style="font-size:26px;font-weight:800">Hi ${esc(CHILD.name)}! 🚀</div><span class="tag" style="background:#FFF1C9;color:#8A5A00;font-size:15px">⭐ ${t.starsApproved}</span></div>
  ${CHILD.introDone?'':`<button class="card big" style="background:#FFF1C9" onclick="openTalk('intro')"><span style="font-size:34px">&#128075;</span><div><div style="font-size:19px;font-weight:800">Meet your helper</div></div></button>`}
  <div class="kgrid">
- <button class="kt${cNow==='morning'?' clsnow':''}" style="background:#FFF4D6" onclick="openClass('morning')"><span>🌅</span>Morning class</button>
- <button class="kt${cNow==='evening'?' clsnow':''}" style="background:#FFE6D9" onclick="openClass('evening')"><span>🌇</span>Evening class</button>
+ <button class="kt${cNow==='morning'?' clsnow':''}" style="background:#FFF4D6" onclick="openBuddyHub('class|morning')"><span>🌅</span>Morning class</button>
+ <button class="kt${cNow==='evening'?' clsnow':''}" style="background:#FFE6D9" onclick="openBuddyHub('class|evening')"><span>🌇</span>Evening class</button>
  <button class="kt" style="background:#E8F1FF" onclick="openBuddyHub('${defaultMode(t)}')"><span>💬</span>Talk to ${esc(CHILD.helperName)}</button>
  <button class="kt" style="background:#EFEAFB" onclick="openHomework()"><span>📚</span>Homework</button>
  <button class="kt" style="background:#FFF1C9" onclick="openStars()"><span>⭐</span>My stars</button>
- <button class="kt" style="background:#EEF3FF" onclick="openTalk('speakEn')"><span>🗣️</span>English talk</button>
- <button class="kt" style="background:#FFF0E0" onclick="openTalk('speakHi')"><span>🗣️</span>हिंदी talk</button>
- <button class="kt" style="background:#E3F7F7" onclick="openTalk('story')"><span>📖</span>Story</button>
+ <button class="kt" style="background:#EEF3FF" onclick="openBuddyHub('speakEn')"><span>🗣️</span>English talk</button>
+ <button class="kt" style="background:#FFF0E0" onclick="openBuddyHub('speakHi')"><span>🗣️</span>हिंदी talk</button>
+ <button class="kt" style="background:#E3F7F7" onclick="openBuddyHub('story')"><span>📖</span>Story</button>
  <button class="kt" style="background:#FFEFE3" onclick="openTrace('wen')"><span>✍️</span>English writing</button>
  <button class="kt" style="background:#F6ECFF" onclick="openTrace('whi')"><span>✍️</span>हिंदी writing</button>
  <button class="kt" style="background:#EAF8EE" onclick="openTrace('wte')"><span>✍️</span>తెలుగు writing</button>
@@ -1626,10 +1632,10 @@ function dityaHome(t){return `<div class="row" style="align-items:center;justify
  <button class="kt" style="background:#F6ECFF" onclick="openTrace('hi')"><span>✏️</span>अ आ</button>
  <button class="kt" style="background:#FFE8D6" onclick="openGames()"><span>🎮</span>Games</button>
  <button class="kt" style="background:#E6F0FF" onclick="openLearn()"><span>📚</span>Learn</button>
- <button class="kt" style="background:#E3F7F7" onclick="openTalk('story')"><span>📖</span>Story</button>
+ <button class="kt" style="background:#E3F7F7" onclick="openBuddyHub('story')"><span>📖</span>Story</button>
  <button class="kt" style="background:#FFE8EE" onclick="openTalk('tellstory')"><span>🎤</span>My story</button>
- <button class="kt" style="background:#EEF3FF" onclick="openTalk('speakEn')"><span>🗣️</span>English</button>
- <button class="kt" style="background:#FFF0E0" onclick="openTalk('speakHi')"><span>🗣️</span>हिंदी</button>
+ <button class="kt" style="background:#EEF3FF" onclick="openBuddyHub('speakEn')"><span>🗣️</span>English</button>
+ <button class="kt" style="background:#FFF0E0" onclick="openBuddyHub('speakHi')"><span>🗣️</span>हिंदी</button>
  <button class="kt" style="background:#EFEFEF" onclick="openVideos()"><span>🎬</span>Videos</button>
  <button class="kt" style="background:#FFF1C9" onclick="openStars()"><span>⭐</span>Stars</button>
  <button class="kt" style="background:#EFEAFB" onclick="openHomework()"><span>📚</span>Homework</button>
@@ -1788,13 +1794,14 @@ async function openRoutine(name){const SEQ=++NAVSEQ;setNav({v:'child',id:CHILD.i
  <button class="primary" id="rtGo" style="min-height:64px;font-size:20px" onclick="rtStart()">Start</button>`,true)}
 function rtJump(d){if(!RT)return;whistleStop();clearInterval(RT.timer);RT.waiting=0;clearInterval(RT.reask);rtEarsStop();RT.readyDone=0;$('#rtStep').textContent='';RT.i=Math.max(0,RT.i+d);rtStep()}
 async function rtStart(){$('#rtGo').classList.add('hidden');const nv=$('#rtNav');if(nv)nv.classList.remove('hidden');try{if(navigator.wakeLock)RT.lock=await navigator.wakeLock.request('screen')}catch(e){}
- if(RT.name==='exercise')whistleUnlock();if(RT.music&&RT.name!=='exercise'){const m=RT.music;if(m.kind==='youtube'){const id=(m.link.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/)||[])[1];if(id)$('#rtMusic').innerHTML=`<iframe width="100%" height="90" style="border:0;border-radius:12px;margin-top:8px" src="https://www.youtube.com/embed/${id}?autoplay=1&loop=1&playlist=${id}" allow="autoplay"></iframe>`}
+ if(RT.name==='exercise'){whistleUnlock();if(!CAM.on)camToggle()}if(RT.music&&RT.name!=='exercise'){const m=RT.music;if(m.kind==='youtube'){const id=(m.link.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/)||[])[1];if(id)$('#rtMusic').innerHTML=`<iframe width="100%" height="90" style="border:0;border-radius:12px;margin-top:8px" src="https://www.youtube.com/embed/${id}?autoplay=1&loop=1&playlist=${id}" allow="autoplay"></iframe>`}
   else{const id=(m.link.match(/\/d\/([^/]+)/)||m.link.match(/id=([^&]+)/)||[])[1];const a=new Audio(id?'https://drive.google.com/uc?export=download&id='+id:m.link);a.loop=true;a.play().catch(()=>{});RT.audio=a}}
  rtStep()}
 function rtStep(){const s=RT.steps[RT.i];if(!s)return rtEnd();
  if(RT.name==='exercise'&&rtNeedsSetup(s,RT.steps[RT.i-1])&&!RT.readyDone){RT.readyDone=1;return rtAskReady(s)}RT.readyDone=0;CAM.reset(s);$('#rtPic').innerHTML=picSvg(s.pic);$('#rtTitle').textContent=s.title;$('#rtText').textContent=s.screenEn+(s.reps?' · '+s.reps+' times':'');$('#rtStep').textContent='Step '+(RT.i+1)+' of '+RT.steps.length;
  Voice.speak(s.cue||s.cueTe,s.cueLang||'te');const t0=Date.now(),end=t0+s.seconds*1000;const said={};let cnt=0;
  if(s.count)$('#rtText').textContent=s.screenEn+' · '+s.count+' counts';
+ if(s.count&&RT.name==='exercise'&&s.pic!=='breath'&&s.pic!=='walk')return exCamStep(s);
  clearInterval(RT.timer);RT.timer=setInterval(()=>{const left=Math.ceil((end-Date.now())/1000);if(!s.count)$('#rtCount').textContent=mmss(left);
   if(s.hint)[30,20,10].forEach(x=>{if(left===x&&!said[x]){said[x]=1;Voice.speak(x+' seconds left!','en')}});
   if(s.count){const el=Date.now()-t0;if(el<s.intro*1000){$('#rtCount').textContent='Get ready…'}else{const k=Math.min(s.count,Math.floor((el-s.intro*1000)/(s.beat*1000))+1);$('#rtCount').textContent=k+' / '+s.count;if(k>cnt){cnt=k;cntSay(k);$('#rtStep').textContent='Step '+(RT.i+1)+' of '+RT.steps.length+' · '+mmss(left)+' left'}}}
@@ -1812,6 +1819,36 @@ function rtBell(){const last=!RT.steps[RT.i];const nx=RT.steps[RT.i];try{Voice.s
 function rtContinue(){whistleStop();$('#rtStep').textContent='';if(!RT.steps[RT.i])return rtEnd();RT.readyDone=1;rtStep()}
 const EN_CNT=['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty'];
 function cntSay(k){const dk=CHILD&&CHILD.id==='ditya';const t=(dk?TE_CNT:EN_CNT)[k]||String(k);try{const ss=window.speechSynthesis;if(!ss)return;ss.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=dk?'te-IN':'en-IN';u.rate=1;const vs=ss.getVoices().filter(v=>v.lang&&v.lang.replace('_','-').toLowerCase().startsWith(u.lang.toLowerCase()));if(vs.length)u.voice=vs[0];ss.resume();ss.speak(u)}catch(e){}}
+/* W37 – count only when the camera sees the exercise really being done (Wed 25/11/26) */
+// which body points to watch, how much they must move in one count (share of the picture), and an optional form check
+const EXCHK={headUD:[[0],.03],headSide:[[0,7,8],.03],head:[[0,7,8],.03],shoulder:[[11,12],.015],wrist:[[15,16],.012],waist:[[11,12,23,24],.03],toe:[[0],.18,'toe'],knee:[[25,26],.03],ankle:[[27,28],.012],butterfly:[[25,26],.04],squat:[[23,24],.07,'squat'],circles:[[15,16],.15,'circles'],jacks:[[15,16,27,28],.15,'jacks']};
+function exChk(s){if(s.pic==='jack')return EXCHK[/jumping/i.test(s.title)?'jacks':'circles'];return EXCHK[s.pic]||[[0,11,12,15,16],.03]}
+function camCollect(ps){const w=CAM.win;if(!w)return;ps.forEach((p,k)=>{const o=w[k]||(w[k]={});o.seen=1;
+ w.chk[0].forEach(i=>{const q=p[i];if(!camIn(q))return;const b=o[i]||(o[i]={x0:q.x,x1:q.x,y0:q.y,y1:q.y});b.x0=Math.min(b.x0,q.x);b.x1=Math.max(b.x1,q.x);b.y0=Math.min(b.y0,q.y);b.y1=Math.max(b.y1,q.y)});
+ const f=w.chk[2];if(f==='jacks'&&camIn(p[15])&&camIn(p[16])&&p[15].y<p[0].y&&p[16].y<p[0].y)o.form=1;
+ if(f==='circles'&&camIn(p[15])&&camIn(p[16])&&(p[15].y<p[11].y||p[16].y<p[12].y))o.form=1;
+ if(f==='toe'&&camIn(p[15])&&camIn(p[25])&&p[15].y>p[25].y)o.form=1;
+ if(f==='squat'&&camIn(p[23])&&camIn(p[25])&&p[23].y>p[25].y-0.08)o.form=1})}
+function camWinNew(s){CAM.win={chk:exChk(s)}}
+function camWinOk(){const w=CAM.win,c=w.chk;const kids=[0,1].filter(k=>w[k]&&w[k].seen);if(!kids.length)return 'nobody';
+ const bad=kids.find(k=>{const o=w[k];let r=0;c[0].forEach(i=>{const b=o[i];if(b)r=Math.max(r,b.x1-b.x0,b.y1-b.y0)});return r<c[1]||(c[2]&&!o.form)});
+ return bad===undefined?'ok':(kids.length>1?(bad?'right':'left'):'one')}
+function exCamStep(s){const t0=Date.now();let cnt=0,nextAt=0,miss=0,lastTalk=0;const dipLike=s.pic==='dips'||s.pic==='hang';
+ $('#rtCount').textContent='Get ready…';clearInterval(RT.timer);
+ const done=()=>{clearInterval(RT.timer);RT.i++;rtBell()};
+ RT.timer=setInterval(()=>{const el=Date.now()-t0;
+  if(!CAM.on){ // camera off or not allowed: count by time as before
+   if(el<s.intro*1000)return;const k=Math.min(s.count,Math.floor((el-s.intro*1000)/(s.beat*1000))+1);if(k>cnt){cnt=k;cntSay(k);$('#rtCount').textContent=k+' / '+s.count}
+   if(el>=s.seconds*1000)done();return}
+  if(el<s.intro*1000){$('#rtCount').textContent='Get ready…';return}
+  if(dipLike){const l=(CAM.st&&CAM.st.sk===s&&CAM.st.list)||[];const k=Math.min(s.count,Math.max(0,...l.map(x=>x.n)));if(k!==cnt){cnt=k;$('#rtCount').textContent=k+' / '+s.count}if(cnt>=s.count)done();return}
+  if(!nextAt){nextAt=Date.now()+s.beat*1000;camWinNew(s);$('#rtCount').textContent=cnt+' / '+s.count;return}
+  if(Date.now()<nextAt)return;
+  const r=camWinOk();nextAt=Date.now()+s.beat*1000;camWinNew(s);
+  if(r==='ok'){cnt++;miss=0;cntSay(cnt);$('#rtCount').textContent=cnt+' / '+s.count;$('#rtStep').textContent='Step '+(RT.i+1)+' of '+RT.steps.length+' · ✅ counting';if(cnt>=s.count)done();return}
+  miss++;$('#rtStep').textContent='Step '+(RT.i+1)+' of '+RT.steps.length+' · ⏸ not counted';
+  if(Date.now()-lastTalk>9000){lastTalk=Date.now();const who=r==='left'?'Left side, ':r==='right'?'Right side, ':'';
+   Voice.speak(r==='nobody'?'I can\'t see you. Stand in front of the camera.':who+(miss>2?'I only count when you do it properly. '+s.screenEn:'do it properly, then I will count.'),'en')}},250)}
 /* W34 – "Are you ready?" before exercises that need moving or setting something up (pull-ups, dips, chair, bar, wall, mat) */
 const RT_SETUP=/pull|hang|bar|dip|chair|bench|wall|mat|stool|rod/i;
 function rtSetupKey(s){if(!s)return '';if('setup' in s)return s.setup?s.pic:'';if(s.setup||s.pic==='hang'||s.pic==='dips')return s.pic;const m=String((s.title||'')+' '+(s.screenEn||'')).match(RT_SETUP);return m?m[0].toLowerCase():''}
@@ -1845,7 +1882,7 @@ function camLoop(){if(!CAM.on)return;if(!document.getElementById('camVid')){camS
  const ps=((res&&res.landmarks)||[]).slice(0,2).sort((u,v)=>((v[11].x+v[12].x)-(u[11].x+u[12].x)));
  const cv=$('#camCv');if(cv){cv.width=CAM.vid.videoWidth;cv.height=CAM.vid.videoHeight;const g=cv.getContext('2d');g.clearRect(0,0,cv.width,cv.height);g.lineWidth=5;
   ps.forEach((p,k)=>{g.strokeStyle=k?'#E0559A':'#2EC27E';[[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]].forEach(([a,b])=>{g.beginPath();g.moveTo(p[a].x*cv.width,p[a].y*cv.height);g.lineTo(p[b].x*cv.width,p[b].y*cv.height);g.stroke()})})}
- const s=CAM.s;if(!s||!RT||RT.waiting)return;
+ try{camCollect(ps)}catch(e){}const s=CAM.s;if(!s||!RT||RT.waiting)return;
  if(!ps.length){const gone=Date.now()-(CAM.seen||Date.now()),wait=s.pic==='walk'?25000:6000;if(gone>wait){CAM.msg('I can’t see anyone – stand in front of the camera');if(Date.now()-(CAM.goneSaid||0)>20000){CAM.goneSaid=Date.now();Voice.speak('I can\'t see you. Stand in front of the camera.','en')}}return}
  CAM.seen=Date.now();
  if(!CAM.st||CAM.st.sk!==s)CAM.st={sk:s,list:[camNew(),camNew()]};
@@ -2159,7 +2196,7 @@ async function openClass(w){if(CHILD&&RESTING[CHILD.id])return showRest();const 
  <div class="card" style="background:#FFFBEF"><div class="muted" style="font-weight:800">TODAY WE WILL DO</div>${(p.steps||[]).map((s,i)=>`<div style="padding:6px 0;font-size:17px;border-bottom:1px solid #F1E6C8">${i+1}. ${esc(s.title)}</div>`).join('')}
  <div class="muted" style="margin-top:8px">⏱ About ${p.minutes||20} minutes</div></div>
  <button class="primary" style="min-height:64px;font-size:20px;width:100%" onclick="clsGo('${w}')">${started?'▶ Continue the class':'▶ Start the class'}</button>`,true)}
-function clsGo(w){const k=clsStartKey(w);if(!localStorage.getItem(k))try{localStorage.setItem(k,String(Date.now()))}catch(e){}openTalk('class|'+w)}
+function clsGo(w){const k=clsStartKey(w);if(!localStorage.getItem(k))try{localStorage.setItem(k,String(Date.now()))}catch(e){}BTG='class_'+w;BT={id:'cls_'+clsDay()+'_'+w,mode:'class|'+w,cls:1,title:(w==='morning'?'Morning class':'Evening class')+' · '+btWhen(Date.now()).split(' · ')[0]};BTOPEN=true;openTalk('class|'+w)}
 let CLSTICK=null;
 function clsBar(w){const p=clsGet(w)||{minutes:w==='morning'?20:30,steps:[]};const app=$('#app');if(!app)return;
  const bar=document.createElement('div');bar.id='clsBar';bar.className='card';bar.style.cssText='background:#FFFBEF;display:flex;align-items:center;justify-content:space-between;gap:8px';
