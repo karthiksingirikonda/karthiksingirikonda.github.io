@@ -52,13 +52,11 @@ details summary{cursor:pointer;color:var(--parb);font-size:14px;margin-top:8px}
 </style>
 </head>
 <body>
-<header><button id="back" onclick="history.back()" style="display:none">‹</button><div style="flex:1;min-width:0"><h1 id="ttl"></h1><div id="sub" style="font-size:12px;font-style:italic;display:none;line-height:1.3">Offered as a seva by <b class="kn">Karthik Singirikonda</b> &amp; family</div></div><button id="skask" onclick="window.open('https://sakha-karthik.web.app/?ask=DV','_blank','noopener')" style="display:none" aria-label="My Ask">💬</button><button id="info" onclick="go('info')">ⓘ</button></header>
+<header><button id="back" onclick="history.back()" style="display:none">‹</button><div style="flex:1;min-width:0"><h1 id="ttl"></h1><div id="sub" style="font-size:12px;font-style:italic;display:none;line-height:1.3">Offered as a seva by <b class="kn">Karthik Singirikonda</b> &amp; family</div></div><button id="info" onclick="go('info')">ⓘ</button></header>
 <main id="app"></main>
 <div class="bar" id="bar"><span id="barT"></span><button onclick="stopAll()">■ Stop</button></div>
 <script>
-const APPVER='dv15 · Wed 25/11/26';
-// Karthik's own devices only: open once with ?owner=karthik to show 💬 (it opens his own Ask, which needs his login); ?owner=off hides it.
-try{const o=new URLSearchParams(location.search).get('owner');if(o==='karthik')localStorage.setItem('dvOwner','1');if(o==='off')localStorage.removeItem('dvOwner');if(o)history.replaceState(null,'',location.pathname+location.hash);if(localStorage.getItem('dvOwner')==='1')document.getElementById('skask').style.display='';}catch(e){}
+const APPVER='dv16 · Thu 26/11/26';
 const COUNTER_URL='https://script.google.com/macros/s/AKfycbzoJVFylqOIFcjF0eqQC3BwExopA8uO4ogMYwLVwh9zK8wsr2HRTClEgpVxUiBMDotO9g/exec';
 const BRAND='DHARMA VAANI',BRAND_TE='ధర్మ వాణి',OFFER='Offered as a seva by <b class="kn">Karthik Singirikonda</b> &amp; family';
 /* Only ready books are listed. A new book is added here when it is fully written. */
