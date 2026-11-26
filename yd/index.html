@@ -84,7 +84,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v99 · Thu 26/11 6:27 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v100 · Thu 26/11 6:45 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -119,8 +119,7 @@ function render(html,showBack){RENDERSEQ=NAVSEQ;LASTVIEW=PENDINGVIEW;PENDINGVIEW
 /* ---------- home ---------- */
 async function start(){const jm=(location.hash||'').match(/join=([a-f0-9]{20})/);if(jm){history.replaceState(null,'',location.pathname);if(!FTOK){try{const j=await post({fn:'familyJoin',code:jm[1]});const r=j&&j.data;if(r&&r.ok){FTOK=r.token;try{localStorage.setItem('ydFam',FTOK)}catch(e){}}else return familyScreen(r?r.msg:'Link not valid')}catch(e){return familyScreen('No internet – please try again')}}}
  if(!FTOK)return familyScreen();net('voiceReady',[]).then(v=>{GEM=!!(v&&v.gemini)&&PAIDVOICE();0}).catch(()=>{});if(!window.WARM)window.WARM=setInterval(()=>{if(document.visibilityState==='visible'&&FTOK)net('voiceReady',[]).catch(()=>{})},240000);BOOT=await api('getBoot');refreshBundle();$('#appTitle').textContent=BOOT.appName;$('#todayLbl').textContent=BOOT.today;
- let t=null;try{t=JSON.parse(localStorage.getItem('ydAdmin')||'null')}catch(e){}
- if(t&&t.token){ADMIN=t;showFab();api('adminCheckToken',t.token).then(c=>{if(!c.ok){ADMIN=null;try{localStorage.removeItem('ydAdmin')}catch(e){}showFab();const n=getNav();if(n&&n.v==='admin')goHome()}else pollThread()}).catch(()=>{})}
+ try{localStorage.removeItem('ydAdmin')}catch(e){}
  showFab();if(!ADMIN)setTimeout(pollThread,1500);restoreNav()}
 function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children.find(c=>c.id===n.id);
  if(kid&&kid.introDone===false&&n.v==='talk')n.v='child';
@@ -140,7 +139,7 @@ function goBack(){const n=getNav()||{};if(CHILD&&!ADMIN_VIEW()&&((n.v==='talk'&&
 // phone/browser back button follows the same rule
 try{history.pushState({yd:1},'')}catch(e){}
 window.addEventListener('popstate',()=>{const n=getNav()||{};if(n.v&&n.v!=='home'){goBack();try{history.pushState({yd:1},'')}catch(e){}}});
-function setNav(o){try{localStorage.setItem('ydNav',JSON.stringify(o))}catch(e){}}
+function setNav(o){if(ADMIN&&o&&o.v!=='admin'){ADMIN=null;try{askClose()}catch(e){}setTimeout(showFab,0)}try{localStorage.setItem('ydNav',JSON.stringify(o))}catch(e){}}
 function getNav(){try{return JSON.parse(localStorage.getItem('ydNav')||'null')}catch(e){return null}}
 function goHome(){++NAVSEQ;setNav({v:'home'});PENDINGVIEW=()=>goHome();Voice.stop();if(RT){clearInterval(RT.timer);RT.audio&&RT.audio.pause();RT=null}CHILD=null;
  const colors={yuvaan:['#DCE6FB','#2A5FD6'],ditya:['#FBE1EE','#C2367C']};
@@ -1947,7 +1946,7 @@ function adminLoginScreen(){render(`<div style="font-size:22px;font-weight:800">
  <label>PIN<input id="aPin" type="password" inputmode="numeric"></label><div class="muted">First time: the PIN you type now becomes your PIN.</div>
  <button class="green" onclick="doLogin()">Open</button>`,true)}
 async function adminFood(k,meal){try{await api('adminQuest',ADMIN.token,k,'food',{meal});toast(meal+' on time ✓ +5 min')}catch(e){toast('Could not save')}adminHome('quest')}
-async function doLogin(){const r=await api('adminLogin',$('#aRole').value,$('#aPin').value);if(!r.ok)return toast('Wrong PIN');ADMIN=r;try{localStorage.setItem('ydAdmin',JSON.stringify(r))}catch(e){}showFab();pollThread();adminHome('today')}
+async function doLogin(){const r=await api('adminLogin',$('#aRole').value,$('#aPin').value);if(!r.ok)return toast('Wrong PIN');ADMIN=r;showFab();pollThread();adminHome('today')}
 /* ---------- Admin → 📝 HW report: pick a date, see every homework item ---------- */
 let HWR=null;
 function hwrIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -2068,7 +2067,7 @@ function screenName(){const app=$('#app');const first=(app.innerText||'').split(
 function ADMIN_VIEW(){return /^Admin/.test(($('#app').innerText||'').trim())}
 let KIDASK=null,THREADWHO=null;
 function askWho(){return ADMIN?'admin':(CHILD?CHILD.id:null)}
-function askOpen(){if(ADMIN)return adminAskOpen();if(CHILD)return kidAskOpen(CHILD.id);
+function askOpen(){if(ADMIN&&(getNav()||{}).v==='admin')return adminAskOpen();
  const p=$('#askPanel');p.classList.remove('hidden');KIDASK=null;
  p.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center"><b>&#10022; Who is asking?</b><button class="ghost" aria-label="Close" onclick="askClose()">&#10005;</button></div>
  <div class="grid2" style="margin-top:10px"><button class="primary" style="min-height:64px;font-size:18px" onclick="kidAskOpen('yuvaan')">👦 Yuvaan</button><button class="primary" style="min-height:64px;font-size:18px;background:#d6336c" onclick="kidAskOpen('ditya')">👧 Ditya</button></div>
