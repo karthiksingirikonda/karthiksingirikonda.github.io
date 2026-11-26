@@ -84,7 +84,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v103 · Thu 26/11 7:00 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v104 · Thu 26/11 7:05 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -217,7 +217,7 @@ function ydAskDelete(name,what){return new Promise(res=>{const d=document.create
  <div style="font-size:20px;font-weight:700;color:#3A4A6B;margin-top:6px">${esc(what)}</div>
  <div style="font-size:18px;color:#5B6B8C;margin-top:4px;word-break:break-word">"${esc(name)}"</div>
  <button data-a="0" style="width:100%;margin-top:20px;min-height:56px;border:0;border-radius:16px;background:#2F6FED;color:#fff;font-size:19px;font-weight:800">👍 No, don't delete</button>
- <button data-a="1" style="width:100%;margin-top:10px;min-height:56px;border:3px solid #2F6FED;border-radius:16px;background:#EAF1FF;color:#1F4FC0;font-size:19px;font-weight:800">🗑️ Yes, delete</button></div>`;
+ <button data-a="1" style="width:100%;margin-top:10px;min-height:56px;border:0;border-radius:16px;background:#2F6FED;color:#fff;font-size:19px;font-weight:800">🗑️ Yes, delete</button></div>`;
  const done=v=>{d.remove();res(v)};d.onclick=e=>{const b=e.target.closest('button');if(b)done(b.dataset.a==='1');else if(e.target===d)done(false)};document.body.appendChild(d)})}
 async function btDel(id,mode,tab){const c=btList().find(x=>x.id===id);if(!c)return;if(!await ydAskDelete(c.t||'Chat','this chat'))return;btSave(btList().filter(x=>x.id!==id));toast('🗑️ Chat deleted');openBuddyChats(mode,tab)}
 function btMenuClose(){const m=document.getElementById('btMenu');if(m)m.remove()}
