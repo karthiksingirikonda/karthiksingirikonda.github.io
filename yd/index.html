@@ -84,7 +84,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v106 · Thu 26/11 7:15 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v107 · Thu 26/11 7:20 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -2262,7 +2262,7 @@ function clsFinish(w){clearInterval(CLSTICK);CLSW=null;try{Voice.stop()}catch(e)
 function tmClose(){const p=$('#tmPanel');p&&p.remove()}
 function tmOpen(){tmClose();const d=document.createElement('div');d.id='tmPanel';d.style.cssText='position:fixed;inset:0;background:#0007;z-index:20;display:flex;align-items:flex-start;justify-content:center;padding-top:70px';
  const run=TM?(TM.paused!=null?`<button onclick="resumeTimer();tmClose()">▶ Start again</button>`:`<button onclick="pauseTimer();tmClose()">⏸ Pause</button>`)+`<button onclick="stopTimer();tmClose()">⏹ Stop timer</button>`:'';
- d.innerHTML=`<div class="card" style="width:min(420px,92vw);max-height:80vh;overflow:auto" onclick="event.stopPropagation()">
+ d.innerHTML=`<style>#tmPanel .kt{background:#2F6FED;color:#fff;box-shadow:0 3px 8px rgba(47,111,237,.35)}#tmPanel .kt:active{transform:scale(.96)}#tmPanel .card .card button:not(.ghost){background:#2F6FED;color:#fff;border:0}</style><div class="card" style="width:min(420px,92vw);max-height:80vh;overflow:auto" onclick="event.stopPropagation()">
  <div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:20px">⏱ Timer & stopwatch</b><button class="ghost" onclick="tmClose()">✕</button></div>
  ${TM?`<div class="card" style="background:#EEF3FF"><b>Timer running</b><div class="grid2" style="margin-top:6px">${run}</div></div>`:''}
  ${SW?`<div class="card" style="background:#EEF3FF"><b>Stopwatch running</b><button style="width:100%;margin-top:6px" onclick="stopStopwatch();tmClose()">⏹ Stop stopwatch</button></div>`:''}
