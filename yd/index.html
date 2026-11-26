@@ -84,7 +84,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v85 · Thu 26/11 1:20 AM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v88 · Thu 26/11 6:05 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -461,16 +461,16 @@ function yuvaanHome(t,nowIdx){setTimeout(clsPrefetch,400);const hr=new Date().ge
  <button class="kt${cNow==='evening'?' clsnow':''}" style="background:#FFE6D9" onclick="openBuddyHub('class|evening')"><span>🌇</span>Evening class</button>
  <button class="kt" style="background:#E8F1FF" onclick="openBuddyHub('${defaultMode(t)}')"><span>💬</span>Talk to ${esc(CHILD.helperName)}</button>
  <button class="kt" style="background:#EFEAFB" onclick="openHomework()"><span>📚</span>Homework</button>
- <button class="kt" style="background:#FFF1C9" onclick="openStars()"><span>⭐</span>My stars</button>
  <button class="kt" style="background:#EEF3FF" onclick="openBuddyHub('speakEn')"><span>🗣️</span>English talk</button>
  <button class="kt" style="background:#FFF0E0" onclick="openBuddyHub('speakHi')"><span>🗣️</span>हिंदी talk</button>
- <button class="kt" style="background:#E3F7F7" onclick="openBuddyHub('story')"><span>📖</span>Story</button>
  <button class="kt" style="background:#FFEFE3" onclick="openTrace('wen')"><span>✍️</span>English writing</button>
  <button class="kt" style="background:#F6ECFF" onclick="openTrace('whi')"><span>✍️</span>हिंदी writing</button>
  <button class="kt" style="background:#EAF8EE" onclick="openTrace('wte')"><span>✍️</span>తెలుగు writing</button>
- <button class="kt" style="background:#FFE8D6" onclick="openGames()"><span>🎮</span>Games</button>
  <button class="kt" style="background:#E6F0FF" onclick="openLearn()"><span>📚</span>Learn</button>
+ <button class="kt" style="background:#E3F7F7" onclick="openBuddyHub('story')"><span>📖</span>Story</button>
+ <button class="kt" style="background:#FFE8D6" onclick="openGames()"><span>🎮</span>Games</button>
  <button class="kt" style="background:#EFEFEF" onclick="openVideos()"><span>🎬</span>Videos</button>
+ <button class="kt" style="background:#FFF1C9" onclick="openStars()"><span>⭐</span>My stars</button>
  </div>
  <div class="kgrid" style="margin-top:10px"><button class="kt sm" onclick="openRoutine('brushing')"><span>🪥</span>Brushing</button><button class="kt sm" onclick="openRoutine('washroom')"><span>🚿</span>Washroom</button><button class="kt sm" onclick="openRoutine('ready')"><span>👕</span>Get ready</button><button class="kt sm" onclick="openRoutine('exercise')"><span>🧘</span>Exercise</button></div>
  <div class="muted" style="font-weight:800;margin-top:12px">TODAY</div>`+
