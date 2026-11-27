@@ -85,7 +85,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v117 · Fri 27/11 7:50 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v118 · Fri 27/11 7:50 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -128,17 +128,17 @@ function restoreNav(){const n=getNav()||{v:'home'};const kid=n.id&&BOOT.children
  if(n.v==='admin'&&ADMIN)return adminHome(n.tab||'today');
  goHome()}
 function showFab(){$('#askFab').classList.toggle('hidden',!FTOK);updateDot();fabDragInit()}
-/* App changes button: long press (0.4 s) then drag anywhere; place is remembered on this device */
+/* App changes button: long press (0.4 s) then drag anywhere; goes back to its own place when the app is opened again */
 let FABDRAG=0;function fabPlace(f,x,y){const w=f.offsetWidth||140,h=f.offsetHeight||40;x=Math.max(4,Math.min(innerWidth-w-4,x));y=Math.max(4,Math.min(innerHeight-h-4,y));f.style.left=x+'px';f.style.top=y+'px';f.style.right='auto';f.style.bottom='auto';return[x,y]}
 function fabDragInit(){const f=$('#askFab');if(!f||f.dataset.drag)return;f.dataset.drag='1';f.style.touchAction='none';
- try{const p=JSON.parse(localStorage.getItem('ydFabPos')||'null');if(p)requestAnimationFrame(()=>fabPlace(f,p[0]*innerWidth,p[1]*innerHeight))}catch(e){}
+ try{localStorage.removeItem('ydFabPos')}catch(e){}
  let t=null,on=false,dx=0,dy=0,sx=0,sy=0;
  f.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;const r=f.getBoundingClientRect();dx=e.clientX-r.left;dy=e.clientY-r.top;clearTimeout(t);t=setTimeout(()=>{on=true;FABDRAG=1;try{f.setPointerCapture(e.pointerId)}catch(_){}f.style.transform='scale(1.12)';f.style.opacity='.85';try{navigator.vibrate&&navigator.vibrate(30)}catch(_){}},400)});
  f.addEventListener('pointermove',e=>{if(!on){if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>12)clearTimeout(t);return}e.preventDefault();fabPlace(f,e.clientX-dx,e.clientY-dy)});
- const end=()=>{clearTimeout(t);if(!on)return;on=false;f.style.transform='';f.style.opacity='';const r=f.getBoundingClientRect();try{localStorage.setItem('ydFabPos',JSON.stringify([r.left/innerWidth,r.top/innerHeight]))}catch(_){}setTimeout(()=>FABDRAG=0,350)};
+ const end=()=>{clearTimeout(t);if(!on)return;on=false;f.style.transform='';f.style.opacity='';setTimeout(()=>FABDRAG=0,350)};
  f.addEventListener('pointerup',end);f.addEventListener('pointercancel',end);f.addEventListener('contextmenu',e=>e.preventDefault());
  f.addEventListener('click',e=>{if(FABDRAG){e.stopImmediatePropagation();e.preventDefault()}},true);
- addEventListener('resize',()=>{try{const p=JSON.parse(localStorage.getItem('ydFabPos')||'null');if(p)fabPlace(f,p[0]*innerWidth,p[1]*innerHeight)}catch(_){}})}
+ addEventListener('resize',()=>{if(f.style.left)fabPlace(f,parseFloat(f.style.left),parseFloat(f.style.top))})}
 // Whose screen: the child's small photo in the top corner on every child screen
 function kidBadge(){const b=$('#kidBadge');if(!b)return;const n=getNav()||{};const on=CHILD&&n.v&&n.v!=='home'&&n.v!=='admin'&&!ADMIN_VIEW();b.classList.toggle('hidden',!on);if(!on)return;
  const col=CHILD.id==='ditya'?'#C2477F':'#2F6FED';b.style.boxShadow='0 0 10px 3px '+col+'99';if(CHILD.photoUrl){b.style.backgroundImage="url('"+CHILD.photoUrl+"')";b.textContent=''}else{b.style.backgroundImage='';b.textContent=CHILD.name[0]}b.title=CHILD.name}
