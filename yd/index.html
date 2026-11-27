@@ -85,7 +85,7 @@ let saveT=null;function memSave(){clearTimeout(saveT);saveT=setTimeout(()=>{try{
 const ckey=(fn,args)=>fn+'|'+JSON.stringify(fn.startsWith('admin')?args.slice(1):args);
 const memGet=k=>MEM.data[k]===undefined?undefined:JSON.parse(JSON.stringify(MEM.data[k]));
 function memPut(k,v){MEM.data[k]=v;memSave()}
-let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v121 · Fri 27/11 8:30 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
+let LASTVIEW=null,PENDINGVIEW=null,QUIET=false,NAVSEQ=0;const APPVER='v122 · Fri 27/11 8:30 PM';const PHONE=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent);let TYPEREC=null;const inflight={};
 function rerender(){const nv=getNav();if(nv&&nv.v==='admin')return;if(NAVSEQ!==RENDERSEQ)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const b=memGet(ckey('getBoot',[]));if(b&&typeof BOOT!=='undefined'&&BOOT){BOOT=b;if(CHILD)CHILD=BOOT.children.find(c=>c.id===CHILD.id)||CHILD}if(LASTVIEW&&!$('#askPanel:not(.hidden)')&&!RT){QUIET=true;try{LASTVIEW()}catch(e){}setTimeout(()=>QUIET=false,50)}}
 function refreshKey(fn,args,k,quiet){if(inflight[k])return inflight[k];inflight[k]=net(fn,args,quiet).then(d=>{const old=JSON.stringify(MEM.data[k]);memPut(k,d);if(old!==JSON.stringify(d))rerender();return d}).finally(()=>delete inflight[k]);return inflight[k]}
 let bundleT=null;function refreshBundle(delay){clearTimeout(bundleT);bundleT=setTimeout(()=>{net('getBundle',[]).then(b=>{let changed=false;Object.keys(b).forEach(k=>{if(JSON.stringify(MEM.data[k])!==JSON.stringify(b[k])){MEM.data[k]=b[k];changed=true}});memSave();if(changed)rerender()}).catch(()=>{})},delay||0)}
@@ -1743,7 +1743,7 @@ const Voice={
   micStart()},
  pause(){if(EARS())Ears.pause();else VoiceOld.pause()},
  resume(){if(EARS()){if(Ears.on){Ears.resume()}else{const h=$('#micHint');if(h)h.textContent='Mic off – tap the mic to talk'}}else VoiceOld.resume()},
- stop(){SPKSEQ++;if(Live.on)Live.stop();Ears.stop();VoiceOld.stop();if(PLAYING){try{PLAYING.pause()}catch(e){}PLAYING=null}},
+ stop(){SPKSEQ++;try{songBgStop()}catch(e){}if(Live.on)Live.stop();Ears.stop();VoiceOld.stop();if(PLAYING){try{PLAYING.pause()}catch(e){}PLAYING=null}},
  speak(t,l){return VoiceOld.speak(t,l)}};
 
 
@@ -1821,8 +1821,16 @@ function openSong(box,id){++NAVSEQ;Voice.stop();setNav({v:'song',id:CHILD.id,box
  render(`<div style="font-size:24px;font-weight:800;text-align:center">🎵 ${esc(s.t)}</div>
  <div class="card" style="font-size:21px;line-height:1.6;text-align:center;white-space:pre-line;margin-top:12px;border:4px solid #F2A900">${esc(s.text)}</div>
  <div class="grid2" style="margin-top:12px"><button class="primary" style="min-height:56px;font-size:19px" onclick="songPlay('${box}','${id}')">▶ Listen</button><button class="ghost" style="min-height:56px;font-size:19px" onclick="Voice.stop()">■ Stop</button></div>`,true)}
-async function songPlay(box,id){const s=songGet(box,id);if(!s)return;Voice.stop();const my=++SPKSEQ;SONGLANG=s.lang||'en';
- try{for(const ln of [s.t].concat(s.text.split('\n'))){if(my!==SPKSEQ)break;if(ln.trim())await VoiceOld.speak(ln,SONGLANG);await nap0(250)}}finally{SONGLANG=null}}
+async function songPlay(box,id){const s=songGet(box,id);if(!s)return;Voice.stop();const my=++SPKSEQ;SONGLANG=s.lang||'en';songBgStart();
+ try{await nap0(1200);for(const ln of [s.t].concat(s.text.split('\n'))){if(my!==SPKSEQ)break;if(ln.trim())await VoiceOld.speak(ln,SONGLANG);await nap0(250)}if(my===SPKSEQ)await nap0(1200)}finally{SONGLANG=null;if(my===SPKSEQ)songBgStop()}}
+/* soft background tune made on the phone (no files, free): gentle chords C–G–Am–F, quiet so the words stay clear */
+let SGBG=null;
+function songBgStart(){songBgStop();try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;const ac=new AC();const out=ac.createGain();out.gain.value=0;out.connect(ac.destination);out.gain.linearRampToValueAtTime(0.07,ac.currentTime+1);
+ const CH=[[261.63,329.63,392.0],[196.0,246.94,392.0],[220.0,261.63,329.63],[174.61,220.0,349.23]];const beat=0.42;let t=ac.currentTime+0.1,k=0;
+ const note=(f,at,len,vol,type)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=type||'triangle';o.frequency.value=f;g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(vol,at+0.03);g.gain.exponentialRampToValueAtTime(0.001,at+len);o.connect(g);g.connect(out);o.start(at);o.stop(at+len+0.05)};
+ const plan=()=>{while(t<ac.currentTime+2){const c=CH[Math.floor(k/8)%4],i=k%8;note(c[[0,1,2,1,0,1,2,1][i]],t,beat*1.6,0.5);if(i===0){note(c[0]/2,t,beat*7,0.45,'sine')}if(i%2===0)note(2200,t,0.04,0.05,'square');t+=beat;k++}};
+ plan();SGBG={ac,out,tm:setInterval(plan,500)}}catch(e){SGBG=null}}
+function songBgStop(){const b=SGBG;SGBG=null;if(!b)return;clearInterval(b.tm);try{b.out.gain.cancelScheduledValues(b.ac.currentTime);b.out.gain.setValueAtTime(b.out.gain.value,b.ac.currentTime);b.out.gain.linearRampToValueAtTime(0,b.ac.currentTime+0.4);setTimeout(()=>{try{b.ac.close()}catch(e){}},600)}catch(e){}}
 
 /* ---------- clock, timer, stopwatch (free, no AI) ---------- */
 const TE_NUM={'ఒక':1,'ఒకటి':1,'రెండు':2,'మూడు':3,'నాలుగు':4,'ఐదు':5,'అయిదు':5,'ఆరు':6,'ఏడు':7,'ఎనిమిది':8,'తొమ్మిది':9,'పది':10,'పదిహేను':15,'ఇరవై':20,'ముప్పై':30};
