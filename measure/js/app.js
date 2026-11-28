@@ -11,6 +11,8 @@ import { renderAR } from './ar.js';
 import { renderCount } from './ui-count.js';
 import { renderPhoto } from './ui-photo.js';
 import { renderNotes } from './ui-notes.js';
+import { newTaskSheet, renderTasks, renderTask, renderResult, exportAll, importAll } from './ui-task.js';
+import { download, fileDate } from './util.js';
 import { connectLaser, disconnectLaser, onLaser, laserSupported } from './laser.js';
 
 const view = document.getElementById('view');
@@ -60,7 +62,8 @@ async function route() {
   view.innerHTML = '';
   window.scrollTo(0, 0);
   try {
-    if (parts[0] === 'job' && parts[1]) return await jobScreen(parts[1], parts[2] || 'notes');
+    if (parts[0] === 'task' && parts[1]) { setHelp('jobs'); return parts[2] === 'result' ? await renderResult(view, parts[1], { setTitle }) : await renderTask(view, parts[1], { setTitle }); }
+    if (parts[0] === 'job' && parts[1]) return await jobScreen(parts[1], parts[2] || 'tasks');
     if (parts[0] === 'drawing' && parts[1]) { setHelp('drawing'); return await renderDrawingView(view, parts[1], { setTitle }); }
     if (parts[0] === 'guide') return guideScreen();
     if (parts[0] === 'settings') return await settingsScreen();
@@ -76,8 +79,9 @@ async function jobsScreen() {
   const jobs = (await db.all('jobs')).sort((a, b) => b.updatedAt - a.updatedAt);
   const pts = await db.all('points');
   view.innerHTML = `
+    <button class="btn big wide newtask" id="ntask">＋ New task</button>
     <div class="row">
-      <button class="btn big" id="new">＋ New job</button>
+      <button class="btn big ghost" id="new">＋ New job</button>
       <button class="btn big ghost" id="quick">⚡ Quick measure</button>
     </div>
     <div id="list">${jobs.length ? '' : '<div class="empty">No jobs yet. Tap ＋ New job to start.</div>'}</div>
@@ -95,10 +99,11 @@ async function jobsScreen() {
     list.appendChild(a);
   }
   view.querySelector('#new').onclick = () => newJob();
+  view.querySelector('#ntask').onclick = () => newTaskSheet(newJob);
   view.querySelector('#quick').onclick = () => quickMeasure();
 }
 
-function newJob(after) {
+function newJob(after, cb) {
   const s = sheet(`<h2>New job</h2>
     <label>Job name<input id="j-name" placeholder="e.g. RR Anna Nagar"></label>
     <label>Site / location<input id="j-site" placeholder="e.g. Chennai"></label>
@@ -109,6 +114,7 @@ function newJob(after) {
     if (!name) return toast('Type the job name');
     const job = await db.put('jobs', { id: db.uid(), name, site: s.el.querySelector('#j-site').value.trim(), client: s.el.querySelector('#j-client').value.trim(), createdAt: Date.now() });
     s.close();
+    if (cb) return cb(job.id);
     location.hash = after ? `#/job/${job.id}/${after}` : `#/job/${job.id}`;
   };
 }
@@ -137,9 +143,9 @@ async function quickMeasure() {
 }
 
 // ---------- One job ----------
-const TABS = [['notes', '📸 Measure on photo', 'notes'], ['ar', '📷 Measure with camera', 'ar'], ['count', '🔢 Count from photo', 'count'], ['photo', '📐 Size from photo', 'photo'], ['drawings', '📄 Drawing check', 'job'], ['compare', '⚖ Drawing vs Site', 'compare'], ['sheet', '🧾 Measurement sheet', 'sheet'], ['plan', '🏠 Room sizes (type)', 'plan']];
+const TABS = [['tasks', '📋 Tasks', 'jobs'], ['notes', '📸 Measure on photo', 'notes'], ['ar', '📷 Measure with camera', 'ar'], ['count', '🔢 Count from photo', 'count'], ['photo', '📐 Size from photo', 'photo'], ['drawings', '📄 Drawing check', 'job'], ['compare', '⚖ Drawing vs Site', 'compare'], ['sheet', '🧾 Measurement sheet', 'sheet'], ['plan', '🏠 Room sizes (type)', 'plan']];
 async function jobScreen(jobId, tab) {
-  tab = tab || 'notes';
+  tab = tab || 'tasks';
   const job = await db.get('jobs', jobId);
   if (!job) { location.hash = '#/'; return; }
   setTitle(job.name, '#/');
@@ -150,7 +156,8 @@ async function jobScreen(jobId, tab) {
   const on = view.querySelector('.tabs a.on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
   const t = TABS.find(x => x[0] === tab) || TABS[0];
   setHelp(t[2] === 'job' ? 'job' : t[2]);
-  if (tab === 'compare') await renderCompare(el, job);
+  if (tab === 'tasks') await renderTasks(el, job);
+  else if (tab === 'compare') await renderCompare(el, job);
   else if (tab === 'sheet') await renderSheet(el, job);
   else if (tab === 'plan') await renderPlan(el, job);
   else if (tab === 'ar') await renderAR(el, job);
@@ -191,10 +198,12 @@ async function settingsScreen() {
       ${!cloud.configured() ? `<p>Cloud not connected yet. Everything is kept on this phone.</p>` :
       u ? `<p>Signed in as <b>${esc(u.email)}</b></p><button class="btn ghost" id="s-out">Sign out</button>` : `<button class="btn" id="s-in">Sign in with Google</button>`}
     </div>
+    <div class="card"><h3>Move to Q / backup file</h3><p class="small">Saves every job, task, photo and sheet on this phone into one file, or reads such a file back in (nothing is removed).</p>
+      <div class="row"><button class="btn ghost" id="s-exp">⬇ Save backup file</button><label class="btn ghost">⬆ Read backup file<input type="file" id="s-imp" accept="application/json,.json" hidden></label></div></div>
     <details class="card"><summary>Cloud setup (one time)</summary>
       <ol class="small"><li>Firebase project "Karthik Apps" with Firestore in Mumbai.</li><li>Google sign-in turned on.</li><li>Drive permission allowed when you sign in.</li><li>The web settings pasted into the app.</li></ol>
       <p class="muted small">These steps are done once on the laptop. After that, sign in here.</p></details>
-    <p class="muted small center">Measure · version 1.0</p>`;
+    <p class="muted small center">Measure · version 2.0</p>`;
   view.querySelector('#s-unit').value = unit;
   const q = id => view.querySelector(id);
   q('#s-tol').onchange = async e => { const v = Number(e.target.value); if (v >= 0) { await db.setSetting('tolerance', v); toast('Saved'); } };
@@ -202,6 +211,8 @@ async function settingsScreen() {
   q('#s-by').onchange = async e => { await db.setSetting('measuredBy', e.target.value.trim()); toast('Saved'); };
   q('#s-tips').onchange = async e => { await db.setSetting('tipsOn', e.target.checked); };
   q('#s-reset').onclick = async () => { await resetTips(); q('#s-tips').checked = true; toast('Tips will show again'); };
+  q('#s-exp').onclick = async () => { download(await exportAll(), `Measure backup ${fileDate()}.json`); toast('Backup file saved'); };
+  q('#s-imp').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { const n = await importAll(f); toast(`${n} records read in`); } catch (er) { toast(er.message, 5000); } };
   if (q('#s-in')) q('#s-in').onclick = async () => { try { await cloud.signIn(); } catch (e) { toast(e.message); } };
   if (q('#s-out')) q('#s-out').onclick = async () => { await cloud.signOutNow(); route(); };
 }

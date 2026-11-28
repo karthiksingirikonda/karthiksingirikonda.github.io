@@ -120,3 +120,23 @@ input.filled{background:#e5f7ea;border-color:var(--g);transition:background .3s}
 .lgrid.w3n{grid-template-columns:.6fr 1.5fr 1.5fr;align-items:end}
 .inl{display:flex;gap:4px;align-items:center}.inl input{margin:0}.inl .icon{background:#ffd400;border-radius:8px;padding:6px 9px}
 .note-form{border-top:1px solid var(--line);margin-top:8px;padding-top:6px}
+/* V2: tasks */
+.btn.newtask{font-size:18px;min-height:56px}
+.opt.hl{border-color:var(--pri);background:#eaf4f6}
+.opt:disabled{opacity:.5}
+.tb4{display:flex;gap:6px;margin:8px 0}.tb4 .btn{flex:1;font-size:13px;padding:6px;min-height:38px}
+.tk-cv{width:100%;display:block;touch-action:manipulation}
+.nr{background:#fff;border-radius:10px;padding:8px 10px;margin:8px 0;border-left:4px solid var(--pri);box-shadow:0 1px 3px rgba(0,0,0,.08)}.nr.m{border-left-color:var(--r)}
+.nr-h{display:flex;align-items:center;gap:8px}.nr-h select{flex:1;margin:0}.nr-h b{white-space:nowrap}
+.g3{display:flex;gap:6px;align-items:flex-end}.g3>*{flex:1;margin:4px 0}.g3 .nos-l{flex:0 0 70px}
+.camn{display:block;font-size:11px;color:#a66a00}
+.rt{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.rt-r{display:grid;grid-template-columns:1.6fr 1.4fr .7fr .9fr;gap:4px;font-size:13px;padding:6px 8px;border-bottom:1px solid var(--line)}
+.rt-r>span:last-of-type{text-align:right}.rt-r em{grid-column:1/-1;font-style:normal;font-size:11px}
+.rt-h{background:#b3c6e7;font-weight:700}.rt-t{background:#dadada;font-weight:700}.rt-bad{background:#fde8e6}
+.ban{border-radius:10px;padding:10px;text-align:center;margin:10px 0;font-weight:700}.ban.ok{background:#e7f6ec;border:1.5px solid var(--g);color:var(--g)}.ban.no{background:#fde8e6;border:1.5px solid var(--r);color:var(--r)}
+.pk{display:flex;gap:6px;flex-wrap:wrap}.pkb{flex:1 0 40%;text-align:center;border:1.5px solid var(--line);border-radius:10px;padding:10px 4px;font:600 14px system-ui;background:#fff;cursor:pointer}.pkb.on{border-color:var(--pri);background:#eaf4f6;color:var(--pri)}
+input.laser-src{border-color:#1a9e4a;background:#ecf8f0}
+input.next-box{outline:3px solid #1a9e4a;outline-offset:1px}
+.size-bar [data-b=laser]{background:#5b3fb5}.size-bar [data-b=laser].on{background:#1a9e4a}
+.size-bar button{white-space:nowrap;padding:9px 10px;font-size:14px}

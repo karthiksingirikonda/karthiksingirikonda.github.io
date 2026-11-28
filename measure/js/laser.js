@@ -31,7 +31,7 @@ document.addEventListener('focusin', e => { if (isSizeInput(e.target)) { lastInp
 export function fillSize(text, from) {
   const el = lastInput && document.body.contains(lastInput) ? lastInput : null;
   if (!el) { toast(`${from}: ${text} – tap a size box first`, 3500); return false; }
-  el.value = text; el.dataset.src = from; el.classList.toggle('cam-src', from === 'Camera');
+  el.value = text; el.dataset.src = from; el.classList.toggle('cam-src', from === 'Camera'); el.classList.toggle('laser-src', from === 'Laser');
   el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true }));
   el.classList.add('filled'); setTimeout(() => el.classList.remove('filled'), 900);
   if (from === 'Camera') { // sheet line: note that this size came from the camera
@@ -41,7 +41,18 @@ export function fillSize(text, from) {
   return true;
 }
 // typing by hand over a laser/voice/camera size: it is now a typed size
-document.addEventListener('input', e => { if (e.isTrusted && e.target.dataset && e.target.dataset.src) { delete e.target.dataset.src; e.target.classList.remove('cam-src'); } });
+document.addEventListener('input', e => { if (e.isTrusted && e.target.dataset && e.target.dataset.src) { delete e.target.dataset.src; e.target.classList.remove('cam-src', 'laser-src'); } });
+
+// after a laser reading, the next empty size box on the screen is picked by itself (no keyboard pops up)
+function pickNext(from) {
+  const all = [...document.querySelectorAll('input')].filter(x => isSizeInput(x) && x.offsetParent !== null);
+  const i = all.indexOf(from);
+  const next = all.slice(i + 1).find(x => !x.value.trim());
+  document.querySelectorAll('input.next-box').forEach(x => x.classList.remove('next-box'));
+  if (next) { lastInput = next; next.classList.add('next-box'); next.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  return next;
+}
+document.addEventListener('focusin', e => { document.querySelectorAll('input.next-box').forEach(x => { if (x !== e.target) x.classList.remove('next-box'); }); });
 
 // ---- laser ----
 export const laserSupported = () => !!navigator.bluetooth;
@@ -75,12 +86,16 @@ export function parseReading(dv, kind) {
   return null;
 }
 function gotReading(mm) {
+  const target = lastInput && document.body.contains(lastInput) ? lastInput : null;
   const prev = laserState.last[0];
-  laserState.last.unshift({ mm, at: Date.now() }); laserState.last = laserState.last.slice(0, 5);
+  laserState.last.unshift({ mm, at: Date.now(), el: target }); laserState.last = laserState.last.slice(0, 5);
+  // two-way check: only when the same box is measured again (a re-shot of one size)
   let check = '';
-  if (prev && Date.now() - prev.at < 60000) { const d = Math.abs(mm - prev.mm); check = d <= 3 ? ` ✔ matches last (${d} mm)` : ` ⚠ last was ${prev.mm} – differs ${d} mm, measure again`; }
-  fillSize(`${mm} mm`, 'Laser');
-  toast(`Laser: ${mm} mm${check}`, 3500); emit();
+  if (prev && prev.el && prev.el === target && Date.now() - prev.at < 60000) { const d = Math.abs(mm - prev.mm); check = d <= 3 ? ` ✔ matches last (${d} mm)` : ` ⚠ last was ${prev.mm} – differs ${d} mm, measure again`; }
+  const ok = fillSize(`${mm} mm`, 'Laser');
+  let nxt = null;
+  if (ok && target && (!check || check.includes('✔'))) nxt = pickNext(target);
+  toast(`Laser: ${mm} mm${check}${nxt ? ' – next box ready' : ''}`, 3500); emit();
 }
 export function disconnectLaser() { if (device && device.gatt.connected) device.gatt.disconnect(); }
 
@@ -124,7 +139,7 @@ function showMic(el) {
   barFor = el;
   if (!bar) {
     bar = document.createElement('div'); bar.className = 'size-bar';
-    bar.innerHTML = `${SR ? '<button type="button" data-b="say">🎤 Say</button>' : ''}<button type="button" data-b="type">⌨ Type</button>${navigator.xr ? '<button type="button" data-b="cam">📷 Camera</button>' : ''}`;
+    bar.innerHTML = `${SR ? '<button type="button" data-b="say">🎤 Say</button>' : ''}<button type="button" data-b="type">⌨ Type</button>${navigator.xr ? '<button type="button" data-b="cam">📷 Camera</button>' : ''}<button type="button" data-b="laser">📏 Laser</button>`;
     bar.addEventListener('pointerdown', e => e.preventDefault()); // keep the box focused
     mic = bar.querySelector('[data-b="say"]');
     if (mic) mic.onclick = listen;
@@ -140,6 +155,20 @@ function showMic(el) {
       fillSize(`${mm} mm`, 'Camera');
       toast(`Camera: ${mm} mm (±1 cm) – filled`, 3500);
     };
+    const las = bar.querySelector('[data-b="laser"]');
+    las.onclick = async () => {
+      const target = barFor && document.body.contains(barFor) ? barFor : null;
+      if (!target) return toast('Tap a size box first');
+      if (!navigator.bluetooth) return toast('Bluetooth laser works in Chrome on Android – open Measure there', 4500);
+      if (!laserState.connected) {
+        try { await connectLaser(); } catch (e) { if (e.name !== 'NotFoundError') toast(e.message, 5000); return; }
+      }
+      lastInput = target;
+      document.querySelectorAll('input.next-box').forEach(x => x.classList.remove('next-box'));
+      target.classList.add('next-box'); target.blur(); bar.hidden = false;
+      toast('Press measure on the laser – the size fills this box', 3500);
+    };
+    onLaser(s => { las.textContent = s.connected ? '📏 Laser ✓' : '📏 Laser'; las.classList.toggle('on', s.connected); });
     document.body.appendChild(bar);
     document.addEventListener('focusout', () => setTimeout(() => { if (!isSizeInput(document.activeElement) && bar) bar.hidden = true; }, 200));
   }
